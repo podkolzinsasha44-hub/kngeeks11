@@ -1,0 +1,68 @@
+name: Build & deploy to Firebase Hosting
+
+on:
+  push:
+    branches: [main, 'claude/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+  # Pushes to main or to a working branch go live; pull requests are only built and tested.
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      # Deploys only once the Firebase service-account key is added as a repository secret.
+      HAS_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
+    steps:
+      - name: Firebase key missing
+        if: env.HAS_KEY != 'true'
+        run: echo "::notice::Add the FIREBASE_SERVICE_ACCOUNT secret to deploy (see README)."
+      - uses: actions/checkout@v4
+        if: env.HAS_KEY == 'true'
+      - uses: actions/download-artifact@v4
+        if: env.HAS_KEY == 'true'
+        with:
+          name: dist
+          path: dist
+      - uses: actions/setup-node@v4
+        if: env.HAS_KEY == 'true'
+        with:
+          node-version: 22
+      - name: Deploy to Firebase Hosting
+        if: env.HAS_KEY == 'true'
+        env:
+          SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/firebase-key.json
+        run: |
+          printf '%s' "$SERVICE_ACCOUNT" > "$GOOGLE_APPLICATION_CREDENTIALS"
+          # The Firebase project is the one the key belongs to.
+          PROJECT_ID=$(node -p "require(process.env.GOOGLE_APPLICATION_CREDENTIALS).project_id")
+          npx --yes firebase-tools@latest deploy --only hosting --project "$PROJECT_ID" --non-interactive
+          echo "::notice::Игра выложена: https://$PROJECT_ID.web.app"
+          rm -f "$GOOGLE_APPLICATION_CREDENTIALS"

@@ -59,6 +59,12 @@ npm run data:build
 
 Первая команда скачивает снимок данных в `data/raw/` (в репозиторий он не попадает), вторая пересобирает `public/data/world.json`.
 
+## Выкладка на Firebase Hosting
+
+Ключ сервисного аккаунта Firebase лежит в секрете репозитория `FIREBASE_SERVICE_ACCOUNT` (Settings → Secrets and variables → Actions). Любой push в `main` или в рабочую ветку `claude/…` собирает игру, прогоняет тесты и выкладывает её; проект Firebase определяется по ключу. Адрес игры — `https://<id проекта>.web.app`, он же печатается в конце шага «Deploy to Firebase Hosting» во вкладке Actions. Pull request только собирается и тестируется.
+
+В Firebase Console должен быть включён Hosting (Build → Hosting → Get started). Ключ никому не пересылайте и не добавляйте в репозиторий.
+
 ## Откуда данные
 
 | Что | Источник | Лицензия |
