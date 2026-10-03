@@ -1,0 +1,83 @@
+// Realism check: plays N full seasons of every league and compares the totals with the real
+// 2025-26 season (computed from the open match dataset, see docs/PLAN.md §6).
+//   npm run calibrate            — 6 seasons
+//   npm run calibrate -- 12      — 12 seasons
+//   npm run calibrate -- 4 KS=0.2 KQ=0.1   — try other engine constants
+import fs from 'node:fs';
+import { LEAGUES, LEAGUE_IDS, statKey } from '../src/engine/leagues';
+import { K } from '../src/engine/match';
+import { gameOdds, quickOdds, ratingOf } from '../src/engine/projection';
+import { advanceDay } from '../src/engine/season';
+import { sortedTeams } from '../src/engine/standings';
+import { leaders } from '../src/engine/stats';
+import type { LeagueId } from '../src/engine/types';
+import { newCareer, type WorldJson } from '../src/engine/world';
+
+const N = Number(process.argv[2] ?? 6);
+for (const a of process.argv.slice(3)) {
+  const [k, v] = a.split('=');
+  if (k in K) (K as unknown as Record<string, number>)[k] = Number(v);
+}
+const world: WorldJson = JSON.parse(fs.readFileSync('public/data/world.json', 'utf8'));
+
+/** Real 2025-26: goals per match, home wins, draws, champion's points, top scorer's goals. */
+const REAL: Record<LeagueId, { gpm: number; home: number; draw: number; champ: number; last: number; scorer: number }> = {
+  // Mean of the 2024-25 and 2025-26 seasons where both are in the dataset.
+  RPL: { gpm: 2.62, home: 0.44, draw: 0.275, champ: 67.5, last: 20, scorer: 19 },
+  FNL: { gpm: 2.3, home: 0.42, draw: 0.3, champ: 64, last: 25, scorer: 18 },
+  EPL: { gpm: 2.84, home: 0.417, draw: 0.26, champ: 84.5, last: 20, scorer: 27 },
+  ESP: { gpm: 2.66, home: 0.467, draw: 0.25, champ: 91, last: 25, scorer: 31 },
+  ITA: { gpm: 2.5, home: 0.393, draw: 0.272, champ: 84.5, last: 22, scorer: 25 },
+  GER: { gpm: 3.19, home: 0.412, draw: 0.248, champ: 85.5, last: 25, scorer: 32 },
+  FRA: { gpm: 2.9, home: 0.464, draw: 0.224, champ: 80, last: 20, scorer: 23 },
+};
+const CORRIDOR = { gpm: 0.18, home: 0.06, draw: 0.055, champ: 9, last: 10, scorer: 8 };
+
+const acc: Record<string, { gpm: number; home: number; draw: number; champ: number; last: number; scorer: number; cards: number; reds: number }> = {};
+for (const lg of LEAGUE_IDS) acc[lg] = { gpm: 0, home: 0, draw: 0, champ: 0, last: 0, scorer: 0, cards: 0, reds: 0 };
+let oddsErr = 0, oddsN = 0;
+const t0 = Date.now();
+for (let s = 0; s < N; s++) {
+  const L = newCareer(world, { team: 'ZEN', gmName: 'Cal', seed: 1000 + s * 77 });
+  L.teams.ZEN.lineup.auto = true;
+  // The odds shown to the user against what the engine then actually does (first-round sample).
+  if (s === 0) {
+    for (const g of L.games.filter((x) => x.comp === 'RPL' && Number(x.rd) <= 4)) {
+      const mc = gameOdds(L, g.h, g.a, g.comp, 1500);
+      const q = quickOdds(ratingOf(L, L.teams[g.h]), ratingOf(L, L.teams[g.a]), LEAGUES.RPL.style);
+      oddsErr += Math.abs(mc.h - q.h) + Math.abs(mc.d - q.d) + Math.abs(mc.a - q.a);
+      oddsN += 3;
+    }
+  }
+  while (L.date < `${L.season + 1}-06-01`) { advanceDay(L); L.stops.length = 0; }
+  for (const lg of LEAGUE_IDS) {
+    const t = sortedTeams(L, lg);
+    const gp = t.reduce((x, y) => x + y.rec.gp, 0) / 2;
+    const a = acc[lg];
+    a.gpm += t.reduce((x, y) => x + y.rec.gf, 0) / gp / N;
+    a.home += t.reduce((x, y) => x + y.rec.hw, 0) / gp / N;
+    a.draw += t.reduce((x, y) => x + y.rec.d, 0) / 2 / gp / N;
+    a.champ += t[0].rec.pts / N;
+    a.last += t[t.length - 1].rec.pts / N;
+    a.scorer += (leaders(L, statKey(L.season, lg), 'g', 1)[0]?.v ?? 0) / N;
+    let yc = 0, rc = 0;
+    for (const p of Object.values(L.players)) { const st = p.stats[statKey(L.season, lg)]; if (st) { yc += st.yc; rc += st.rc; } }
+    a.cards += yc / gp / N; a.reds += rc / gp / N;
+  }
+}
+let bad = 0;
+const f = (v: number, d = 2) => v.toFixed(d).padStart(6);
+console.log(`\n${N} seasons, ${((Date.now() - t0) / 1000).toFixed(0)} s. K = ${JSON.stringify({ SHOT: K.SHOT, KS: K.KS, KQ: K.KQ, KF: K.KF, KG: K.KG, HOME: K.HOME, AWAY: K.AWAY })}`);
+console.log('league      goals/match     home wins        draws        champion        last       top scorer   yellow red');
+for (const lg of LEAGUE_IDS) {
+  const a = acc[lg], r = REAL[lg];
+  const cell = (k: keyof typeof CORRIDOR, d = 2) => {
+    const ok = Math.abs(a[k] - r[k]) <= CORRIDOR[k];
+    if (!ok) bad++;
+    return `${f(a[k], d)}/${f(r[k], d)}${ok ? ' ' : '!'}`;
+  };
+  console.log(`${lg.padEnd(6)} ${cell('gpm')} ${cell('home', 3)} ${cell('draw', 3)} ${cell('champ', 0)} ${cell('last', 0)} ${cell('scorer', 0)} ${f(a.cards)} ${f(a.reds)}`);
+}
+console.log(`Odds: analytic formula vs. 1500 engine runs — mean absolute difference ${((oddsErr / oddsN) * 100).toFixed(1)} p.p.`);
+console.log(bad ? `\n${bad} metric(s) outside the corridor (marked "!")` : '\nAll metrics inside their corridors.');
+process.exit(bad ? 1 : 0);

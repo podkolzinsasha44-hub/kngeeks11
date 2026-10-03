@@ -1,0 +1,229 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Oswald Variable", "Oswald", "Arial Narrow", system-ui, sans-serif;
+  --font-sans: "Inter Variable", "Inter", -apple-system, system-ui, sans-serif;
+  --color-bg: #05070d;
+  --color-ink: #eaf2ff;
+  --color-muted: #8b98ae;
+  --color-faint: #56627a;
+  --color-ice: #7fd3ff;
+  --color-gold: #e8c26a;
+  --color-good: #3ddc97;
+  --color-bad: #ff5a5f;
+  --color-warn: #ffb547;
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:root {
+  --accent: #7fd3ff;
+  --team: #0a1428;
+  --team2: #7fd3ff;
+  --tabbar-h: 56px;
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  font-size: 16px;
+  line-height: 1.4;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
+  font-size: 16px;
+}
+button {
+  cursor: pointer;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.01em;
+}
+.num {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+}
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Glass surfaces */
+.glass {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.025));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  backdrop-filter: blur(22px) saturate(150%);
+}
+.glass-strong {
+  background: linear-gradient(180deg, rgba(20, 28, 44, 0.86), rgba(10, 14, 24, 0.92));
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  backdrop-filter: blur(28px) saturate(160%);
+}
+.hairline {
+  border-color: rgba(255, 255, 255, 0.07);
+}
+.shine {
+  position: relative;
+  overflow: hidden;
+}
+.shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.16) 45%, transparent 60%);
+  transform: translateX(-120%);
+  animation: shine 4.5s var(--ease-spring) infinite;
+  pointer-events: none;
+}
+@keyframes shine {
+  0%, 55% { transform: translateX(-120%); }
+  85%, 100% { transform: translateX(120%); }
+}
+.holo {
+  background: conic-gradient(from var(--holo-angle, 0deg), #ff8ad8, #7fd3ff, #9dffb0, #ffe27a, #ff8ad8);
+  animation: holo 6s linear infinite;
+}
+@property --holo-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes holo {
+  to { --holo-angle: 360deg; }
+}
+.text-gradient-gold {
+  background: linear-gradient(180deg, #fff3c9 0%, #e8c26a 50%, #a8812f 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.text-gradient-ice {
+  background: linear-gradient(180deg, #ffffff 0%, #9fe0ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.accent-bg {
+  background: linear-gradient(135deg, color-mix(in oklab, var(--accent) 100%, white 8%), color-mix(in oklab, var(--accent) 70%, black 30%));
+}
+.accent-text {
+  color: var(--accent);
+}
+
+/* Safe areas */
+.pt-safe { padding-top: max(env(safe-area-inset-top), 12px); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+.mb-safe { margin-bottom: env(safe-area-inset-bottom); }
+
+/* Scrolling */
+.scroll {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+.scroll::-webkit-scrollbar,
+.hscroll::-webkit-scrollbar {
+  display: none;
+}
+.hscroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  scroll-snap-type: x mandatory;
+}
+.snap-center {
+  scroll-snap-align: center;
+}
+
+/* Pressable feedback */
+.press {
+  transition: transform 160ms var(--ease-spring), opacity 160ms;
+}
+.press:active {
+  transform: scale(0.97);
+  opacity: 0.85;
+}
+
+/* Background "arena" */
+.arena {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 60% at 50% -10%, color-mix(in oklab, var(--team) 70%, transparent) 0%, transparent 60%),
+    radial-gradient(80% 40% at 100% 0%, color-mix(in oklab, var(--accent) 22%, transparent) 0%, transparent 70%),
+    radial-gradient(60% 50% at 0% 100%, rgba(127, 211, 255, 0.07) 0%, transparent 70%),
+    #05070d;
+}
+.arena::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
+}
+
+.arena[data-mood="playoffs"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(90% 45% at 50% 0%, rgba(232, 194, 106, 0.22), transparent 70%);
+}
+.arena[data-mood="winter"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.35;
+  background-image: radial-gradient(1.5px 1.5px at 20% 30%, #fff, transparent), radial-gradient(1px 1px at 70% 20%, #fff, transparent), radial-gradient(1.5px 1.5px at 40% 70%, #fff, transparent), radial-gradient(1px 1px at 85% 60%, #fff, transparent), radial-gradient(1px 1px at 10% 85%, #fff, transparent);
+  background-size: 220px 220px;
+  animation: snow 18s linear infinite;
+}
+@keyframes snow {
+  from { background-position: 0 0; }
+  to { background-position: 0 440px; }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+.pulse-soft {
+  animation: pulse-soft 1.8s ease-in-out infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

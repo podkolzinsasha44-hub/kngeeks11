@@ -1,0 +1,35 @@
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+import { VitePWA } from 'vite-plugin-pwa';
+
+// `base: './'` lets the same build run from any folder (GitHub Pages, Firebase, a local server).
+export default defineConfig({
+  base: './',
+  plugins: [
+    react(),
+    tailwindcss(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['icons/*.svg'],
+      manifest: {
+        name: 'Football GM — футбольный менеджер',
+        short_name: 'Football GM',
+        description: 'Реальные клубы и игроки РПЛ и топ-лиг Европы: трансферы, расстановка, честный матчевый движок',
+        lang: 'ru',
+        start_url: './',
+        scope: './',
+        display: 'standalone',
+        orientation: 'portrait',
+        background_color: '#05070d',
+        theme_color: '#05070d',
+        icons: [{ src: 'icons/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }],
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,svg,woff2,json}'],
+        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+      },
+    }),
+  ],
+  build: { target: 'es2022', chunkSizeWarningLimit: 1500 },
+});
