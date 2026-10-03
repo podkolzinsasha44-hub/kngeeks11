@@ -46,7 +46,7 @@ export function Momentum({ bins, home, away }: { bins: number[]; home: string; a
 }
 
 /** Football pitch background; children are drawn in a 105×68 coordinate system. */
-export function PitchSvg({ children, className, vertical }: { children?: ReactNode; className?: string; vertical?: boolean }) {
+export function PitchSvg({ children, className, vertical, stretch }: { children?: ReactNode; className?: string; vertical?: boolean; stretch?: boolean }) {
   const lines = (
     <g fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.35">
       <rect x="0.5" y="0.5" width="104" height="67" />
@@ -62,7 +62,7 @@ export function PitchSvg({ children, className, vertical }: { children?: ReactNo
   );
   const stripes = Array.from({ length: 10 }, (_, i) => <rect key={i} x={i * 10.5} y="0" width="10.5" height="68" fill={i % 2 ? '#1c7a41' : '#1f8748'} />);
   return (
-    <svg viewBox={vertical ? '0 0 68 105' : '0 0 105 68'} className={className} style={{ borderRadius: 18, display: 'block' }}>
+    <svg viewBox={vertical ? '0 0 68 105' : '0 0 105 68'} preserveAspectRatio={stretch ? 'none' : undefined} className={className} style={{ borderRadius: 18, display: 'block' }}>
       <g transform={vertical ? 'translate(68 0) rotate(90)' : undefined}>
         {stripes}
         {lines}
