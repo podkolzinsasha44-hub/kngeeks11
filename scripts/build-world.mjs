@@ -458,7 +458,9 @@ for (const p of players) {
   const ovr = targetOvr(p);
   const r = buildAttrs(p, ovr);
   const hi = p.mv >= 2e7 ? 3 : p.mv >= 8e6 ? 2 : 0;
-  const pot = clamp(Math.round(a <= 21 ? ovr + clamp((24 - a) * 1.7 + hi, 3, 14) + rnd(p.id, 'pot') * 3 : a <= 25 ? ovr + (26 - a) * 0.9 + rnd(p.id, 'pot') * 2 : ovr), ovr, 97);
+  // The better a player already is, the less room is left above him.
+  const room = clamp((99 - ovr) / 22, 0.25, 1);
+  const pot = clamp(Math.round(a <= 21 ? ovr + (clamp((24 - a) * 1.7 + hi, 3, 14) + rnd(p.id, 'pot') * 3) * room : a <= 25 ? ovr + ((26 - a) * 0.9 + rnd(p.id, 'pot') * 2) * room : ovr), ovr, 96);
   // Contract: the real end date when the player is still at the club the dataset knows; otherwise a model.
   const same = p.team && teamTm.get(p.team) === p.tmClub;
   let until = p.until && (same || !p.team) ? Number(p.until.slice(0, 4)) + (Number(p.until.slice(5, 7)) > 7 ? 1 : 0) : 0;

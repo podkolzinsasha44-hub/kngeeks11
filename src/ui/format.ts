@@ -3,7 +3,12 @@ import type { League, Player, Pos, Role, Team } from '../engine/types';
 import { ageOn } from '../engine/util';
 
 export { money, seasonLabel, dispName, dispShort } from '../engine/util';
-export { flag, nationName } from '../engine/intl';
+export { nationName } from '../engine/intl';
+import { flag as emojiFlag } from '../engine/intl';
+
+// Windows has no flag emoji in its system font: there the three-letter country code is shown instead.
+const HAS_FLAGS = typeof navigator === 'undefined' || !/Windows/i.test(navigator.userAgent);
+export const flag = (c: string) => (HAS_FLAGS ? emojiFlag(c) : c);
 
 export const POS_RU: Record<Pos, string> = { G: 'Вр', D: 'Защ', M: 'ПЗ', F: 'Нап' };
 export const POS_FULL: Record<Pos, string> = { G: 'Вратари', D: 'Защитники', M: 'Полузащитники', F: 'Нападающие' };

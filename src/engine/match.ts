@@ -27,7 +27,8 @@ export const K = {
   PEN_P: 0.77,
   YELLOW: 0.0225,
   RED: 0.00045,
-  INJ: 0.00042,
+  /** Injuries per player per minute (≈ 0.08 per team per match, most of them minor). */
+  INJ: 0.00008,
   SO_P: 0.75,
 };
 export const MEAN_XG = K.MIX.reduce((s, [w, x]) => s + w * x, 0);

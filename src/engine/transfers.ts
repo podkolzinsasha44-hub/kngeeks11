@@ -21,7 +21,7 @@ export function askingPrice(L: League, p: Player, buyer: Team): number {
   const seller = p.team ? L.teams[p.team] : null;
   if (!seller) return round(p.val * 1.2);
   const rank = squadRank(L, p);
-  let m = rank < 2 ? 1.9 : rank < 5 ? 1.55 : rank < 11 ? 1.3 : rank < 16 ? 1.08 : 0.92;
+  let m = rank < 2 ? 1.55 : rank < 5 ? 1.38 : rank < 11 ? 1.22 : rank < 16 ? 1.05 : 0.9;
   const age = ageOn(p.bd, L.date);
   if (seller.strategy === 'contend' && rank < 11) m *= 1.1;
   if (seller.strategy === 'rebuild' && age >= 28) m *= 0.85;
@@ -133,9 +133,10 @@ function offersToUser(L: League) {
   const clubs = shuffle(Object.values(L.teams).filter((t) => t.id !== L.user));
   let made = 0;
   for (const p of shuffle(mine)) {
-    if (made >= 2) break;
+    if (made >= (p.listed ? 2 : 1)) break;
     if (L.offers.some((o) => o.player === p.id && o.to === L.user && o.status === 'pending')) continue;
-    const pr = p.listed ? 0.5 : p.wantsOut ? 0.3 : 0.035 + (p.ovr >= 76 ? 0.03 : 0);
+    // Unsolicited bids are rare; listing a player is what brings the buyers.
+    const pr = p.listed ? 0.5 : p.wantsOut ? 0.3 : 0.01 + (p.ovr >= 76 ? 0.008 : 0);
     if (next() > pr) continue;
     const buyer = clubs.find((t) => t.budget >= p.val * 0.8 && wouldStart(L, t, p) && interest(L, p, t) >= 0.4 && !canRegister(L, t, p, wageFor(p.ovr, t.lg)));
     if (!buyer) continue;
@@ -204,8 +205,10 @@ function weakestSlot(L: League, t: Team) {
 
 function aiDeals(L: League, pool: Player[]) {
   const clubs = shuffle(Object.values(L.teams).filter((t) => t.id !== L.user)).slice(0, 14);
+  const bought = new Map<string, number>();
+  for (const x of L.transfers) if (x.season === L.season) bought.set(x.to, (bought.get(x.to) ?? 0) + 1);
   for (const t of clubs) {
-    if (next() > 0.4) continue;
+    if (next() > 0.4 || (bought.get(t.id) ?? 0) >= 5) continue;
     const need = weakestSlot(L, t);
     if (!need) continue;
     let best: Player | null = null, bv = need.rating + 1.5, price = 0;
@@ -215,7 +218,9 @@ function aiDeals(L: League, pool: Player[]) {
       const v = slotRating(p, need.role);
       if (v <= bv) continue;
       const ask = askingPrice(L, p, t);
-      if (ask > t.budget || interest(L, p, t) < 0.5 || canRegister(L, t, p, wageFor(p.ovr, t.lg))) continue;
+      // No club spends its whole budget on one player, and stars do not move to clubs of a lower standing.
+      if (ask > t.budget * 0.7 || interest(L, p, t) < 0.6 || canRegister(L, t, p, wageFor(p.ovr, t.lg))) continue;
+      if (p.team && L.teams[p.team].rep > t.rep + 4 && squadRank(L, p) < 8) continue;
       // A selling club keeps a workable squad.
       if (p.team && squad(L, p.team).length <= 20) continue;
       best = p; bv = v; price = ask;
@@ -246,12 +251,15 @@ function aiFreeAgents(L: League) {
 /** Every AI club keeps enough bodies to field a team (injuries, sales). */
 export function ensureSquads(L: League, genYouth: (t: Team, pos: Player['pos']) => Player) {
   for (const t of Object.values(L.teams)) {
-    if (t.id === L.user) continue;
+    const mine = t.id === L.user;
     const sq = squad(L, t.id).filter(available);
-    const need: [Player['pos'], number][] = [['G', 2], ['D', 6], ['M', 6], ['F', 4]];
+    // The user's club is only helped when it could not field a team at all: the academy fills the gaps.
+    const need: [Player['pos'], number][] = mine ? [['G', 2], ['D', 5], ['M', 5], ['F', 3]] : [['G', 2], ['D', 6], ['M', 6], ['F', 4]];
+    const called: string[] = [];
     for (const [pos, n] of need) {
       let have = sq.filter((p) => p.pos === pos).length;
       while (have < n) {
+        if (mine) { called.push(dispName(genYouth(t, pos))); have++; continue; }
         let best: Player | null = null;
         for (const id in L.players) {
           const p = L.players[id];
@@ -262,6 +270,7 @@ export function ensureSquads(L: League, genYouth: (t: Team, pos: Player['pos']) 
         have++;
       }
     }
+    if (called.length) pushMsg(L, { from: 'Академия клуба', kind: 'staff', title: 'В заявке не хватало игроков', body: `Чтобы команда могла выйти на поле, из академии переведены: ${called.join(', ')}. Усильте состав на рынке.`, ref: { type: 'screen', id: 'roster' } });
   }
 }
 

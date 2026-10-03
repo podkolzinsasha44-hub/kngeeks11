@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit",
+    "typecheck": "tsc -b --noEmit && tsc -p tsconfig.engine.json",
     "test": "vitest run",
     "calibrate": "tsx scripts/calibrate.ts",
     "data:fetch": "node scripts/fetch-data.mjs",

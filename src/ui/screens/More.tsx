@@ -5,7 +5,7 @@ import { useNav } from '../../store/nav';
 import { exportFile } from '../../persistence/db';
 import { aiLineup } from '../../engine/ai';
 import { wageBill } from '../../engine/contracts';
-import { flag, groupOrder, nationName, nationPower } from '../../engine/intl';
+import { groupOrder, nationPower } from '../../engine/intl';
 import { LEAGUES, foreignLimit, isForeign, transferWindows } from '../../engine/leagues';
 import { squad } from '../../engine/lineup';
 import { ownerGoalFor } from '../../engine/owner';
@@ -13,7 +13,7 @@ import type { IntlGame, League, Message, Tournament } from '../../engine/types';
 import { Button, Card, Chevron, cx, Divider, Empty, Meter, Pill, Row, SectionTitle, Segmented } from '../components/kit';
 import { Screen, Sheet } from '../components/shell';
 import { PlayerRow, TeamBadge } from '../components/media';
-import { dateLong, dateShort, dispName, money, seasonLabel } from '../format';
+import { dateLong, dateShort, dispName, flag, money, nationName, seasonLabel } from '../format';
 
 export function MoreScreen() {
   const L = useL();

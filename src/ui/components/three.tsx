@@ -159,8 +159,11 @@ export function Figure3D({ spec, height = 280, className }: { spec: FigureSpec; 
         canvas.addEventListener('pointerup', up);
         canvas.addEventListener('pointercancel', up);
         const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        let cw = w;
         const tick = (t: number) => {
           if (stop) return;
+          const nw = canvas.clientWidth;
+          if (nw && nw !== cw) { cw = nw; renderer.setSize(nw, height, false); cam.aspect = nw / height; cam.updateProjectionMatrix(); }
           if (drag == null) { rot += vel; vel += ((reduce ? 0 : 0.006) - vel) * 0.03; }
           fig.rotation.y = rot;
           fig.position.y = reduce ? 0 : Math.sin(t / 700) * 0.012;
@@ -207,34 +210,34 @@ export function Pitch3D({ players, selected, onSelect, height = 360 }: { players
       try {
         const w = canvas.clientWidth || 340;
         const { renderer, scene, sun } = baseScene(THREE, canvas, w, height);
-        const cam = new THREE.PerspectiveCamera(34, w / height, 0.1, 200);
-        // Pitch 21 × 13.6 units (1 unit = 5 m), striped.
+        const cam = new THREE.PerspectiveCamera(40, w / height, 0.1, 200);
+        // Pitch 13.6 × 21 units (1 unit = 5 m), striped; the own goal is at the near end.
         const c = document.createElement('canvas');
-        c.width = 840; c.height = 544;
+        c.width = 544; c.height = 840;
         const g = c.getContext('2d')!;
-        for (let i = 0; i < 10; i++) { g.fillStyle = i % 2 ? '#1c7a41' : '#208a4a'; g.fillRect(i * 84, 0, 84, 544); }
+        for (let i = 0; i < 10; i++) { g.fillStyle = i % 2 ? '#1c7a41' : '#208a4a'; g.fillRect(0, i * 84, 544, 84); }
         g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 3;
-        g.strokeRect(6, 6, 828, 532);
-        g.beginPath(); g.moveTo(420, 6); g.lineTo(420, 538); g.stroke();
-        g.beginPath(); g.arc(420, 272, 73, 0, Math.PI * 2); g.stroke();
-        g.strokeRect(6, 110, 132, 324); g.strokeRect(702, 110, 132, 324);
-        g.strokeRect(6, 198, 44, 148); g.strokeRect(790, 198, 44, 148);
+        g.strokeRect(6, 6, 532, 828);
+        g.beginPath(); g.moveTo(6, 420); g.lineTo(538, 420); g.stroke();
+        g.beginPath(); g.arc(272, 420, 73, 0, Math.PI * 2); g.stroke();
+        g.strokeRect(110, 6, 324, 132); g.strokeRect(110, 702, 324, 132);
+        g.strokeRect(198, 6, 148, 44); g.strokeRect(198, 790, 148, 44);
         const tex = new THREE.CanvasTexture(c);
         tex.colorSpace = THREE.SRGBColorSpace;
         tex.anisotropy = 8;
-        const pitch = new THREE.Mesh(new THREE.PlaneGeometry(21, 13.6), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 }));
+        const pitch = new THREE.Mesh(new THREE.PlaneGeometry(13.6, 21), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95 }));
         pitch.rotation.x = -Math.PI / 2;
         pitch.receiveShadow = true;
         scene.add(pitch);
         sun.position.set(6, 14, 8);
         const sc = sun.shadow.camera;
-        sc.left = -12; sc.right = 12; sc.top = 9; sc.bottom = -9; sc.far = 50;
+        sc.left = -12; sc.right = 12; sc.top = 14; sc.bottom = -14; sc.far = 60;
         const figs = players.map((p) => {
           const f = makeFigure(THREE, p);
-          // Own goal on the left; the team faces the opponent's goal.
-          f.position.set(-10.5 + p.x * 14.5 + 1.2, 0, (p.y - 0.5) * 12);
-          f.rotation.y = Math.PI / 2;
-          f.scale.multiplyScalar(1.25);
+          // The team stands with its back to the camera and looks at the opponent's goal.
+          f.position.set((p.y - 0.5) * 11.6, 0, 9.6 - p.x * 17.5);
+          f.rotation.y = Math.PI;
+          f.scale.multiplyScalar(1.35);
           scene.add(f);
           return f;
         });
@@ -243,9 +246,9 @@ export function Pitch3D({ players, selected, onSelect, height = 360 }: { players
         marker.position.y = 0.03;
         marker.visible = false;
         scene.add(marker);
-        let ang = -0.45, drag: { x: number; moved: number } | null = null;
+        let ang = 0, drag: { x: number; moved: number } | null = null;
         const down = (e: PointerEvent) => { drag = { x: e.clientX, moved: 0 }; canvas.setPointerCapture(e.pointerId); };
-        const move = (e: PointerEvent) => { if (!drag) return; const dx = e.clientX - drag.x; drag.x = e.clientX; drag.moved += Math.abs(dx); ang = Math.max(-1.2, Math.min(1.2, ang - dx * 0.006)); };
+        const move = (e: PointerEvent) => { if (!drag) return; const dx = e.clientX - drag.x; drag.x = e.clientX; drag.moved += Math.abs(dx); ang = Math.max(-0.9, Math.min(0.9, ang - dx * 0.006)); };
         const up = (e: PointerEvent) => {
           const d = drag;
           drag = null;
@@ -263,11 +266,23 @@ export function Pitch3D({ players, selected, onSelect, height = 360 }: { players
         canvas.addEventListener('pointerdown', down);
         canvas.addEventListener('pointermove', move);
         canvas.addEventListener('pointerup', up);
+        // Keep the drawing buffer and the field of view in step with the element (rotation, resize).
+        let cw = 0;
+        const fit = () => {
+          const nw = canvas.clientWidth;
+          if (!nw || nw === cw) return;
+          cw = nw;
+          renderer.setSize(nw, height, false);
+          cam.aspect = nw / height;
+          // The whole width of the pitch stays in view on narrow screens.
+          cam.fov = Math.max(34, Math.min(62, (2 * Math.atan(Math.tan((38 * Math.PI) / 360) / Math.min(1.25, cam.aspect)) * 180) / Math.PI));
+          cam.updateProjectionMatrix();
+        };
         const tick = () => {
           if (stop) return;
-          const R = 23;
-          cam.position.set(-2.5 + Math.sin(ang) * R * 0.55, 11.5, Math.cos(ang) * R);
-          cam.lookAt(-1.2, 0, 0);
+          fit();
+          cam.position.set(Math.sin(ang) * 21, 15.5, 2 + Math.cos(ang) * 21);
+          cam.lookAt(0, 0, -1.2);
           const s = sel.current;
           marker.visible = s != null && s >= 0 && !!figs[s];
           if (marker.visible) marker.position.set(figs[s!].position.x, 0.03, figs[s!].position.z);

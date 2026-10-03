@@ -51,7 +51,7 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let toastId = 1;
 
 /** Reasons that always stop the simulation, and those that stop the "until the next event" mode. */
-const ALWAYS = new Set(['lineup', 'cup', 'season-end', 'rollover', 'intl']);
+const ALWAYS = new Set(['lineup', 'cup', 'season-end', 'rollover', 'intl', 'expiring']);
 const EVENT = new Set([...ALWAYS, 'offer', 'injury', 'player']);
 
 export function applyTheme(L: League | null) {
@@ -213,6 +213,7 @@ function onStop(reason: string | null, mode: SimMode, watch: boolean, played: bo
   if (reason === 'rollover') return nav.go('office', 'inbox');
   if (reason === 'intl') return nav.go('more', 'intl');
   if (reason === 'offer') return nav.go('market', undefined, { tab: 'offers' });
+  if (reason === 'expiring') return nav.go('more', 'finance');
   if (played && lastUserBox && (mode === 'game' || watch) && (watch || L.settings.watchGames)) nav.openModal('match', { live: true, id: lastUserBox.game.id });
 }
 

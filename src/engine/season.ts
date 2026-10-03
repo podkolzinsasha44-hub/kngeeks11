@@ -227,6 +227,17 @@ export function advanceDay(L: League): DayReport {
   if (date.slice(8) === '01') {
     updateValues(L);
     if (['03', '04', '05'].includes(date.slice(5, 7))) aiRenewals(L);
+    if (date.slice(5, 7) === '03') {
+      const exp = squad(L, L.user).filter((p) => p.c && p.c.until <= L.season + 1 && !p.loan);
+      if (exp.length) {
+        pushMsg(L, {
+          from: 'Спортивный отдел', kind: 'staff', title: `Летом истекают контракты: ${exp.length}`,
+          body: `Эти игроки уйдут бесплатно 20 июня, если не продлить контракт:\n${exp.sort((a, b) => b.ovr - a.ovr).map((p) => `${dispName(p)} (${p.ovr})`).join('\n')}`,
+          ref: { type: 'screen', id: 'finance' },
+        });
+        L.stops.push('expiring');
+      }
+    }
   }
   for (const [a, b] of L.windows) {
     if (date === a) pushNews(L, { kind: 'league', title: 'Трансферное окно открыто', important: true });

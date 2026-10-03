@@ -67,7 +67,7 @@ function movers(L: League): [Team, Team][] {
 
 function income(t: Team, place: number, n: number) {
   const factor = 1.6 - (1.1 * (place - 1)) / Math.max(1, n - 1);
-  const base = { RPL: 14e6, FNL: 2.5e6, EPL: 60e6, ESP: 35e6, ITA: 30e6, GER: 30e6, FRA: 22e6 }[t.lg];
+  const base = { RPL: 12e6, FNL: 2.5e6, EPL: 42e6, ESP: 27e6, ITA: 23e6, GER: 23e6, FRA: 17e6 }[t.lg];
   return Math.round((base * factor * Math.pow(t.rep / 60, 2)) / 1e5) * 1e5;
 }
 
@@ -107,7 +107,7 @@ export function rollover(L: League) {
     const tb = sortedTeams(L, lg);
     tb.forEach((t, i) => {
       const inc = income(t, i + 1, tb.length);
-      t.budget = Math.round((Math.max(0, t.budget) * 0.6 + inc) / 1e5) * 1e5;
+      t.budget = Math.round((Math.max(0, t.budget) * 0.5 + inc) / 1e5) * 1e5;
       t.last = { pos: i + 1, w: t.rec.w, d: t.rec.d, l: t.rec.l, pts: t.rec.pts, gf: t.rec.gf, ga: t.rec.ga, lg };
       // Success slowly builds the name of a club.
       t.rep = clamp(Math.round(t.rep + (tb.length / 2 - i) * 0.12 + (i === 0 ? 1 : 0)), 20, 97);
@@ -137,6 +137,11 @@ export function rollover(L: League) {
     if (p.team && p.c && p.c.until <= season + 1) {
       if (p.team === me.id) leaving.push(`${dispName(p)} (${p.ovr})`);
       p.team = null; p.c = null; p.st = 'FA'; p.listed = false; p.wantsOut = false;
+      p.joined = season + 1;
+    } else if (p.st === 'FA' && (p.joined ?? 0) <= season) {
+      // A full season without a club: the career is over (or continues below the level of the game).
+      p.st = 'RET'; p.retired = season;
+      continue;
     }
     p.yel = 0;
     p.susp = 0;
@@ -147,7 +152,11 @@ export function rollover(L: League) {
   const dev = developAll(L, season);
   updateValues(L);
   // Old seasons are folded away to keep the save small: only players who actually played keep their lines.
+  // Retired players stay only if the user's club or the record books remember them.
+  const keep = new Set(L.album);
   for (const id in L.players) {
+    const q = L.players[id];
+    if (q.st === 'RET' && !keep.has(q.id) && !q.awards.length && !q.intl?.length) { delete L.players[id]; continue; }
     const st = L.players[id].stats;
     for (const k in st) if (Number(k.slice(0, 4)) < season - 7 || !st[k].gp) delete st[k];
   }
