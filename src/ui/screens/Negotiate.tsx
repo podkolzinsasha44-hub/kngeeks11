@@ -66,7 +66,7 @@ export function NegotiateScreen({ params }: { params: Record<string, unknown> })
               <Button full size="sm" onClick={() => setWage(wage + step)}>+ {money(step)}</Button>
             </div>
             <div className="flex items-center justify-between mt-4">
-              <span className="text-[14px] text-muted">Срок, лет</span>
+              <span className="text-[14px] text-muted">{n.kind === 'extend' ? `Сезонов после текущего (до лета ${L.season + 1 + years})` : 'Срок, лет'}</span>
               <div className="flex gap-1.5">
                 {[1, 2, 3, 4, 5].map((y) => <button key={y} onClick={() => setYears(y)} className={cx('press w-10 h-10 rounded-xl num text-[16px] border', years === y ? 'bg-white text-[#05070d] border-white' : 'glass')}>{y}</button>)}
               </div>

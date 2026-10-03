@@ -132,7 +132,8 @@ export function signContract(L: League, p: Player, t: Team, wage: number, years:
   const fresh = p.team !== t.id || !!p.loan;
   // A season runs from July to June; `until` is the year the deal ends on June 30.
   const endYear = L.season + 1;
-  const until = fresh ? endYear + years - (L.date < `${L.season}-10-01` ? 1 : 0) : Math.max(p.c?.until ?? endYear, endYear) + years;
+  // An extension is a new deal for `years` seasons after the current one (never shorter than the old deal).
+  const until = fresh ? endYear + years - (L.date < `${L.season}-10-01` ? 1 : 0) : Math.max(p.c?.until ?? 0, endYear + years);
   p.c = { wage, until, signed: L.season };
   p.wantsOut = false;
   p.listed = false;

@@ -188,7 +188,7 @@ describe('market', () => {
     const r = negotiate(L, p.id, n.ask.wage, 2);
     expect(r.status).toBe('signed');
     expect(p.team).toBe('SPA');
-    expect(p.c!.until).toBe(Math.max(until, L.season + 1) + 2);
+    expect(p.c!.until).toBe(Math.max(until, L.season + 1 + 2));
   });
 });
 
