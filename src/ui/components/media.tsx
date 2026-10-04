@@ -2,15 +2,38 @@ import { useState, type ReactNode } from 'react';
 import { useGame } from '../../store/game';
 import { useNav } from '../../store/nav';
 import type { League, Player, Team } from '../../engine/types';
-import { clubLabel, dispName, fitColor, flag, photoUrl, playerAge, ROLE_RU } from '../format';
+import { clubLabel, dispName, fitColor, photoUrl, playerAge, ROLE_RU } from '../format';
+import { flag as emojiFlag } from '../../engine/intl';
 import { cx, Ovr } from './kit';
 
 const lum = (hex: string) => { const n = parseInt(hex.slice(1), 16); return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255; };
 export const inkOn = (hex: string) => (lum(hex) > 0.6 ? '#0b1220' : '#ffffff');
 
-/** Club badge drawn from the club colours and its short code (no real logos are used). */
-export function TeamBadge({ team, id, size = 36 }: { team?: Pick<Team, 'id' | 'primary' | 'secondary' | 'short'>; id?: string; size?: number }) {
+/** Club crest: the real one from the Transfermarkt image CDN; offline (or for an unknown club) a badge drawn from the club colours. */
+export function TeamBadge({ team, id, size = 36 }: { team?: Pick<Team, 'id' | 'primary' | 'secondary' | 'short' | 'tm'>; id?: string; size?: number }) {
   const t = team ?? (id ? useGame.getState().L?.teams[id] : undefined);
+  const [err, setErr] = useState(false);
+  if (t?.tm && !err) {
+    return (
+      <img
+        src={crestUrl(t.tm)}
+        alt={t.short}
+        width={size}
+        height={size}
+        loading="lazy"
+        draggable={false}
+        onError={() => setErr(true)}
+        className="shrink-0 object-contain drop-shadow-[0_1px_2px_rgba(0,0,0,.45)]"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+  return <DrawnBadge t={t} size={size} />;
+}
+
+export const crestUrl = (tm: number) => `https://tmssl.akamaized.net/images/wappen/big/${tm}.png`;
+
+function DrawnBadge({ t, size }: { t?: Pick<Team, 'id' | 'primary' | 'secondary' | 'short'>; size: number }) {
   const a = t?.primary ?? '#334', b = t?.secondary ?? '#889';
   const uid = `b${(t?.id ?? 'x').replace(/[^a-z0-9]/gi, '')}`;
   return (
@@ -26,6 +49,40 @@ export function TeamBadge({ team, id, size = 36 }: { team?: Pick<Team, 'id' | 'p
       <path d="M20 2l15 5v12c0 9-6.5 15.5-15 19C11.5 34.5 5 28 5 19V7z" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1" />
       <text x="20" y="23.5" textAnchor="middle" fontSize="10.5" fontFamily="Oswald Variable, Oswald, sans-serif" fontWeight="700" fill="#fff" stroke="rgba(0,0,0,0.55)" strokeWidth="2.2" paintOrder="stroke">{t?.short ?? ''}</text>
     </svg>
+  );
+}
+
+/**
+ * ISO code of a country for the flag images, read from its emoji flag: regional indicators give "ru",
+ * tag sequences give the UK nations ("gb-eng", "gb-sct", "gb-wls").
+ */
+/** A few country codes of the source data that are not FIFA codes of a national team in the game. */
+const ISO_ALIAS: Record<string, string> = { SPA: 'es', SER: 'rs', NGR: 'ng', KVX: 'xk', BAN: 'bd', GLP: 'gp', MTQ: 'mq', NEW: 'nc' };
+
+export function isoOf(code: string): string | null {
+  if (ISO_ALIAS[code]) return ISO_ALIAS[code];
+  const e = [...emojiFlag(code)].map((c) => c.codePointAt(0)!);
+  const ri = e.filter((c) => c >= 0x1f1e6 && c <= 0x1f1ff);
+  if (ri.length === 2) return ri.map((c) => String.fromCharCode(c - 0x1f1e6 + 97)).join('');
+  const tags = e.filter((c) => c >= 0xe0061 && c <= 0xe007a).map((c) => String.fromCharCode(c - 0xe0000)).join('');
+  return tags.length === 5 ? `${tags.slice(0, 2)}-${tags.slice(2)}` : null;
+}
+
+/** Country flag as an image (works on Windows too, where emoji flags show as letters). */
+export function Flag({ code, size = 16, className }: { code: string; size?: number; className?: string }) {
+  const iso = isoOf(code);
+  const [err, setErr] = useState(false);
+  if (!iso || err) return <span className={cx('text-[0.8em] font-semibold text-muted', className)}>{code}</span>;
+  return (
+    <img
+      src={`https://flagcdn.com/${iso}.svg`}
+      alt={code}
+      loading="lazy"
+      draggable={false}
+      onError={() => setErr(true)}
+      className={cx('inline-block shrink-0 rounded-[3px] object-cover align-[-0.15em] shadow-[0_0_0_1px_rgba(255,255,255,.12)]', className)}
+      style={{ width: Math.round(size * 1.4), height: size }}
+    />
   );
 }
 
@@ -115,7 +172,7 @@ export function PlayerRow({ p, right, sub, onClick, showClub, dense }: { p: Play
         <div className="text-[12.500px] text-muted truncate">
           {sub ?? (
             <>
-              <span className="text-ink/80">{ROLE_RU[p.role]}</span> · {playerAge(L, p)} · {flag(p.ctry)}
+              <span className="text-ink/80">{ROLE_RU[p.role]}</span> · {playerAge(L, p)} · <Flag code={p.ctry} size={11} />
               {showClub && <> · {clubLabel(L, p)}</>}
               {!showClub && p.team && <> · <span style={{ color: fitColor(p.fit) }}>{Math.round(p.fit)}%</span></>}
             </>

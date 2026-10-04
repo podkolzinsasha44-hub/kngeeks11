@@ -9,10 +9,10 @@ import type { KeeperAttrs, League, OutfieldAttrs, Player } from '../../engine/ty
 import { fullName } from '../../engine/util';
 import { Button, Card, cx, Meter, Pill, SectionTitle, Segmented } from '../components/kit';
 import { Icon, Screen, Sheet, useDesktop } from '../components/shell';
-import { TeamBadge } from '../components/media';
+import { Flag, TeamBadge } from '../components/media';
 import { PlayerCard } from '../components/PlayerCard';
 import { Sparkline } from '../components/charts';
-import { ATTR_RU, clubLabel, dispName, fitColor, flag, FOOT_RU, money, nationName, ovrColor, playerAge, potLabel, ROLE_FULL, ROLE_RU, seasonLabel } from '../format';
+import { ATTR_RU, clubLabel, dispName, fitColor, FOOT_RU, money, nationName, ovrColor, playerAge, potLabel, ROLE_FULL, ROLE_RU, seasonLabel } from '../format';
 import { useKeep } from '../keep';
 
 const OUT: (keyof OutfieldAttrs)[] = ['pac', 'sho', 'pas', 'dri', 'att', 'def', 'phy', 'hea', 'sta', 'dis'];
@@ -81,11 +81,11 @@ function Badges({ L, p }: { L: League; p: Player }) {
 
 function Facts({ L, p }: { L: League; p: Player }) {
   const age = playerAge(L, p);
-  const items: [string, string][] = [
+  const items: [string, React.ReactNode][] = [
     ['Возраст', `${p.bdApprox ? '≈' : ''}${age}`],
     ['Рост', `${p.ht} см`],
     ['Нога', FOOT_RU[p.foot]],
-    ['Страна', `${flag(p.ctry)} ${p.ctry}`],
+    ['Страна', <span className="inline-flex items-center gap-1.5"><Flag code={p.ctry} size={14} />{p.ctry}</span>],
     ['Потенциал', potLabel(L, p)],
     ['Стоимость', money(p.val)],
   ];

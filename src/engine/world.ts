@@ -23,6 +23,8 @@ export interface WorldPlayer {
 export interface WorldTeam {
   id: string; lg: LeagueId; name: string; ru: string; short: string; country: string; primary: string; secondary: string; stadium: string; cap: number;
   rep: number; coach: { name: string; rating: number }; budget: number; wages: number;
+  /** Transfermarkt club id (crest image); absent when the club could not be identified reliably. */
+  tm?: number;
 }
 export interface WorldJson {
   v: number;
@@ -52,8 +54,9 @@ const KEEP: (keyof KeeperAttrs)[] = ['ref', 'pos', 'han', 'kic', 'con', 'men', '
 
 const photoFile = (w: WorldPlayer) => (w.im ? `${w.id}-${w.im}${w.im.includes('.') ? '' : '.jpg'}` : null);
 
-/** Saves made before photos were added to the snapshot get them from it. */
+/** Saves made before photos and crests were added to the snapshot get them from it. */
 export function attachPhotos(L: League, world: WorldJson) {
+  for (const w of world.teams) if (w.tm && L.teams[w.id] && !L.teams[w.id].tm) L.teams[w.id].tm = w.tm;
   const byId = new Map(world.players.map((w) => [w.id, w]));
   for (const p of Object.values(L.players)) {
     if (p.img || !p.real) continue;
@@ -102,7 +105,7 @@ export function newCareer(world: WorldJson, o: NewCareerOpts): League {
       stadium: t.stadium, cap: t.cap, rep: t.rep, tactic: 'balanced', last: null, lineup: emptyLineup(), rec: emptyRecord(), strategy: 'bubble',
       coach: { name: t.coach.name, rating: t.coach.rating, style: 'balanced', age: 50, wage: 500_000 }, fans: 60, rel: 50,
       staff: { med: 2, scouting: 2, academy: t.rep >= 70 ? 3 : t.rep >= 50 ? 2 : 1 }, titles: 0, cups: 0,
-      budget: t.budget, wageBudget: Math.round((t.wages * 1.12 + 300_000) / 1e4) * 1e4, trophies: [],
+      budget: t.budget, wageBudget: Math.round((t.wages * 1.12 + 300_000) / 1e4) * 1e4, trophies: [], ...(t.tm ? { tm: t.tm } : {}),
     };
     L.teams[t.id] = team;
   }

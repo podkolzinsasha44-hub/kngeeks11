@@ -1,9 +1,9 @@
 import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
 import { useState, type ReactNode } from 'react';
 import type { League, Player, Role, Team } from '../../engine/types';
-import { ATTR_SHORT, fitColor, flag, money, photoUrl, playerAge, potLabel, ROLE_RU, tierOf, TIERS, type Tier } from '../format';
+import { ATTR_SHORT, fitColor, money, photoUrl, playerAge, potLabel, ROLE_RU, tierOf, TIERS, type Tier } from '../format';
 import { cx } from './kit';
-import { clubAccent, clubBase, Silhouette, TeamBadge } from './media';
+import { clubAccent, clubBase, Flag, Silhouette, TeamBadge } from './media';
 
 /** Tiers from epic up get the animated extras. */
 const RANK: Record<Tier, number> = { bronze: 0, silver: 1, gold: 2, elite: 3, epic: 4, legend: 5, icon: 6 };
@@ -132,7 +132,7 @@ export function PlayerCard({ p, L, width = 260, interactive = true }: { p: Playe
           <div className="absolute left-4 top-4 flex flex-col items-center z-10" style={{ ['--glow' as string]: glow }}>
             <div className={cx('num leading-none font-semibold', NUM_CLASS[tier])} style={{ fontSize: width * 0.17 }}>{p.ovr}</div>
             <div className="font-display text-[13px] tracking-widest text-white/90 mt-0.5">{ROLE_RU[p.role]}</div>
-            <div className="text-[18px] mt-1 leading-none">{flag(p.ctry)}</div>
+            <Flag code={p.ctry} size={15} className="mt-1.5" />
             {t && <span className="mt-1.5"><TeamBadge team={t} size={28} /></span>}
           </div>
           <div className="absolute right-3 top-3.5 z-10 flex flex-col items-end gap-1">

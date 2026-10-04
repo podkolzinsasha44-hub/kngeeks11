@@ -39,6 +39,24 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
+          {
+            urlPattern: /^https:\/\/tmssl\.akamaized\.net\/images\/wappen\/.*/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'club-crests',
+              expiration: { maxEntries: 400, maxAgeSeconds: 60 * 60 * 24 * 90 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/flagcdn\.com\/.*/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'flags',
+              expiration: { maxEntries: 300, maxAgeSeconds: 60 * 60 * 24 * 180 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
         ],
       },
     }),

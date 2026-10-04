@@ -12,8 +12,8 @@ import { ownerGoalFor } from '../../engine/owner';
 import type { IntlGame, League, Message, Tournament } from '../../engine/types';
 import { Button, Card, cx, Divider, Empty, Meter, Pill, Row, SectionTitle, Segmented } from '../components/kit';
 import { Screen, Sheet } from '../components/shell';
-import { PlayerRow, TeamBadge } from '../components/media';
-import { dateLong, dateShort, dispName, flag, money, nationName, seasonLabel } from '../format';
+import { Flag, PlayerRow, TeamBadge } from '../components/media';
+import { dateLong, dateShort, dispName, money, nationName, seasonLabel } from '../format';
 import { useKeep } from '../keep';
 
 const TILES: { route: string; icon: string; title: string; sub: (L: League) => string; badge?: (L: League) => number }[] = [
@@ -182,7 +182,7 @@ export function HistoryScreen() {
       )) : <div className="text-muted text-[14px]">Первый сезон ещё не завершён.</div>}
       <SectionTitle>Чемпионы мира</SectionTitle>
       <Card className="flex flex-col gap-1.5 text-[14px]">
-        {L.intl.history.map((h) => <div key={h.id}>{h.name}: 🥇 {flag(h.medals[0])} {nationName(h.medals[0])} · 🥈 {nationName(h.medals[1])} · 🥉 {nationName(h.medals[2])}{h.real ? ' (реальный итог)' : ''}</div>)}
+        {L.intl.history.map((h) => <div key={h.id}>{h.name}: 🥇 <Flag code={h.medals[0]} size={12} /> {nationName(h.medals[0])} · 🥈 {nationName(h.medals[1])} · 🥉 {nationName(h.medals[2])}{h.real ? ' (реальный итог)' : ''}</div>)}
       </Card>
     </Screen>
   );
@@ -279,9 +279,9 @@ const STAGE: Record<string, string> = { r32: '1/16 финала', r16: '1/8 фи
 function IntlRow({ g }: { g: IntlGame }) {
   return (
     <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 min-h-[42px] border-b border-white/5 last:border-0 text-[14px]">
-      <span className="text-right truncate">{nationName(g.h)} {flag(g.h)}</span>
+      <span className="text-right truncate">{nationName(g.h)} <Flag code={g.h} size={12} /></span>
       {g.played ? <span className="num text-[16px] w-[60px] text-center">{g.hs}:{g.as}{g.pen ? <span className="block text-[10px] text-muted -mt-1">пен. {g.pen[0]}:{g.pen[1]}</span> : null}</span> : <span className="text-[11.5px] text-muted w-[60px] text-center">{dateShort(g.day)}</span>}
-      <span className="truncate">{flag(g.a)} {nationName(g.a)}</span>
+      <span className="truncate"><Flag code={g.a} size={12} /> {nationName(g.a)}</span>
     </div>
   );
 }
@@ -294,10 +294,10 @@ function TournamentView({ L, T }: { L: League; T: Tournament }) {
       <Card className="mt-1">
         <div className="font-display uppercase text-[20px]">{T.name}</div>
         <div className="text-[13px] text-muted">{T.host} · {dateShort(T.start)} — {dateShort(T.end)} · {T.teams.length} сборных</div>
-        {T.medals && <div className="mt-2 text-[15px]">🥇 {flag(T.medals[0])} {nationName(T.medals[0])} · 🥈 {nationName(T.medals[1])} · 🥉 {nationName(T.medals[2])}</div>}
+        {T.medals && <div className="mt-2 text-[15px]">🥇 <Flag code={T.medals[0]} size={13} /> {nationName(T.medals[0])} · 🥈 {nationName(T.medals[1])} · 🥉 {nationName(T.medals[2])}</div>}
         {T.mvp && L.players[T.mvp] && <div className="text-[13.5px] mt-1">Лучший игрок: <button className="accent-text" onClick={() => push('player', { id: T.mvp })}>{dispName(L.players[T.mvp])}</button></div>}
       </Card>
-      {mine.length > 0 && (<><SectionTitle>Наши игроки на турнире</SectionTitle><Card pad={false} className="overflow-hidden">{mine.map(({ c, p }) => <PlayerRow key={p.id} dense p={p} sub={<>{flag(c)} {nationName(c)}</>} />)}</Card></>)}
+      {mine.length > 0 && (<><SectionTitle>Наши игроки на турнире</SectionTitle><Card pad={false} className="overflow-hidden">{mine.map(({ c, p }) => <PlayerRow key={p.id} dense p={p} sub={<><Flag code={c} size={11} /> {nationName(c)}</>} />)}</Card></>)}
       {ko.map((s) => (<div key={s}><SectionTitle>{STAGE[s]}</SectionTitle><Card pad={false} className="overflow-hidden">{T.games.filter((g) => g.stage === s).map((g) => <IntlRow key={g.id} g={g} />)}</Card></div>))}
       {Object.keys(T.groups).map((l) => (
         <div key={l}>
@@ -305,7 +305,7 @@ function TournamentView({ L, T }: { L: League; T: Tournament }) {
           <Card pad={false} className="overflow-hidden">
             {groupOrder(T, l).map((c, i) => { const r = T.table[c]; return (
               <div key={c} className="grid grid-cols-[20px_1fr_24px_44px_30px] items-center gap-2 px-3 min-h-[40px] border-b border-white/5 text-[14px] tnum">
-                <span className="num text-muted">{i + 1}</span><span className="truncate">{flag(c)} {nationName(c)}</span><span className="text-muted text-center">{r.gp}</span><span className="text-muted text-center text-[12.5px]">{r.gf}:{r.ga}</span><span className="num text-right text-[16px]">{r.pts}</span>
+                <span className="num text-muted">{i + 1}</span><span className="truncate"><Flag code={c} size={12} /> {nationName(c)}</span><span className="text-muted text-center">{r.gp}</span><span className="text-muted text-center text-[12.5px]">{r.gf}:{r.ga}</span><span className="num text-right text-[16px]">{r.pts}</span>
               </div>); })}
             {T.games.filter((g) => g.stage === l).map((g) => <IntlRow key={g.id} g={g} />)}
           </Card>
@@ -327,7 +327,7 @@ export function IntlScreen() {
         <>
           <Card className="mt-1">
             <div className="font-display uppercase text-[18px]">Чемпионат мира 2026 — реальный итог</div>
-            <div className="mt-2 text-[15px]">🥇 {flag('ESP')} Испания · 🥈 {flag('ARG')} Аргентина · 🥉 {flag('ENG')} Англия</div>
+            <div className="mt-2 text-[15px]">🥇 <Flag code="ESP" size={13} /> Испания · 🥈 <Flag code="ARG" size={13} /> Аргентина · 🥉 <Flag code="ENG" size={13} /> Англия</div>
             <div className="text-[13px] text-muted mt-2">Игроки-призёры отмечены медалями в профилях. Следующий турнир в игре — {nextYear % 4 === 2 ? 'чемпионат мира' : 'чемпионат Европы'} {nextYear} (июнь). Составы сборных собираются из реальных игроков всех лиг.</div>
           </Card>
           <Empty icon="🌍" title="Турнир ещё не начался" text="Заявки объявят в конце мая турнирного года." />
@@ -337,7 +337,7 @@ export function IntlScreen() {
         <Card pad={false} className="mt-1 overflow-hidden">
           {L.intl.ranking.slice(0, 60).map((c, i) => (
             <div key={c} className="flex items-center gap-3 px-3 min-h-[42px] border-b border-white/5 last:border-0 text-[14.5px]">
-              <span className="num text-muted w-6">{i + 1}</span><span className="text-[19px]">{flag(c)}</span><span className="flex-1 truncate">{nationName(c)}</span><span className="num">{nationPower(L, c).toFixed(1)}</span>
+              <span className="num text-muted w-6">{i + 1}</span><Flag code={c} size={16} /><span className="flex-1 truncate">{nationName(c)}</span><span className="num">{nationPower(L, c).toFixed(1)}</span>
             </div>
           ))}
         </Card>

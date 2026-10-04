@@ -159,6 +159,8 @@ export interface Coach {
 export interface Team {
   id: string;
   lg: LeagueId;
+  /** Transfermarkt club id: the crest is loaded from its image CDN. */
+  tm?: number;
   name: string;
   /** Russian name for the interface. */
   ru: string;

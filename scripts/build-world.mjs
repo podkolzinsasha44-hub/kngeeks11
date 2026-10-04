@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
+import { CLUB_TM } from './club-tm.mjs';
 import { LEAGUES, cached, enSquad, link, templates, tplParams } from './fetch-data.mjs';
 import { COUNTRIES, fifa, flagEmoji } from './countries.mjs';
 
@@ -510,6 +511,8 @@ const outTeams = teams.map((t) => {
     id: t.id, lg: t.lg, name: t.name, ru: t.ru, short: t.short, country: t.country, primary: t.primary, secondary: t.secondary, stadium: t.stadium, cap: t.cap,
     rep, coach: { name: t.coach ?? 'Главный тренер', rating: clamp(Math.round(lvl + 2 + (rnd(t.id, 'coach') - 0.5) * 8), 58, 92) },
     budget: Math.round((tv * 0.07 + 1e6) / 1e5) * 1e5, wages: sq.reduce((s, p) => s + p.w, 0),
+    // Crest: a club not in the list keeps the badge drawn from its colours (a guess could show a wrong crest).
+    ...(CLUB_TM[t.id] ? { tm: CLUB_TM[t.id] } : {}),
   };
 });
 
