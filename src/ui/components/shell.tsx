@@ -1,9 +1,10 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useNav, type Tab } from '../../store/nav';
 import { useGame } from '../../store/game';
 import { cx } from './kit';
+import { RouteKey, saveScroll, scrollOf } from '../keep';
 
 const DESKTOP = '(min-width: 1024px)';
 const subscribeDesktop = (cb: () => void) => {
@@ -51,8 +52,15 @@ export function Screen({
   const pop = useNav((s) => s.pop);
   const canBack = useNav((s) => s.stacks[s.tab].length > 1);
   const showBack = back ?? canBack;
-  const [scrolled, setScrolled] = useState(false);
+  const routeKey = useContext(RouteKey);
+  const mainRef = useRef<HTMLElement>(null);
+  const [scrolled, setScrolled] = useState(() => scrollOf(routeKey) > 6);
   const touch = useRef<{ x: number; y: number } | null>(null);
+  // Coming back to a screen puts it where it was left.
+  useLayoutEffect(() => {
+    const y = scrollOf(routeKey);
+    if (y && mainRef.current) mainRef.current.scrollTop = y;
+  }, [routeKey]);
   return (
     <div
       className="absolute inset-0 flex flex-col"
@@ -85,7 +93,7 @@ export function Screen({
         </div>
         {headerExtra && <div className="lg:max-w-[1240px] lg:mx-auto lg:px-4 w-full">{headerExtra}</div>}
       </header>
-      <main className={cx('scroll flex-1', !noPad && 'px-4 lg:px-10', className)} onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 6)}>
+      <main ref={mainRef} className={cx('scroll flex-1', !noPad && 'px-4 lg:px-10', className)} onScroll={(e) => { const y = e.currentTarget.scrollTop; setScrolled(y > 6); if (routeKey) saveScroll(routeKey, y); }}>
         <div className="lg:max-w-[1180px] lg:mx-auto">
         {large && (
           <div className="pt-1 pb-3">

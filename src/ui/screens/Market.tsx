@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useGame, useL } from '../../store/game';
 import { useNav } from '../../store/nav';
 import { LEAGUES, LEAGUE_IDS, windowOpen } from '../../engine/leagues';
@@ -8,12 +8,13 @@ import { Button, Card, Chips, cx, Empty, Pill, SectionTitle, Segmented } from '.
 import { Screen } from '../components/shell';
 import { PlayerRow, TeamBadge } from '../components/media';
 import { dateShort, dispName, money, playerAge, POS_RU } from '../format';
+import { useKeep } from '../keep';
 
 type TabId = 'search' | 'free' | 'offers' | 'list' | 'log';
 
 export function Market({ params }: { params: Record<string, unknown> }) {
   const L = useL();
-  const [tab, setTab] = useState<TabId>((params.tab as TabId) ?? 'search');
+  const [tab, setTab] = useKeep<TabId>('market.tab', (params.tab as TabId) ?? 'search');
   const me = L.teams[L.user];
   const incoming = L.offers.filter((o) => o.to === L.user && o.status === 'pending');
   const fl = foreignLeft(L, me);
@@ -34,12 +35,12 @@ export function Market({ params }: { params: Record<string, unknown> }) {
 
 function Search({ L, free }: { L: League; free: boolean }) {
   const me = L.teams[L.user];
-  const [pos, setPos] = useState<'all' | Pos>('all');
-  const [lg, setLg] = useState<string>('all');
-  const [sort, setSort] = useState<'ovr' | 'pot' | 'val' | 'age'>('ovr');
-  const [q, setQ] = useState('');
-  const [afford, setAfford] = useState(false);
-  const [u23, setU23] = useState(false);
+  const [pos, setPos] = useKeep<'all' | Pos>('market.pos', 'all');
+  const [lg, setLg] = useKeep<string>('market.lg', 'all');
+  const [sort, setSort] = useKeep<'ovr' | 'pot' | 'val' | 'age'>('market.sort', 'ovr');
+  const [q, setQ] = useKeep('market.q', '');
+  const [afford, setAfford] = useKeep('market.afford', false);
+  const [u23, setU23] = useKeep('market.u23', false);
   const list = useMemo(() => {
     const out: Player[] = [];
     const s = q.trim().toLowerCase();
@@ -146,7 +147,7 @@ function Shortlist({ L }: { L: League }) {
 
 function Log({ L }: { L: League }) {
   const push = useNav((s) => s.push);
-  const [mine, setMine] = useState(false);
+  const [mine, setMine] = useKeep('market.mine', false);
   const list = L.transfers.filter((t) => !mine || t.user).slice(0, 120);
   return (
     <>

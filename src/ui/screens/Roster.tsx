@@ -12,12 +12,13 @@ import { PlayerRow, StatusDots } from '../components/media';
 import { EmptyCard, PitchCard } from '../components/PlayerCard';
 import { PitchSvg } from '../components/charts';
 import { dispName, dispShort, fitColor, money, playerAge, POS_FULL, ROLE_RU } from '../format';
+import { useKeep } from '../keep';
 
 type TabId = 'pitch' | 'list';
 
 export function Roster({ params }: { params: Record<string, unknown> }) {
   const L = useL();
-  const [tab, setTab] = useState<TabId>(params.tab === 'squad' || params.tab === 'list' ? 'list' : 'pitch');
+  const [tab, setTab] = useKeep<TabId>('roster.tab', params.tab === 'squad' || params.tab === 'list' ? 'list' : 'pitch');
   const t = L.teams[L.user];
   const sq = squad(L, t.id);
   return (
@@ -28,7 +29,7 @@ export function Roster({ params }: { params: Record<string, unknown> }) {
 }
 
 function SquadList({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
-  const [sort, setSort] = useState<'pos' | 'ovr' | 'age' | 'wage' | 'fit'>('pos');
+  const [sort, setSort] = useKeep<'pos' | 'ovr' | 'age' | 'wage' | 'fit'>('roster.sort', 'pos');
   const xi = new Set(t.lineup.xi), bench = new Set(t.lineup.bench);
   const lim = foreignLimit(t.lg, L.season);
   const foreign = sq.filter((p) => isForeign(p, t.country)).length;

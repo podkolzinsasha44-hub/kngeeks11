@@ -7,6 +7,7 @@ import { Button, Card, cx, Meter, SectionTitle } from '../components/kit';
 import { Screen } from '../components/shell';
 import { PlayerPhoto } from '../components/media';
 import { dispName, money, playerAge, ROLE_RU } from '../format';
+import { useKeep } from '../keep';
 
 export function NegotiateScreen({ params }: { params: Record<string, unknown> }) {
   const L = useL();
@@ -16,10 +17,10 @@ export function NegotiateScreen({ params }: { params: Record<string, unknown> })
   const p = L.players[Number(params.id)];
   const n = p ? L.negotiations[p.id] : undefined;
   const me = L.teams[L.user];
-  const [wage, setWage] = useState(() => (n ? Math.round((n.ask.wage * 0.9) / 5000) * 5000 : 0));
-  const [years, setYears] = useState(() => n?.ask.years ?? 3);
+  const [wage, setWage] = useKeep('talks.wage', () => (n ? Math.round((n.ask.wage * 0.9) / 5000) * 5000 : 0));
+  const [years, setYears] = useKeep('talks.years', () => n?.ask.years ?? 3);
   const [done, setDone] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [msg, setMsg] = useKeep<string | null>('talks.msg', null);
   if (!p || (!n && !done)) return <Screen title="Переговоры"><div className="text-muted mt-6">Переговоры завершены.</div><Button className="mt-4" onClick={pop}>Назад</Button></Screen>;
   const market = wageFor(p.ovr, me.lg);
   const bill = wageBill(L, me.id);

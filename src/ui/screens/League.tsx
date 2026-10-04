@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useL } from '../../store/game';
 import { useNav } from '../../store/nav';
 import { LEAGUES, LEAGUE_IDS, statKey } from '../../engine/leagues';
@@ -11,13 +11,14 @@ import { Card, Chips, cx, Empty, Pill, SectionTitle, Segmented } from '../compon
 import { Screen } from '../components/shell';
 import { PlayerRow, TeamBadge } from '../components/media';
 import { dateShort, dispName, dowRu, money, ROLE_RU, seasonLabel } from '../format';
+import { useKeep } from '../keep';
 
 type TabId = 'table' | 'games' | 'players' | 'cup';
 
 export function LeagueScreen({ params }: { params: Record<string, unknown> }) {
   const L = useL();
-  const [lg, setLg] = useState<LeagueId>((params.lg as LeagueId) ?? L.teams[L.user].lg);
-  const [tab, setTab] = useState<TabId>((params.tab as TabId) ?? 'table');
+  const [lg, setLg] = useKeep<LeagueId>('league.lg', (params.lg as LeagueId) ?? L.teams[L.user].lg);
+  const [tab, setTab] = useKeep<TabId>('league.tab', (params.tab as TabId) ?? 'table');
   const russian = LEAGUES[lg].country === 'RUS';
   return (
     <Screen title={LEAGUES[lg].name} subtitle={`Сезон ${seasonLabel(L.season)}${L.comps[lg].champion && L.teams[L.comps[lg].champion] ? ` · чемпион: ${L.teams[L.comps[lg].champion].ru}` : ''}`}
@@ -98,7 +99,7 @@ function Games({ L, lg }: { L: League; lg: LeagueId }) {
   const rounds = Math.max(1, ...games.map((g) => Number(g.rd) || 1));
   const cur = Math.min(rounds, Math.max(1, ...games.filter((g) => g.played).map((g) => Number(g.rd))) + (games.some((g) => !g.played) ? 0 : 0));
   const next = games.find((g) => !g.played);
-  const [rd, setRd] = useState(Number(next?.rd ?? cur));
+  const [rd, setRd] = useKeep('league.rd', Number(next?.rd ?? cur));
   const list = games.filter((g) => Number(g.rd) === rd).sort((a, b) => (a.day < b.day ? -1 : 1));
   return (
     <>
@@ -113,7 +114,7 @@ function Games({ L, lg }: { L: League; lg: LeagueId }) {
 }
 
 function Leaders({ L, lg }: { L: League; lg: LeagueId }) {
-  const [stat, setStat] = useState<'g' | 'a' | 'ga' | 'rt' | 'cs'>('g');
+  const [stat, setStat] = useKeep<'g' | 'a' | 'ga' | 'rt' | 'cs'>('league.stat', 'g');
   const key = statKey(L.season, lg);
   const list = useMemo(() => leaders(L, key, stat, 25), [L.date, key, stat]); // eslint-disable-line react-hooks/exhaustive-deps
   return (

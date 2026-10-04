@@ -13,6 +13,7 @@ import { TeamBadge } from '../components/media';
 import { PlayerCard } from '../components/PlayerCard';
 import { Sparkline } from '../components/charts';
 import { ATTR_RU, clubLabel, dispName, fitColor, flag, FOOT_RU, money, nationName, ovrColor, playerAge, potLabel, ROLE_FULL, ROLE_RU, seasonLabel } from '../format';
+import { useKeep } from '../keep';
 
 const OUT: (keyof OutfieldAttrs)[] = ['pac', 'sho', 'pas', 'dri', 'att', 'def', 'phy', 'hea', 'sta', 'dis'];
 const KEEP: (keyof KeeperAttrs)[] = ['ref', 'pos', 'han', 'kic', 'con', 'men'];
@@ -26,7 +27,7 @@ export function PlayerScreen({ params }: { params: Record<string, unknown> }) {
   const L = useL();
   const act = useGame((s) => s.act);
   const p = L.players[Number(params.id)];
-  const [tab, setTab] = useState<Tab>('info');
+  const [tab, setTab] = useKeep<Tab>('player.tab', 'info');
   const desktop = useDesktop();
   if (!p) return <Screen title="Игрок"><div className="text-muted mt-6">Игрок не найден.</div></Screen>;
   const t = p.team ? L.teams[p.team] : null;

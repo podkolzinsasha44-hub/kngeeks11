@@ -4,6 +4,7 @@ import { useGame } from './store/game';
 import { useNav, type Tab } from './store/nav';
 import { TabBar, TABS, Toasts, useDesktop } from './ui/components/shell';
 import { Sidebar } from './ui/components/Sidebar';
+import { RouteKey } from './ui/keep';
 import { nextUserGame } from './engine/season';
 import { Menu } from './ui/screens/Menu';
 import { ROUTES, MODALS } from './ui/routes';
@@ -56,7 +57,7 @@ function GameShell() {
             exit={{ x: dir > 0 ? '-18%' : '30%', opacity: 0 }}
             transition={{ type: 'spring', stiffness: 420, damping: 42, mass: 0.9 }}
           >
-            <Comp params={route.params ?? {}} />
+            <RouteKey.Provider value={route.key}><Comp params={route.params ?? {}} /></RouteKey.Provider>
           </motion.div>
         </AnimatePresence>
       </div>
@@ -76,7 +77,7 @@ function GameShell() {
                 exit={{ y: 30, scale: 0.98 }}
                 transition={{ type: 'spring', stiffness: 360, damping: 34 }}
               >
-                <ModalComp params={modal!.params ?? {}} />
+                <RouteKey.Provider value={modal!.key}><ModalComp params={modal!.params ?? {}} /></RouteKey.Provider>
               </motion.div>
             </motion.div>
           ) : (
@@ -88,7 +89,7 @@ function GameShell() {
               exit={{ y: '100%' }}
               transition={{ type: 'spring', stiffness: 320, damping: 36 }}
             >
-              <ModalComp params={modal!.params ?? {}} />
+              <RouteKey.Provider value={modal!.key}><ModalComp params={modal!.params ?? {}} /></RouteKey.Provider>
             </motion.div>
           )
         )}

@@ -14,6 +14,7 @@ import { Button, Card, cx, Divider, Empty, Meter, Pill, Row, SectionTitle, Segme
 import { Screen, Sheet } from '../components/shell';
 import { PlayerRow, TeamBadge } from '../components/media';
 import { dateLong, dateShort, dispName, flag, money, nationName, seasonLabel } from '../format';
+import { useKeep } from '../keep';
 
 const TILES: { route: string; icon: string; title: string; sub: (L: League) => string; badge?: (L: League) => number }[] = [
   { route: 'news', icon: '📰', title: 'Новости', sub: (L) => `${L.news.length} материалов` },
@@ -105,7 +106,7 @@ const NEWS_ICON: Record<string, string> = { transfer: '🔁', sign: '✍️', in
 export function NewsScreen() {
   const L = useL();
   const push = useNav((s) => s.push);
-  const [f, setF] = useState<'all' | 'main' | 'transfer'>('all');
+  const [f, setF] = useKeep<'all' | 'main' | 'transfer'>('news.filter', 'all');
   const list = L.news.filter((n) => (f === 'main' ? n.important : f === 'transfer' ? n.kind === 'transfer' || n.kind === 'sign' : !L.settings.hideMedia || n.kind !== 'social')).slice(0, 150);
   return (
     <Screen title="Новости" headerExtra={<div className="px-4 pb-2"><Segmented value={f} onChange={setF} options={[{ v: 'all', label: 'Все' }, { v: 'main', label: 'Главное' }, { v: 'transfer', label: 'Трансферы' }]} /></div>}>
@@ -317,7 +318,7 @@ function TournamentView({ L, T }: { L: League; T: Tournament }) {
 export function IntlScreen() {
   const L = useL();
   const T = L.intl.current ?? L.intl.prev;
-  const [tab, setTab] = useState<'t' | 'rank'>(T ? 't' : 'rank');
+  const [tab, setTab] = useKeep<'t' | 'rank'>('intl.tab', T ? 't' : 'rank');
   const year = Number(L.date.slice(0, 4));
   const nextYear = [2028, 2030, 2032, 2034, 2036, 2038].find((y) => y > year || (y === year && L.date < `${y}-06-01`)) ?? year + 2;
   return (
