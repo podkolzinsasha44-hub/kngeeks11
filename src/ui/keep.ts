@@ -31,3 +31,6 @@ useNav.subscribe((s) => {
   if (s.modal) live.add(String(s.modal.key));
   for (const id of mem.keys()) if (!live.has(id.slice(0, id.indexOf(':')))) mem.delete(id);
 });
+
+/** Opens a screen with a chosen state, e.g. the market on its advice tab. */
+export const keepFor = (route: number, name: string, value: unknown) => { mem.set(`${route}:${name}`, value); };

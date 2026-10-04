@@ -8,7 +8,8 @@ import { gameOdds, quickOdds, ratingOf, sideOf } from '../src/engine/projection'
 import { seedState, useState_ } from '../src/engine/rng';
 import { advanceDay, lastUserBox, nextUserGame } from '../src/engine/season';
 import { negotiate, userBid } from '../src/engine/transfers';
-import { startTalks } from '../src/engine/contracts';
+import { canRegister, interest, startTalks } from '../src/engine/contracts';
+import { transferAdvice } from '../src/engine/advice';
 import type { League } from '../src/engine/types';
 import { newCareer, type WorldJson } from '../src/engine/world';
 
@@ -207,6 +208,41 @@ describe('market', () => {
     expect(r.status).toBe('signed');
     expect(p.team).toBe('SPA');
     expect(p.c!.until).toBe(Math.max(until, L.season + 1 + 2));
+  });
+});
+
+describe('transfer advice', () => {
+  it('recommends only realistic deals that really make the eleven stronger', () => {
+    const L = career('ROS');
+    const me = L.teams.ROS;
+    const t0 = performance.now();
+    const adv = transferAdvice(L);
+    expect(performance.now() - t0).toBeLessThan(1500);
+    expect(adv.now.length).toBeGreaterThan(0);
+    expect(adv.future.length).toBeGreaterThan(0);
+    for (const x of [...adv.now, ...adv.value, ...adv.free]) {
+      expect(x.p.team).not.toBe('ROS');
+      expect(x.fee).toBeLessThanOrEqual(me.budget);
+      expect(interest(L, x.p, me)).toBeGreaterThanOrEqual(0.35);
+      expect(canRegister(L, me, x.p, x.wage, x.fee > 0)).toBeNull();
+      expect(x.gain).toBeGreaterThan(0);
+    }
+    for (let i = 1; i < adv.now.length; i++) expect(adv.now[i - 1].gain).toBeGreaterThanOrEqual(adv.now[i].gain - 1e-9);
+    expect(transferAdvice(L).now.map((x) => x.p.id)).toEqual(adv.now.map((x) => x.p.id));
+  });
+  it('the top pick can actually be bought and makes the team stronger as promised', () => {
+    const L = career('ROS');
+    const me = L.teams.ROS;
+    const top = transferAdvice(L).now.find((x) => !x.notes.length)!;
+    expect(top).toBeTruthy();
+    expect(userBid(L, top.p.id, top.fee).status).toBe('accepted');
+    const n = L.negotiations[top.p.id];
+    expect(n.ask.wage).toBe(top.wage);
+    expect(negotiate(L, top.p.id, n.ask.wage, n.ask.years).status).toBe('signed');
+    expect(top.p.team).toBe('ROS');
+    const before = teamPower(L, me);
+    me.lineup.xi[top.slot] = top.p.id;
+    expect(teamPower(L, me) - before).toBeCloseTo(top.gain, 6);
   });
 });
 

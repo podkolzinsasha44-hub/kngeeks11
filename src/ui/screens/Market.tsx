@@ -1,16 +1,19 @@
 import { useMemo } from 'react';
 import { useGame, useL } from '../../store/game';
+import { transferAdvice, type Chance, type Pick } from '../../engine/advice';
 import { useNav } from '../../store/nav';
 import { LEAGUES, LEAGUE_IDS, windowOpen } from '../../engine/leagues';
 import { foreignLeft, respondOffer } from '../../engine/transfers';
+import { teamPower } from '../../engine/lineup';
 import type { League, Player, Pos } from '../../engine/types';
 import { Button, Card, Chips, cx, Empty, Pill, SectionTitle, Segmented } from '../components/kit';
 import { Screen } from '../components/shell';
 import { PlayerRow, TeamBadge } from '../components/media';
-import { dateShort, dispName, money, playerAge, POS_RU } from '../format';
+import { dateShort, dispName, money, playerAge, POS_RU, ROLE_RU } from '../format';
+import { surname } from '../components/PlayerCard';
 import { useKeep } from '../keep';
 
-type TabId = 'search' | 'free' | 'offers' | 'list' | 'log';
+type TabId = 'search' | 'advice' | 'free' | 'offers' | 'list' | 'log';
 
 export function Market({ params }: { params: Record<string, unknown> }) {
   const L = useL();
@@ -22,9 +25,10 @@ export function Market({ params }: { params: Record<string, unknown> }) {
     <Screen
       title="Рынок"
       subtitle={`${windowOpen(L) ? 'Окно открыто' : 'Окно закрыто'} · бюджет ${money(me.budget)}${fl != null ? ` · мест для легионеров: ${Math.max(0, fl)}` : ''}`}
-      headerExtra={<div className="px-4 pb-2"><Segmented value={tab} onChange={setTab} options={[{ v: 'search', label: 'Поиск' }, { v: 'free', label: 'Свободные' }, { v: 'offers', label: `Сделки${incoming.length ? ` · ${incoming.length}` : ''}` }, { v: 'list', label: '★' }, { v: 'log', label: 'Лента' }]} /></div>}
+      headerExtra={<div className="px-4 pb-2"><Segmented value={tab} onChange={setTab} options={[{ v: 'search', label: 'Поиск' }, { v: 'advice', label: 'Советы' }, { v: 'free', label: 'Агенты' }, { v: 'offers', label: `Сделки${incoming.length ? ` · ${incoming.length}` : ''}` }, { v: 'list', label: '★' }, { v: 'log', label: 'Лента' }]} /></div>}
     >
       {tab === 'search' && <Search L={L} free={false} />}
+      {tab === 'advice' && <AdviceTab L={L} />}
       {tab === 'free' && <Search L={L} free />}
       {tab === 'offers' && <Offers L={L} />}
       {tab === 'list' && <Shortlist L={L} />}
@@ -167,5 +171,85 @@ function Log({ L }: { L: League }) {
         </Card>
       ) : <Empty icon="🔁" title="Переходов пока нет" />}
     </>
+  );
+}
+
+const CHANCE: Record<Chance, [string, string]> = { high: ['охотно перейдёт', '#3ddc97'], mid: ['готов обсудить', '#ffb547'], low: ['сомневается', '#ff8a5f'] };
+
+/** Who to buy: computed by the engine from the price, the wage, the player's will and the power of the eleven. */
+function AdviceTab({ L }: { L: League }) {
+  const ver = useGame((s) => s.ver);
+  const adv = useMemo(() => transferAdvice(L), [L, ver]);
+  const me = L.teams[L.user];
+  const weak = adv.weak;
+  const weakP = weak?.player != null ? L.players[weak.player] : null;
+  const sections: [string, string, Pick[], 'now' | 'future'][] = [
+    ['Усилят состав сейчас', 'Наибольший прирост силы одиннадцати, если игрок выйдет на своё место.', adv.now, 'now'],
+    ['Выгодные варианты', 'Больше всего силы за каждый потраченный евро (трансфер и две зарплаты).', adv.value, 'now'],
+    ['Таланты на вырост', 'До 21 года, потенциал выше среднего уровня вашего старта.', adv.future, 'future'],
+    ['Свободные агенты', 'Без платы за трансфер — только контракт, можно подписать и вне окна.', adv.free, 'now'],
+  ];
+  return (
+    <>
+      <Card className="mt-1">
+        <div className="flex items-start gap-3">
+          <div className="text-[26px] leading-none">🧭</div>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-[15px]">{weak ? <>Слабее всего: {ROLE_RU[weak.role]} — {weakP ? dispName(weakP) : 'место пустует'} ({Math.round(weak.rating)})</> : 'Состав не выбран'}</div>
+            <div className="text-[13px] text-muted mt-0.5 leading-snug">
+              Бюджет {money(adv.budget)} · свободно в зарплатах {money(Math.max(0, adv.wageRoom))} в год. Сила сейчас {teamPowerText(L)}.
+              {!adv.windowOpen && ' Окно закрыто: покупка у клубов — когда оно откроется, свободных агентов можно подписать сразу.'}
+            </div>
+          </div>
+        </div>
+      </Card>
+      {sections.map(([title, hint, list, kind]) => (
+        <div key={title}>
+          <SectionTitle>{title}</SectionTitle>
+          <div className="text-[12px] text-muted -mt-1.5 mb-2 px-1">{hint}</div>
+          {list.length ? (
+            <Card pad={false} className="overflow-hidden">
+              {list.map((x) => <AdviceRow key={x.p.id} L={L} x={x} kind={kind} />)}
+            </Card>
+          ) : <div className="text-[13px] text-muted px-1">{kind === 'future' ? 'Подходящих талантов по карману сейчас нет.' : 'Сейчас нет вариантов, которые усилят состав и подходят по деньгам.'}</div>}
+        </div>
+      ))}
+      <div className="text-[11.5px] text-faint mt-4 px-1 leading-snug">
+        Советы считает тот же движок, что играет матчи: прирост — это изменение силы одиннадцати (как в шансах на матч), цена — сколько запросит клуб у «{me.ru}», зарплата — с чего игрок начнёт переговоры. Игроков, которые не хотят к вам переходить или не помещаются в бюджет, здесь нет.
+      </div>
+    </>
+  );
+}
+
+const teamPowerText = (L: League) => {
+  const t = L.teams[L.user];
+  return teamPower(L, t).toFixed(1);
+};
+
+function AdviceRow({ L, x, kind }: { L: League; x: Pick; kind: 'now' | 'future' }) {
+  const out = x.replaces != null ? L.players[x.replaces] : null;
+  const [label, color] = CHANCE[x.chance];
+  const sub = (
+    <>
+      <span className="block truncate">
+        <span className="text-ink/85">{ROLE_RU[x.role]}</span>
+        {kind === 'now' ? <> вместо {out ? surname(out) : 'пустого места'}</> : <> · {playerAge(L, x.p)} лет · потенциал <span className="text-gold">{x.p.pot}</span></>}
+      </span>
+      {kind === 'now' && <span className="block truncate text-good font-medium">+{x.gain.toFixed(1)} к силе</span>}
+      {x.notes.length > 0 && <span className="block text-warn text-[11.5px] truncate">⚠ {x.notes.join(' · ')}</span>}
+    </>
+  );
+  return (
+    <PlayerRow
+      p={x.p}
+      sub={sub}
+      right={
+        <div className="text-right mr-1 shrink-0 leading-tight">
+          <div className="num text-[14px]">{x.fee ? money(x.fee) : 'бесплатно'}</div>
+          <div className="text-[11px] text-muted tnum">{money(x.wage)}/год</div>
+          <div className="text-[11px] font-medium whitespace-nowrap" style={{ color }}>{label}</div>
+        </div>
+      }
+    />
   );
 }

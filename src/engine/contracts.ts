@@ -72,17 +72,28 @@ export function interest(L: League, p: Player, to: Team) {
   return 0.5 + level + role + home + need + (p.pers.win - 10) * (to.strategy === 'contend' ? 0.012 : -0.008);
 }
 
-export function startTalks(L: League, p: Player, teamId: string, kind: Negotiation['kind'], fee?: number): Negotiation {
-  const t = L.teams[teamId];
+/** How keen the player is on these talks: interest in the club, or loyalty and mood for an extension. */
+const talksWill = (L: League, p: Player, t: Team, kind: Negotiation['kind']) =>
+  kind === 'extend' ? 0.75 + (p.morale - 60) / 200 + (p.pers.loy - 10) * 0.012 : interest(L, p, t);
+
+/** The yearly wage the player opens the talks with (the same number startTalks puts on the table). */
+export function askingWage(L: League, p: Player, t: Team, kind: Negotiation['kind']): number {
   const a = ageOn(p.bd, L.date);
   const base = wageFor(p.ovr, t.lg);
   const cur = p.c?.wage ?? 0;
-  const i = kind === 'extend' ? 0.75 + (p.morale - 60) / 200 + (p.pers.loy - 10) * 0.012 : interest(L, p, t);
+  const i = talksWill(L, p, t, kind);
   // The less he wants the move, the more it costs; young talents price in their potential.
   let ask = Math.max(base, cur * (kind === 'extend' ? 1.05 : 1.15)) * (1 + (p.pers.greed - 10) * 0.015) * (1 + clamp(0.75 - i, -0.1, 0.5));
   if (a <= 23) ask *= 1 + clamp((p.pot - p.ovr) * 0.02, 0, 0.3);
   const diff = L.settings.difficulty === 'rookie' ? 0.92 : L.settings.difficulty === 'hard' ? 1.08 : 1;
-  ask = Math.round((ask * diff) / 5000) * 5000;
+  return Math.round((ask * diff) / 5000) * 5000;
+}
+
+export function startTalks(L: League, p: Player, teamId: string, kind: Negotiation['kind'], fee?: number): Negotiation {
+  const t = L.teams[teamId];
+  const a = ageOn(p.bd, L.date);
+  const i = talksWill(L, p, t, kind);
+  const ask = askingWage(L, p, t, kind);
   const years = a >= 33 ? 1 : a >= 30 ? 2 : a <= 22 ? 4 : 3;
   const n: Negotiation = {
     player: p.id, team: teamId, ask: { wage: ask, years }, floor: Math.round((ask * (0.84 + (p.pers.loy - 10) * (kind === 'extend' ? -0.006 : 0))) / 5000) * 5000,
@@ -131,6 +142,9 @@ export function offerContract(L: League, n: Negotiation, wage: number, years: nu
   return { status: 'counter', text: `Агент: «Мы рассчитываем на ${money(n.ask.wage)} в год на ${n.ask.years} ${n.ask.years === 1 ? 'год' : n.ask.years < 5 ? 'года' : 'лет'}».` };
 }
 
+/** Morale boost of a player who has just joined a new club. */
+export const JOIN_MORALE = 10;
+
 export function signContract(L: League, p: Player, t: Team, wage: number, years: number) {
   const fresh = p.team !== t.id || !!p.loan;
   // A season runs from July to June; `until` is the year the deal ends on June 30.
@@ -147,7 +161,7 @@ export function signContract(L: League, p: Player, t: Team, wage: number, years:
     p.st = 'ACT';
     p.loan = undefined;
     p.joined = L.season;
-    p.morale = clamp(p.morale + 10, 0, 100);
+    p.morale = clamp(p.morale + JOIN_MORALE, 0, 100);
     if (!p.teams.includes(t.id)) p.teams.push(t.id);
     if (p.num != null && squad(L, t.id).some((x) => x.id !== p.id && x.num === p.num)) p.num = freeNumber(L, t.id);
     if (t.id === L.user) { L.seasonLog.bought++; if (!L.album.includes(p.id)) L.album.push(p.id); }

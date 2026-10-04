@@ -15,8 +15,12 @@ import { Button, Card, cx, Meter, SectionTitle, Chevron, Pill } from '../compone
 import { Screen, Icon } from '../components/shell';
 import { TeamBadge } from '../components/media';
 import { Ring } from '../components/charts';
-import { dateLong, dateShort, dowRu, money, phaseLabel, recordStr, seasonLabel } from '../format';
+import { dateLong, dateShort, dowRu, money, phaseLabel, recordStr, ROLE_RU, seasonLabel } from '../format';
 import { SimDock } from './SimOverlay';
+import { transferAdvice } from '../../engine/advice';
+import { keepFor } from '../keep';
+import { surname } from '../components/PlayerCard';
+import { PlayerPhoto } from '../components/media';
 
 export function Office() {
   const L = useL();
@@ -103,6 +107,8 @@ export function Office() {
         </div>
       )}
 
+      <AdviceCard />
+
       {recent.length > 0 && (
         <div className="flex gap-2 mt-3">
           {recent.reverse().map((g) => {
@@ -187,5 +193,33 @@ function Side({ id }: { id: string }) {
       <div className="font-display uppercase text-[14px] mt-1.5 truncate max-w-full">{t.ru}</div>
       <div className="text-[11.5px] text-white/60 tnum">{t.rec.gp ? recordStr(t) : `сила ${teamPower(L, t).toFixed(0)}`}</div>
     </button>
+  );
+}
+
+/** The single best transfer idea of the moment, with a way into the full advice on the market. */
+function AdviceCard() {
+  const L = useL();
+  const ver = useGame((s) => s.ver);
+  const go = useNav((s) => s.go);
+  const adv = useMemo(() => transferAdvice(L, 3), [L, ver]); // eslint-disable-line react-hooks/exhaustive-deps
+  const top = (adv.windowOpen ? adv.now[0] : adv.free[0]) ?? adv.free[0] ?? adv.now[0];
+  if (!top) return null;
+  const out = top.replaces != null ? L.players[top.replaces] : null;
+  const open = () => { keepFor(useNav.getState().stacks.market[0].key, 'market.tab', 'advice'); go('market'); };
+  return (
+    <Card className="mt-3" onClick={open}>
+      <div className="text-[11px] uppercase tracking-wider text-muted mb-2">Совет по трансферу</div>
+      <div className="flex items-center gap-3">
+        <PlayerPhoto p={top.p} L={L} size={44} />
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-[15px] truncate">{surname(top.p)} · {top.p.ovr}</div>
+          <div className="text-[12.5px] text-muted truncate">{ROLE_RU[top.role]} вместо {out ? surname(out) : 'пустого места'} · {top.fee ? money(top.fee) : 'бесплатно'}</div>
+        </div>
+        <div className="text-right shrink-0 leading-tight">
+          <div className="num text-[17px] text-good">+{top.gain.toFixed(1)}</div>
+          <div className="text-[12px] accent-text font-semibold">Все советы →</div>
+        </div>
+      </div>
+    </Card>
   );
 }
