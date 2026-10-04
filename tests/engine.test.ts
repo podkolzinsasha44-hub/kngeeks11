@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { foreignLimit, isForeign, LEAGUES } from '../src/engine/leagues';
-import { FORMATIONS, lineupValid, squad, teamPower } from '../src/engine/lineup';
+import { FORMATIONS, lineupValid, squad, teamPower, touchSquads } from '../src/engine/lineup';
 import { simulateMatch } from '../src/engine/match';
 import { gameOdds, quickOdds, ratingOf, sideOf } from '../src/engine/projection';
 import { seedState, useState_ } from '../src/engine/rng';
@@ -179,6 +179,24 @@ describe('market', () => {
     expect(L.teams.ROS.budget).toBeGreaterThan(from);
     expect(me.budget).toBeLessThan(60e6);
     expect(L.transfers[0].player).toBe(target.id);
+  });
+  it('a full squad of 40 does not block a transfer, but does block a free agent', () => {
+    const L = career('ZEN');
+    const me = L.teams.ZEN;
+    me.budget = 200e6;
+    me.wageBudget *= 4;
+    const filler = Object.values(L.players).filter((p) => p.team && L.teams[p.team].lg === 'FNL' && !isForeign(p, 'RUS'));
+    for (const p of filler.slice(0, 40 - squad(L, 'ZEN').length)) p.team = 'ZEN';
+    touchSquads();
+    expect(squad(L, 'ZEN').length).toBe(40);
+    const target = squad(L, 'ROS').filter((p) => !isForeign(p, 'RUS')).sort((a, b) => b.ovr - a.ovr)[3];
+    expect(userBid(L, target.id, Math.min(me.budget, target.val * 3)).status).toBe('accepted');
+    const n = L.negotiations[target.id];
+    expect(negotiate(L, target.id, n.ask.wage, n.ask.years).status).toBe('signed');
+    expect(squad(L, 'ZEN').length).toBe(41);
+    const fa = Object.values(L.players).find((p) => p.st === 'FA' && !isForeign(p, 'RUS'))!;
+    const t = startTalks(L, fa, 'ZEN', 'free');
+    expect(negotiate(L, fa.id, t.ask.wage * 2, t.ask.years).text).toContain('40 игроков');
   });
   it('a contract extension keeps the player and moves the end date', () => {
     const L = career();

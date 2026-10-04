@@ -138,7 +138,7 @@ function offersToUser(L: League) {
     // Unsolicited bids are rare; listing a player is what brings the buyers.
     const pr = p.listed ? 0.5 : p.wantsOut ? 0.3 : 0.01 + (p.ovr >= 76 ? 0.008 : 0);
     if (next() > pr) continue;
-    const buyer = clubs.find((t) => t.budget >= p.val * 0.8 && wouldStart(L, t, p) && interest(L, p, t) >= 0.4 && !canRegister(L, t, p, wageFor(p.ovr, t.lg)));
+    const buyer = clubs.find((t) => t.budget >= p.val * 0.8 && wouldStart(L, t, p) && interest(L, p, t) >= 0.4 && !canRegister(L, t, p, wageFor(p.ovr, t.lg), true));
     if (!buyer) continue;
     const fee = round(Math.min(buyer.budget, p.val * (p.listed ? 0.75 + next() * 0.3 : 0.9 + next() * 0.45)));
     const off: TransferOffer = { id: L.nextMsgId++, date: L.date, player: p.id, from: buyer.id, to: L.user, fee, status: 'pending', expires: addDays(L.date, 6) };
@@ -219,7 +219,7 @@ function aiDeals(L: League, pool: Player[]) {
       if (v <= bv) continue;
       const ask = askingPrice(L, p, t);
       // No club spends its whole budget on one player, and stars do not move to clubs of a lower standing.
-      if (ask > t.budget * 0.7 || interest(L, p, t) < 0.6 || canRegister(L, t, p, wageFor(p.ovr, t.lg))) continue;
+      if (ask > t.budget * 0.7 || interest(L, p, t) < 0.6 || canRegister(L, t, p, wageFor(p.ovr, t.lg), true)) continue;
       if (p.team && L.teams[p.team].rep > t.rep + 4 && squadRank(L, p) < 8) continue;
       // A selling club keeps a workable squad.
       if (p.team && squad(L, p.team).length <= 20) continue;

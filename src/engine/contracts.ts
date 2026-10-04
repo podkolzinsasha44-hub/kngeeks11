@@ -44,10 +44,13 @@ export function foreignCount(L: League, t: Team) {
   return squad(L, t.id).filter((p) => isForeign(p, t.country)).length;
 }
 
-/** Can the club register this player? Returns the reason when it cannot. */
-export function canRegister(L: League, t: Team, p: Player, wage: number): string | null {
+/**
+ * Can the club register this player? Returns the reason when it cannot.
+ * The 40-place squad limit stops free agents only: a transfer may take a club over it (house rule, as in NHL GM).
+ */
+export function canRegister(L: League, t: Team, p: Player, wage: number, transfer = false): string | null {
   const sq = squad(L, t.id);
-  if (sq.length >= 40) return 'В заявке уже 40 игроков — сначала освободите место';
+  if (!transfer && sq.length >= 40) return 'В заявке уже 40 игроков — сначала освободите место';
   const lim = foreignLimit(t.lg, L.season);
   if (lim && isForeign(p, t.country) && sq.filter((x) => isForeign(x, t.country)).length >= lim[0]) return `Лимит на легионеров: не больше ${lim[0]} в заявке`;
   if (wageBill(L, t.id) + wage > t.wageBudget * 1.02) return `Зарплатный бюджет исчерпан (${money(t.wageBudget)} в год)`;
@@ -101,7 +104,7 @@ export function offerContract(L: League, n: Negotiation, wage: number, years: nu
   const want = n.ask.years;
   const lenPenalty = Math.abs(years - want) * (a >= 30 && years < want ? 0.04 : a <= 23 && years > want ? 0.035 : 0.015);
   const eff = wage * (1 - lenPenalty);
-  const block = n.kind === 'extend' ? null : canRegister(L, t, p, wage);
+  const block = n.kind === 'extend' ? null : canRegister(L, t, p, wage, n.kind === 'transfer');
   if (block) {
     n.history.push({ wage, years, result: block });
     return { status: 'counter', text: block };
