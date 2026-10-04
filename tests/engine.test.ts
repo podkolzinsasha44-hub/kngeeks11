@@ -10,6 +10,7 @@ import { advanceDay, lastUserBox, nextUserGame } from '../src/engine/season';
 import { negotiate, userBid } from '../src/engine/transfers';
 import { canRegister, interest, startTalks } from '../src/engine/contracts';
 import { transferAdvice } from '../src/engine/advice';
+import { aiLineup } from '../src/engine/ai';
 import { autoRenew, renewalCases } from '../src/engine/renewals';
 import { offerView, saleView, sellAdvice } from '../src/engine/sale';
 import { buyerCeiling, respondOffer } from '../src/engine/transfers';
@@ -353,6 +354,35 @@ describe('sale advice', () => {
     p.wantsOut = true;
     expect(saleView(L, p).min).toBeLessThan(before);
     expect(saleView(L, p).min).toBeLessThanOrEqual(Math.round(p.val * 0.5 / 1e5) * 1e5 + 1e5);
+  });
+});
+
+describe('injuries in the advice', () => {
+  const injure = (L: League, team: string, days: number) => {
+    const t = L.teams[team];
+    const before = transferAdvice(L);
+    // The best outfield starter gets hurt; the staff puts a stand-in in his place.
+    const p = t.lineup.xi.map((id) => L.players[id]).filter((x) => x.pos !== 'G').sort((a, b) => b.ovr - a.ovr)[0];
+    p.inj = { type: 'растяжение', days, total: days };
+    aiLineup(L, t, undefined, true);
+    expect(t.lineup.xi).not.toContain(p.id);
+    return { p, before };
+  };
+  it('a short injury does not make the advice look for a replacement', () => {
+    const L = career('ZEN');
+    const { p, before } = injure(L, 'ZEN', 14);
+    const after = transferAdvice(L);
+    expect(after.now.map((x) => x.p.id)).toEqual(before.now.map((x) => x.p.id));
+    expect(after.weak).toEqual(before.weak);
+    expect(after.away.find((a) => a.p.id === p.id)?.long).toBe(false);
+  });
+  it('a long injury is reported, and selling or renewing still counts on the player', () => {
+    const L = career('ZEN');
+    const healthy = saleView(L, squad(L, 'ZEN').filter((x) => x.pos !== 'G').sort((a, b) => b.ovr - a.ovr)[0]);
+    const { p } = injure(L, 'ZEN', 90);
+    expect(transferAdvice(L).away.find((a) => a.p.id === p.id)?.long).toBe(true);
+    expect(saleView(L, p).loss).toBeCloseTo(healthy.loss, 6);
+    expect(sellAdvice(L).some((x) => x.p.id === p.id)).toBe(false);
   });
 });
 

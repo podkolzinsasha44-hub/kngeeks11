@@ -214,6 +214,16 @@ function AdviceTab({ L }: { L: League }) {
               Бюджет {money(adv.budget)} · свободно в зарплатах {money(Math.max(0, adv.wageRoom))} в год. Сила сейчас {teamPowerText(L)}.
               {!adv.windowOpen && ' Окно закрыто: покупка у клубов — когда оно откроется, свободных агентов можно подписать сразу.'}
             </div>
+            {adv.away.length > 0 && (
+              <div className="mt-2 flex flex-col gap-1 text-[12.5px] leading-snug">
+                {adv.away.slice(0, 4).map(({ p, days, long }) => (
+                  <div key={p.id}>
+                    <span className={long ? 'text-warn' : 'text-ice'}>{long ? '✚ Надолго выбыл' : '✚ Скоро вернётся'}:</span> {dispName(p)}{days ? ` (${days} дн.)` : ' (дисквалификация)'}
+                    <span className="text-muted"> — {long ? 'советы учитывают замену на это время' : 'его место в расчётах сохранено, замену не ищем'}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </Card>

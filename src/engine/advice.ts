@@ -5,7 +5,7 @@
 // No randomness: the same state gives the same advice.
 import { askingWage, canRegister, interest, JOIN_MORALE, wageBill } from './contracts';
 import { foreignLimit, isForeign, windowOpen } from './leagues';
-import { FORMATIONS, slotRating, squad, teamPower } from './lineup';
+import { FORMATIONS, planned, SHORT_ABSENCE, slotRating, squad, teamPower } from './lineup';
 import { askingPrice } from './transfers';
 import type { League, Player, Role, Team } from './types';
 import { ageOn, clamp } from './util';
@@ -41,6 +41,8 @@ export interface Advice {
   windowOpen: boolean;
   budget: number;
   wageRoom: number;
+  /** The user's regulars who are out: back soon (their place is kept) or for long (the advice covers the gap). */
+  away: { p: Player; days: number; long: boolean }[];
 }
 
 const chanceOf = (i: number): Chance => (i >= 0.75 ? 'high' : i >= 0.5 ? 'mid' : 'low');
@@ -66,7 +68,8 @@ function bestSlot(L: League, t: Team, p: Player, base: number) {
 
 /** Recommendations for the user's club at the current date. */
 export function transferAdvice(L: League, limit = 8): Advice {
-  const t = L.teams[L.user];
+  // Players out for a short time keep their place: a two-week injury is not a reason to buy.
+  const t = planned(L, L.teams[L.user]);
   const roles = FORMATIONS[t.lineup.form];
   const base = teamPower(L, t);
   const open = windowOpen(L);
@@ -110,6 +113,7 @@ export function transferAdvice(L: League, limit = 8): Advice {
       if (foreignIn + 1 > lim[0]) notes.push(`в заявке станет больше ${lim[0]} легионеров`);
     }
     if (age >= 32) notes.push(`${age} лет — ненадолго`);
+    if (p.inj) notes.push(`сам травмирован ещё на ${p.inj.days} дн.`);
     const pick: Pick = {
       p, fee, wage, slot, role: roles[slot], replaces: t.lineup.xi[slot] ?? null,
       gain: best?.gain ?? 0, rating: best?.rating ?? slotRating(p, roles[slot]), chance: chanceOf(will), notes,
@@ -137,5 +141,10 @@ export function transferAdvice(L: League, limit = 8): Advice {
     .filter((x) => !taken.has(x.p.id))
     .sort((a, b) => blocked(a) - blocked(b) || b.p.pot - a.p.pot || a.fee - b.fee));
   const free = spread(byGain.filter((x) => x.fee === 0));
-  return { weak, now, value, future, free, windowOpen: open, budget: t.budget, wageRoom };
+  const regulars = new Set([...t.lineup.xi, ...L.teams[L.user].lineup.bench]);
+  const away = sq
+    .filter((p) => (p.inj || (p.susp ?? 0) > 0) && (regulars.has(p.id) || p.ovr >= avgStarter - 2))
+    .map((p) => ({ p, days: p.inj?.days ?? 0, long: !!p.inj && p.inj.days > SHORT_ABSENCE }))
+    .sort((a, b) => b.p.ovr - a.p.ovr);
+  return { weak, now, value, future, free, windowOpen: open, budget: t.budget, wageRoom, away };
 }

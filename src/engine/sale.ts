@@ -5,7 +5,7 @@
 // formula respondOffer uses, so the suggested counter does not scare the buyer away.
 // No randomness: the same state gives the same advice.
 import { askingWage, interest, wageBill } from './contracts';
-import { FORMATIONS, slotRating, squad } from './lineup';
+import { FORMATIONS, planned, slotRating, squad } from './lineup';
 import { lossWithout, NEED, renewalCases } from './renewals';
 import { askingPrice, buyerCeiling, wouldStart } from './transfers';
 import type { League, Player, Role, TransferOffer } from './types';
@@ -56,7 +56,8 @@ function replacementFor(L: League, p: Player, role: Role, money: number) {
 
 /** The staff's view of selling one of the user's players (without a concrete offer). */
 export function saleView(L: League, p: Player, offerFee = 0): SaleView {
-  const me = L.teams[L.user];
+  // Selling looks months ahead: every injured player comes back.
+  const me = planned(L, L.teams[L.user], Infinity);
   const age = ageOn(p.bd, L.date);
   const val = Math.max(p.val, 25_000);
   const i = me.lineup.xi.indexOf(p.id);
@@ -144,7 +145,7 @@ export interface SellPick {
 
 /** Players of the user's club worth selling now, with the price to ask and what the market can pay. */
 export function sellAdvice(L: League, limit = 8): SellPick[] {
-  const me = L.teams[L.user];
+  const me = planned(L, L.teams[L.user], Infinity);
   const sq = squad(L, me.id);
   const clubs = Object.values(L.teams).filter((t) => t.id !== me.id);
   const out: SellPick[] = [];

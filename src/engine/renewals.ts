@@ -4,7 +4,7 @@
 // good extensions are signed by themselves once a month (October to May of the final year), on
 // exactly the terms the player asks for in talks. No randomness: the same state, the same decision.
 import { askingWage, signContract, talksWill, talkYears, wageBill, wageFor } from './contracts';
-import { FORMATIONS, slotRating, squad, teamPower } from './lineup';
+import { FORMATIONS, planned, slotRating, squad, teamPower } from './lineup';
 import { pushMsg } from './news';
 import type { League, Player, Pos } from './types';
 import { ageOn, dispName, money } from './util';
@@ -36,7 +36,8 @@ export const NEED: Record<Pos, number> = { G: 2, D: 6, M: 6, F: 4 };
 
 /** Power lost if the player left: his slot in the eleven goes to the best player outside it. */
 export function lossWithout(L: League, p: Player): number {
-  const t = L.teams[L.user];
+  // Selling and renewing look months ahead: every injured player comes back.
+  const t = planned(L, L.teams[L.user], Infinity);
   const i = t.lineup.xi.indexOf(p.id);
   if (i < 0) return 0;
   const role = FORMATIONS[t.lineup.form][i];
@@ -50,7 +51,7 @@ export function lossWithout(L: League, p: Player): number {
 
 /** The assistant's view of every contract of the user's club that ends within two summers. */
 export function renewalCases(L: League): RenewalCase[] {
-  const t = L.teams[L.user];
+  const t = planned(L, L.teams[L.user], Infinity);
   const sq = squad(L, t.id);
   const starters = t.lineup.xi.map((id) => L.players[id]).filter(Boolean);
   const avgStarter = starters.reduce((s, p) => s + p.ovr, 0) / Math.max(1, starters.length);

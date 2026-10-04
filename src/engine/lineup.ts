@@ -293,3 +293,33 @@ export function teamPower(L: { players: Record<number, Player> }, t: Sideish): n
   const s = teamStrength(L, t);
   return 0.34 * s.att + 0.28 * s.mid + 0.26 * s.def + 0.12 * s.gk;
 }
+
+/** An absence up to this many days (about four matches) is not a hole in the squad for planning. */
+export const SHORT_ABSENCE = 30;
+
+/** Out now, but back within `days`: an injury or a suspension. */
+export const backSoon = (p: Player, days = SHORT_ABSENCE) => p.st === 'ACT' && !available(p) && (!p.inj || p.inj.days <= days);
+
+/**
+ * The eleven for squad planning (transfer advice, sales, renewals): players out for a short time take
+ * back the place where they are better than the stand-in; every other choice of the line-up stays.
+ * The line-up that plays the next match is not changed.
+ */
+export function plannedLineup(L: League, t: Pick<Team, 'id' | 'lineup'>, days = SHORT_ABSENCE): Lineup {
+  const roles = FORMATIONS[t.lineup.form];
+  const xi = [...t.lineup.xi];
+  const back = squad(L, t.id).filter((p) => backSoon(p, days) && !xi.includes(p.id)).sort((a, b) => b.ovr - a.ovr);
+  for (const p of back) {
+    let bi = -1, gain = 0;
+    roles.forEach((r, i) => {
+      const cur = L.players[xi[i]];
+      const g = slotRating(p, r) - (cur ? slotRating(cur, r) : 0);
+      if (g > gain) { gain = g; bi = i; }
+    });
+    if (bi >= 0) xi[bi] = p.id;
+  }
+  return { ...t.lineup, xi };
+}
+
+/** The team as it is planned: the same club with the planned eleven. */
+export const planned = <T extends Pick<Team, 'id' | 'lineup'>>(L: League, t: T, days = SHORT_ABSENCE): T => ({ ...t, lineup: plannedLineup(L, t, days) });
