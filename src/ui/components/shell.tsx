@@ -56,6 +56,14 @@ export function Screen({
   const mainRef = useRef<HTMLElement>(null);
   const [scrolled, setScrolled] = useState(() => scrollOf(routeKey) > 6);
   const touch = useRef<{ x: number; y: number } | null>(null);
+  useEffect(() => {
+    const top = (e: Event) => {
+      const s = useNav.getState();
+      if (s.stacks[(e as CustomEvent).detail as Tab]?.[0]?.key === routeKey) mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    window.addEventListener('tab-top', top);
+    return () => window.removeEventListener('tab-top', top);
+  }, [routeKey]);
   // Coming back to a screen puts it where it was left.
   useLayoutEffect(() => {
     const y = scrollOf(routeKey);

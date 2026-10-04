@@ -3,6 +3,7 @@ import { renewalCases, VERDICT_RU } from '../../engine/renewals';
 import { saleView } from '../../engine/sale';
 import { RenewalSheet, VERDICT_COLOR } from './More';
 import { useGame, useL } from '../../store/game';
+import { playerClub } from '../../engine/ucl';
 import { useNav } from '../../store/nav';
 import { interest, startTalks, yearsLeft } from '../../engine/contracts';
 import { isLeague, LEAGUES, windowOpen } from '../../engine/leagues';
@@ -110,9 +111,11 @@ function Actions({ L, p }: { L: League; p: Player }) {
   const push = useNav((s) => s.push);
   const [bid, setBid] = useState(false);
   const [confirm, setConfirm] = useState(false);
+  const desktop = useDesktop();
   const mine = p.team === L.user;
   const blocked = p.talksBlockedUntil && p.talksBlockedUntil > L.date;
   const btns: React.ReactNode[] = [];
+  const extra: React.ReactNode[] = [];
   if (mine && !p.loan) {
     btns.push(
       <Button key="ext" variant="primary" disabled={!!blocked} onClick={() => { act(() => startTalks(L, p, L.user, 'extend')); push('negotiate', { id: p.id }); }}>
@@ -121,8 +124,9 @@ function Actions({ L, p }: { L: League; p: Player }) {
       <Button key="list" onClick={() => act(() => { p.listed = !p.listed; toast(p.listed ? 'Игрок выставлен на трансфер: клубы будут присылать предложения' : 'Игрок снят с трансфера'); })} icon={<Icon name="swap" size={16} />}>
         {p.listed ? 'Снять с трансфера' : 'На трансфер'}
       </Button>,
-      <Button key="rel" variant="danger" onClick={() => setConfirm(true)}>Расторгнуть</Button>,
     );
+    // A destructive action stays out of the thumb zone.
+    extra.push(<Button key="rel" variant="danger" onClick={() => setConfirm(true)}>Расторгнуть</Button>);
   }
   if (!mine && p.st === 'FA') {
     btns.push(
@@ -137,10 +141,18 @@ function Actions({ L, p }: { L: League; p: Player }) {
       ? <Button key="talk" variant="good" onClick={() => push('negotiate', { id: p.id })}>Клубы договорились — к контракту</Button>
       : <Button key="bid" variant="primary" onClick={() => setBid(true)} icon={<Icon name="swap" size={16} />}>Сделать предложение</Button>);
   }
-  if (p.team && !mine) btns.push(<Button key="club" onClick={() => push('team', { id: p.team })}>Клуб</Button>);
+  const club = playerClub(L, p);
+  if (club && !mine) btns.push(<Button key="club" onClick={() => push('team', { id: club.id })}>Клуб</Button>);
+  // On a phone the main actions sit in a bar above the tab bar, under the thumb, whatever the scroll.
+  const bar = !desktop && btns.length > 0;
   return (
     <>
-      {btns.length > 0 && <div className="flex flex-wrap gap-2 mt-3">{btns}</div>}
+      {bar ? (
+        <div className="fixed inset-x-4 z-30 p-1.5 rounded-[22px] glass-strong shadow-[0_12px_36px_-10px_rgba(0,0,0,.9)] flex gap-1.5 [&>*]:flex-1 [&>*:not(:first-child)]:flex-none [&>*]:min-w-0 [&>*]:overflow-hidden" style={{ bottom: 'calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 10px - var(--vh-gap))' }}>
+          {btns}
+        </div>
+      ) : btns.length > 0 && <div className="flex flex-wrap gap-2 mt-3">{btns}</div>}
+      {extra.length > 0 && <div className="flex flex-wrap gap-2 mt-3">{extra}</div>}
       <BidSheet open={bid} onClose={() => setBid(false)} L={L} p={p} />
       <Sheet open={confirm} onClose={() => setConfirm(false)} title="Расторгнуть контракт?">
         <div className="text-[14.5px] text-muted mb-4">{dispName(p)} станет свободным агентом. Клуб выплатит половину оставшейся зарплаты из трансферного бюджета.</div>

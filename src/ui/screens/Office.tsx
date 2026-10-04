@@ -104,8 +104,8 @@ export function Office() {
             </div>
             <div className="text-[11.5px] text-white/55 mt-3 leading-snug text-center">Шансы — {400} прогонов матчевого движка с вашими одиннадцатью и составом соперника.</div>
             <div className="flex gap-2 mt-3">
-              <Button size="sm" full onClick={() => simulate('game', undefined, { watch: true })} icon={<Icon name="eye" size={16} />}>Смотреть матч</Button>
-              <Button size="sm" full onClick={() => go('roster', undefined, { tab: 'lineup' })} icon={<Icon name="roster" size={16} />}>Расстановка{t.lineup.auto ? ' · авто' : ''}</Button>
+              <Button full onClick={() => simulate('game', undefined, { watch: true })} icon={<Icon name="eye" size={16} />}>Смотреть матч</Button>
+              <Button full onClick={() => go('roster', undefined, { tab: 'lineup' })} icon={<Icon name="roster" size={16} />}>Расстановка{t.lineup.auto ? ' · авто' : ''}</Button>
             </div>
           </div>
         </div>
@@ -132,7 +132,7 @@ export function Office() {
       {so && (
         <>
           <SectionTitle>Прогноз сезона</SectionTitle>
-          <Card className="flex items-center justify-around">
+          <Card onClick={() => go('league')} className="flex items-center justify-around">
             <Ring value={so.title} label={cfg.up ? '1-е место' : 'титул'} color="#e8c26a" />
             <Ring value={so.top} label={cfg.up ? 'выход' : `топ-${cfg.top}`} />
             {(cfg.relegate > 0 || cfg.playoff > 0) && <Ring value={so.down} label="зона вылета" color="#ff5a5f" />}
@@ -149,7 +149,7 @@ export function Office() {
       </div>
       <div className="min-w-0 lg:pt-1">
       <SectionTitle className="lg:!mt-0">Руководство</SectionTitle>
-      <Card>
+      <Card onClick={() => go('more', 'career')}>
         <div className="flex justify-between text-[13px] mb-1.5"><span className="text-muted">Доверие совета директоров</span><span className="num">{L.owner.trust}/100</span></div>
         <Meter value={L.owner.trust} color={L.owner.trust < 30 ? '#ff5a5f' : L.owner.trust < 55 ? '#ffb547' : '#3ddc97'} />
         <div className="text-[13.5px] mt-3"><span className="text-muted">Задача на сезон:</span> {L.owner.goalText}.</div>
@@ -172,7 +172,7 @@ export function Office() {
 
       {L.inbox.filter((m) => !m.read).slice(0, 3).length > 0 && (
         <>
-          <SectionTitle right={<button className="text-[13px] accent-text" onClick={() => push('inbox')}>Все</button>}>Входящие</SectionTitle>
+          <SectionTitle right={<button className="hit text-[13px] accent-text px-1" onClick={() => push('inbox')}>Все</button>}>Входящие</SectionTitle>
           <Card pad={false}>
             {L.inbox.filter((m) => !m.read).slice(0, 3).map((m) => (
               <div key={m.id} onClick={() => push('inbox', { open: m.id })} className="press px-4 py-3 border-b border-white/5 last:border-0">

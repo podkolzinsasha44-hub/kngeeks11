@@ -185,6 +185,20 @@ button {
   opacity: 0.85;
 }
 
+/* A touch target of at least 44×44 pt around a control that looks smaller (Apple HIG). */
+.hit {
+  position: relative;
+}
+.hit::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
+}
+
 /* Background "arena" */
 .arena {
   position: fixed;

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useGame, useL } from '../../store/game';
 import { transferAdvice, type Chance, type Pick } from '../../engine/advice';
 import { offerView, sellAdvice, type SellPick } from '../../engine/sale';
@@ -8,7 +8,7 @@ import { foreignLeft, respondOffer } from '../../engine/transfers';
 import { teamPower } from '../../engine/lineup';
 import type { League, Player, Pos } from '../../engine/types';
 import { Button, Card, Chips, cx, Empty, Pill, SectionTitle, Segmented } from '../components/kit';
-import { Screen } from '../components/shell';
+import { Icon, Screen, Sheet } from '../components/shell';
 import { PlayerRow, TeamBadge } from '../components/media';
 import { dateShort, dispName, money, playerAge, POS_RU, ROLE_RU } from '../format';
 import { surname } from '../components/PlayerCard';
@@ -63,17 +63,56 @@ function Search({ L, free }: { L: League; free: boolean }) {
     const by = { ovr: (p: Player) => -p.ovr, pot: (p: Player) => -p.pot, val: (p: Player) => -p.val, age: (p: Player) => playerAge(L, p) }[sort];
     return out.sort((a, b) => by(a) - by(b) || b.ovr - a.ovr);
   }, [L, L.date, pos, lg, sort, q, afford, u23, free, me.budget]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Only the search and the position stay on screen: the rest of the filters live in a sheet, so the
+  // list starts in the upper half of the phone.
+  const [sheet, setSheet] = useState(false);
+  const SORTS = [{ v: 'ovr' as const, label: 'Рейтинг' }, { v: 'pot' as const, label: 'Потенциал' }, { v: 'val' as const, label: 'Стоимость' }, { v: 'age' as const, label: 'Моложе' }];
+  const LGS = [{ v: 'all', label: 'Все лиги' }, ...LEAGUE_IDS.map((id) => ({ v: id as string, label: LEAGUES[id].short })), { v: 'ext', label: 'Другие лиги' }];
+  const active = [
+    !free && lg !== 'all' && { label: LGS.find((x) => x.v === lg)?.label ?? lg, off: () => setLg('all') },
+    sort !== 'ovr' && { label: `↓ ${SORTS.find((x) => x.v === sort)!.label}`, off: () => setSort('ovr') },
+    !free && afford && { label: 'По карману', off: () => setAfford(false) },
+    u23 && { label: 'До 23 лет', off: () => setU23(false) },
+  ].filter(Boolean) as { label: string; off: () => void }[];
+  const toggle = (on: boolean, set: (v: boolean) => void, label: string) => (
+    <button onClick={() => set(!on)} className={cx('press h-11 px-4 rounded-full text-[14.5px] font-medium border', on ? 'bg-white text-[#05070d] border-white' : 'glass')}>{label}</button>
+  );
   return (
     <>
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Имя игрока" className="w-full h-11 rounded-2xl glass px-4 mt-1 mb-2.5 outline-none placeholder:text-faint" />
-      <Chips value={pos} onChange={setPos} options={[{ v: 'all', label: 'Все амплуа' }, ...(['G', 'D', 'M', 'F'] as Pos[]).map((v) => ({ v, label: POS_RU[v] }))]} />
-      {!free && <div className="mt-2"><Chips value={lg} onChange={setLg} options={[{ v: 'all', label: 'Все лиги' }, ...LEAGUE_IDS.map((id) => ({ v: id as string, label: LEAGUES[id].short })), { v: 'ext', label: 'Другие лиги' }]} /></div>}
-      <div className="mt-2"><Chips value={sort} onChange={setSort} options={[{ v: 'ovr', label: 'Рейтинг' }, { v: 'pot', label: 'Потенциал' }, { v: 'val', label: 'Стоимость' }, { v: 'age', label: 'Моложе' }]} /></div>
-      <div className="flex gap-2 mt-2">
-        {!free && <button onClick={() => setAfford(!afford)} className={cx('press h-9 px-3.5 rounded-full text-[13.5px] font-medium border', afford ? 'bg-white text-[#05070d] border-white' : 'glass')}>По карману</button>}
-        <button onClick={() => setU23(!u23)} className={cx('press h-9 px-3.5 rounded-full text-[13.5px] font-medium border', u23 ? 'bg-white text-[#05070d] border-white' : 'glass')}>До 23 лет</button>
-        <div className="flex-1 text-right text-[12.5px] text-muted self-center">{list.length} игроков</div>
+      <div className="flex gap-2 mt-1 mb-2.5">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Имя игрока" enterKeyHint="search" className="flex-1 min-w-0 h-11 rounded-2xl glass px-4 text-[16px] outline-none placeholder:text-faint" />
+        <button onClick={() => setSheet(true)} aria-label="Фильтры" className={cx('press relative h-11 px-3.5 rounded-2xl flex items-center gap-1.5 text-[14.5px] font-medium', active.length ? 'bg-white text-[#05070d]' : 'glass')}>
+          <Icon name="sliders" size={18} />Фильтры{active.length > 0 && <span className="num">· {active.length}</span>}
+        </button>
       </div>
+      <Chips value={pos} onChange={setPos} options={[{ v: 'all', label: 'Все амплуа' }, ...(['G', 'D', 'M', 'F'] as Pos[]).map((v) => ({ v, label: POS_RU[v] }))]} />
+      <div className="flex gap-2 mt-2 items-center flex-wrap">
+        {active.map((a) => (
+          <button key={a.label} onClick={a.off} className="press hit h-8 pl-3 pr-2 rounded-full glass text-[13px] flex items-center gap-1" aria-label={`Убрать фильтр ${a.label}`}>{a.label}<span className="text-muted text-[15px] leading-none">×</span></button>
+        ))}
+        <div className="flex-1 text-right text-[12.5px] text-muted">{list.length} игроков</div>
+      </div>
+      <Sheet open={sheet} onClose={() => setSheet(false)} title="Фильтры">
+        {!free && (
+          <>
+            <div className="text-[12px] uppercase tracking-wider text-muted mb-2">Лига</div>
+            <div className="flex flex-wrap gap-2">
+              {LGS.map((o) => <button key={o.v} onClick={() => setLg(o.v)} className={cx('press h-11 px-4 rounded-full text-[14.5px] font-medium border', lg === o.v ? 'bg-white text-[#05070d] border-white' : 'glass')}>{o.label}</button>)}
+            </div>
+          </>
+        )}
+        <div className="text-[12px] uppercase tracking-wider text-muted mt-5 mb-2">Сортировка</div>
+        <Segmented value={sort} onChange={setSort} options={SORTS} />
+        <div className="text-[12px] uppercase tracking-wider text-muted mt-5 mb-2">Ещё</div>
+        <div className="flex flex-wrap gap-2">
+          {!free && toggle(afford, setAfford, `По карману (до ${money(me.budget)})`)}
+          {toggle(u23, setU23, 'До 23 лет')}
+        </div>
+        <div className="flex gap-2 mt-6">
+          {active.length > 0 && <Button onClick={() => active.forEach((a) => a.off())}>Сбросить</Button>}
+          <Button variant="primary" size="lg" full onClick={() => setSheet(false)}>Показать {list.length}</Button>
+        </div>
+      </Sheet>
       {list.length ? (
         <Card pad={false} className="mt-3 overflow-hidden">
           {list.slice(0, 80).map((p) => <PlayerRow key={p.id} p={p} showClub right={<span className="num text-[13px] text-muted mr-1">{money(p.val)}</span>} />)}

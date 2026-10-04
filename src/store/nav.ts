@@ -43,7 +43,8 @@ export const useNav = create<NavState>((set, get) => ({
   setTab: (t) => {
     const { tab, stacks } = get();
     if (t === tab) {
-      // Tap on active tab → back to root
+      // Tap on the active tab: back to its first screen; on the first screen, scroll to the top (as in iOS).
+      if (stacks[t].length <= 1) { window.dispatchEvent(new CustomEvent('tab-top', { detail: t })); return; }
       set({ dir: -1, stacks: { ...stacks, [t]: stacks[t].slice(0, 1) } });
     } else set({ tab: t, dir: 1 });
   },

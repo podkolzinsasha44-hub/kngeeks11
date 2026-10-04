@@ -231,7 +231,7 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
             <div className="text-[15px] font-semibold">{ln.auto ? 'Состав выбирает штаб' : 'Состав выбираете вы'}</div>
             <div className="text-[12.5px] text-muted leading-snug">{ln.auto ? 'Перед каждым матчем штаб ставит сильнейших доступных игроков.' : 'На поле выйдут именно эти одиннадцать. Если кто-то не сможет играть, игра остановится и предупредит.'}</div>
           </div>
-          <button onClick={() => act(() => { t.lineup.auto = !t.lineup.auto; if (t.lineup.auto) aiLineup(L, t, sq, true); })} className={cx('press w-[52px] h-[32px] rounded-full relative shrink-0 transition-colors', ln.auto ? 'bg-white/15' : 'accent-bg')} aria-label="Ручной состав">
+          <button onClick={() => act(() => { t.lineup.auto = !t.lineup.auto; if (t.lineup.auto) aiLineup(L, t, sq, true); })} className={cx('press hit w-[52px] h-[32px] rounded-full shrink-0 transition-colors', ln.auto ? 'bg-white/15' : 'accent-bg')} aria-label="Ручной состав">
             <span className={cx('absolute top-[3px] w-[26px] h-[26px] rounded-full bg-white transition-all', ln.auto ? 'left-[3px]' : 'left-[23px]')} />
           </button>
         </div>
@@ -245,7 +245,7 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
       <Card pad={false} className="overflow-hidden">
         <div className="hscroll flex gap-2 p-3" style={{ scrollSnapType: 'none' }}>
           {ln.xi.map((id) => L.players[id]).filter((p) => p && p.pos !== 'G').map((p) => (
-            <button key={p.id} onClick={() => manual(() => { t.lineup.pen = p.id; })} className={cx('press shrink-0 h-9 px-3 rounded-full text-[13px] border', ln.pen === p.id ? 'bg-white text-[#05070d] border-white' : 'glass')}>{dispShort(p)}</button>
+            <button key={p.id} onClick={() => manual(() => { t.lineup.pen = p.id; })} className={cx('press hit shrink-0 h-9 px-3 rounded-full text-[13px] border', ln.pen === p.id ? 'bg-white text-[#05070d] border-white' : 'glass')}>{dispShort(p)}</button>
           ))}
         </div>
       </Card>

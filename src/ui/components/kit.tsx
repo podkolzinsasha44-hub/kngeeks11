@@ -12,7 +12,7 @@ export function Button({
 }: {
   children?: ReactNode; onClick?: () => void; variant?: BtnVariant; size?: 'sm' | 'md' | 'lg'; full?: boolean; disabled?: boolean; className?: string; icon?: ReactNode;
 }) {
-  const sizes = { sm: 'h-9 px-3.5 text-[14px] rounded-xl', md: 'h-11 px-4 text-[15px] rounded-2xl', lg: 'h-[52px] px-5 text-[17px] rounded-2xl' };
+  const sizes = { sm: 'hit h-9 px-3.5 text-[14px] rounded-xl', md: 'h-11 px-4 text-[15px] rounded-2xl', lg: 'h-[52px] px-5 text-[17px] rounded-2xl' };
   const variants: Record<BtnVariant, string> = {
     primary: 'accent-bg text-white shadow-[0_8px_28px_-8px_var(--accent)] font-semibold',
     gold: 'bg-[linear-gradient(135deg,#fff1c2,#e8c26a_45%,#a8812f)] text-[#1a1306] font-semibold shadow-[0_8px_28px_-10px_#e8c26a]',
@@ -53,7 +53,7 @@ export function Segmented<T extends string>({ value, options, onChange, classNam
   return (
     <div className={cx('glass rounded-2xl p-1 flex relative', options.length >= 5 ? 'gap-0.5' : 'gap-1', className)}>
       {options.map((o) => (
-        <button key={o.v} onClick={() => onChange(o.v)} className={cx('relative h-9 rounded-xl font-medium press', options.length >= 5 ? 'flex-auto px-1 text-[12.5px] tracking-[-0.01em]' : 'flex-1 text-[14px]')}>
+        <button key={o.v} onClick={() => onChange(o.v)} className={cx('hit h-9 rounded-xl font-medium press', options.length >= 5 ? 'flex-auto px-1 text-[12.5px] tracking-[-0.01em]' : 'flex-1 text-[14px]')}>
           {value === o.v && (
             <motion.div layoutId={`seg-${options.map((x) => x.v).join('')}`} className="absolute inset-0 rounded-xl bg-white/12 border border-white/10" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />
           )}
@@ -66,12 +66,12 @@ export function Segmented<T extends string>({ value, options, onChange, classNam
 
 export function Chips<T extends string>({ value, options, onChange }: { value: T; options: { v: T; label: ReactNode }[]; onChange: (v: T) => void }) {
   return (
-    <div className="hscroll flex gap-2 -mx-4 px-4 pb-1">
+    <div className="hscroll flex gap-2 -mx-4 px-4 py-1 -my-1">
       {options.map((o) => (
         <button
           key={o.v}
           onClick={() => onChange(o.v)}
-          className={cx('press shrink-0 h-9 px-3.5 rounded-full text-[14px] font-medium border', value === o.v ? 'bg-white text-[#05070d] border-white' : 'glass text-ink/80')}
+          className={cx('press hit shrink-0 h-9 px-3.5 rounded-full text-[14px] font-medium border', value === o.v ? 'bg-white text-[#05070d] border-white' : 'glass text-ink/80')}
         >
           {o.label}
         </button>
