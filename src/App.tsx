@@ -46,7 +46,7 @@ function GameShell() {
   return (
     <>
       <div className="arena" data-mood={mood} />
-      <div className="fixed top-0 bottom-0 right-0 overflow-hidden" style={{ left: 'var(--side-w)' }}>
+      <div className="fixed top-0 bottom-0 bottom-edge right-0 overflow-hidden" style={{ left: 'var(--side-w)' }}>
         <AnimatePresence initial={false} custom={dir} mode="popLayout">
           <motion.div
             key={`${tab}-${route.key}`}
@@ -68,7 +68,7 @@ function GameShell() {
         {ModalComp && (
           desktop ? (
             // On a PC the match centre opens as a window over the dimmed game.
-            <motion.div key={modal!.key} className="fixed inset-0 z-50 flex justify-center py-6 px-8 bg-black/65" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div key={modal!.key} className="fixed inset-0 bottom-edge z-50 flex justify-center py-6 px-8 bg-black/65" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <motion.div
                 className="relative w-full max-w-[820px] rounded-[28px] overflow-hidden border border-white/10 shadow-2xl"
                 style={{ background: 'var(--color-bg)' }}
@@ -83,7 +83,7 @@ function GameShell() {
           ) : (
             <motion.div
               key={modal!.key}
-              className="fixed inset-0 z-50"
+              className="fixed inset-0 bottom-edge z-50"
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}

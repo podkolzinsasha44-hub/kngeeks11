@@ -122,7 +122,7 @@ export function TabBar({ badges }: { badges: Partial<Record<Tab, number>> }) {
   const tab = useNav((s) => s.tab);
   const setTab = useNav((s) => s.setTab);
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-40 glass-strong border-x-0 border-b-0 pb-safe lg:hidden">
+    <nav className="fixed bottom-0 bottom-edge inset-x-0 z-40 glass-strong border-x-0 border-b-0 pb-safe lg:hidden">
       <div className="flex h-[56px] max-w-[560px] mx-auto">
         {TABS.map((t) => {
           const active = t.id === tab;
@@ -155,7 +155,7 @@ export function Sheet({ open, onClose, title, children, full }: { open: boolean;
   return createPortal(
     <AnimatePresence>
       {open && (
-        <div data-sheet className={cx('fixed inset-0 z-[60]', desktop && 'flex items-center justify-center p-8')}>
+        <div data-sheet className={cx('fixed inset-0 bottom-edge z-[60]', desktop && 'flex items-center justify-center p-8')}>
           <motion.div className="absolute inset-0 bg-black/60" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
           {desktop ? (
             <motion.div
@@ -227,7 +227,7 @@ export function Dialog({ open, onClose, children }: { open: boolean; onClose: ()
   return createPortal(
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-6">
+        <div className="fixed inset-0 bottom-edge z-[70] flex items-center justify-center p-6">
           <motion.div className="absolute inset-0 bg-black/70" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
           <motion.div className="relative glass-strong rounded-3xl p-5 w-full max-w-[380px]" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} transition={{ type: 'spring', stiffness: 400, damping: 30 }}>
             {children}

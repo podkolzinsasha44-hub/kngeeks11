@@ -253,7 +253,7 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
       </div>
 
       {sel && (
-        <div className="fixed dock-x z-30 px-3" style={{ bottom: 'calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 10px)' }}>
+        <div className="fixed dock-x z-30 px-3" style={{ bottom: 'calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 10px - var(--vh-gap))' }}>
           <div className="glass-strong rounded-3xl p-2.5 pl-4 flex items-center gap-2 max-w-[560px] mx-auto shadow-2xl">
             <div className="flex-1 min-w-0">
               <div className="font-display uppercase tracking-wide text-[15px] truncate">{selP ? dispName(selP) : 'Свободное место'}</div>

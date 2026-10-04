@@ -15,7 +15,7 @@ export function SimOverlay() {
   return (
     <AnimatePresence>
       {sim && (
-        <motion.div className="fixed dock-x z-50 px-3" style={{ bottom: 'calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 10px)' }} initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}>
+        <motion.div className="fixed dock-x z-50 px-3" style={{ bottom: 'calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 10px - var(--vh-gap))' }} initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}>
           <div className="glass-strong rounded-3xl p-3 pl-4 flex items-center gap-3 max-w-[560px] mx-auto shadow-2xl">
             <Spinner size={22} />
             <div className="flex-1 min-w-0">
@@ -75,7 +75,7 @@ export function SimDock() {
   if (sim) return null;
   return (
     <>
-      <div className="fixed inset-x-0 z-30 px-4 pointer-events-none lg:hidden" style={{ bottom: 'calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 10px)' }}>
+      <div className="fixed inset-x-0 z-30 px-4 pointer-events-none lg:hidden" style={{ bottom: 'calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 10px - var(--vh-gap))' }}>
         <div className="flex gap-2 max-w-[560px] mx-auto pointer-events-auto">
           <button onClick={() => simulate(ng ? 'game' : 'event')} className="press flex-1 h-[56px] rounded-[20px] accent-bg flex items-center justify-center gap-2.5 shadow-[0_14px_40px_-10px_var(--accent)] text-white">
             <Icon name="play" size={20} />
