@@ -5,7 +5,7 @@ import { wageBill, wageFor } from '../../engine/contracts';
 import { negotiate } from '../../engine/transfers';
 import { Button, Card, cx, Meter, SectionTitle } from '../components/kit';
 import { Screen } from '../components/shell';
-import { PlayerKit } from '../components/media';
+import { PlayerPhoto } from '../components/media';
 import { dispName, money, playerAge, ROLE_RU } from '../format';
 
 export function NegotiateScreen({ params }: { params: Record<string, unknown> }) {
@@ -35,7 +35,7 @@ export function NegotiateScreen({ params }: { params: Record<string, unknown> })
   return (
     <Screen title="Переговоры" subtitle={kind}>
       <Card className="mt-1 flex items-center gap-3">
-        <PlayerKit L={L} p={p} size={48} />
+        <PlayerPhoto L={L} p={p} size={56} />
         <div className="flex-1 min-w-0">
           <div className="font-display uppercase text-[19px] truncate">{dispName(p)}</div>
           <div className="text-[12.5px] text-muted">{ROLE_RU[p.role]} · {playerAge(L, p)} лет · рейтинг {p.ovr} · сейчас {p.c ? `${money(p.c.wage)}/год` : 'без контракта'}</div>

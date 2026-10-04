@@ -106,6 +106,12 @@ for (const p of tmPlayers) {
 }
 const taken = new Set();
 
+/** Transfermarkt portrait: "<timestamp>" for a .jpg, "<timestamp>.<ext>" otherwise; null when there is no photo. */
+const photoKey = (tm) => {
+  const m = /\/portrait\/header\/(\d+)-(\d+)\.(\w+)/.exec(tm?.image_url ?? '');
+  return m && m[1] === tm.player_id ? (m[3] === 'jpg' ? m[2] : `${m[2]}.${m[3]}`) : null;
+};
+
 /** Finds the dataset record of a squad player. */
 function matchTM({ name, page, nat, dob, year }) {
   const alt = page ? page.replace(/\s*\([^)]*\)\s*$/, '') : name;
@@ -262,7 +268,7 @@ function mkPlayer(src) {
     bd: dob, approx, ctry: fifa(nat || tm?.country_of_citizenship), ht: Number(tm?.height_in_cm) || w?.ht || null,
     num: no ?? null, team: team?.id ?? null, ext: team ? undefined : ext, mv: tm?.mv ?? 0,
     caps: caps ?? (Number(tm?.international_caps) || 0), ig: goals ?? (Number(tm?.international_goals) || 0),
-    tmClub: tm?.current_club_id, until: tm?.contract_expiration_date ? tm.contract_expiration_date.slice(0, 10) : null, tm: !!tm, lg: team?.lg ?? null,
+    tmClub: tm?.current_club_id, until: tm?.contract_expiration_date ? tm.contract_expiration_date.slice(0, 10) : null, tm: !!tm, im: photoKey(tm), lg: team?.lg ?? null,
   };
   if (tm) taken.add(tm.player_id);
   players.push(p);
@@ -475,7 +481,7 @@ for (const p of players) {
   const medal = p.wc ? (p.ctry === 'ESP' ? 'gold' : p.ctry === 'ARG' ? 'silver' : p.ctry === 'ENG' ? 'bronze' : null) : null;
   out.push({
     id: p.id, fn: p.fn, ln: p.ln, ...(p.ru ? { ru: p.ru } : {}), role: p.role, ...(p.alt ? { alt: p.alt } : {}), foot: p.foot, bd: p.bd, ...(p.approx ? { ab: 1 } : {}),
-    c: p.ctry, ...(p.ht ? { ht: p.ht } : {}), ...(p.num ? { n: p.num } : {}), ...(p.team ? { t: p.team } : p.ext ? { x: p.ext } : {}),
+    c: p.ctry, ...(p.ht ? { ht: p.ht } : {}), ...(p.im ? { im: p.im } : {}), ...(p.num ? { n: p.num } : {}), ...(p.team ? { t: p.team } : p.ext ? { x: p.ext } : {}),
     o: ovr, p: pot, r, v: val, w: wageFor(ovr, lg), u: until, ...(real ? { cr: 1 } : {}),
     ...(p.caps ? { caps: p.caps } : {}), ...(p.ig ? { ig: p.ig } : {}), ...(hist.length ? { h: hist } : {}),
     ...(p.wc ? { wc: medal ?? 1 } : {}), ...(p.loanFrom ? { loan: loanTeam ? loanTeam.id : '' } : {}),

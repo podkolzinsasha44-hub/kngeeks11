@@ -61,7 +61,7 @@ export function phaseLabel(L: League) {
   const t = L.teams[L.user];
   const c = L.comps[t.lg];
   if (L.intl.current && L.intl.current.phase !== 'upcoming') return L.intl.current.name;
-  if (c.phase === 'preseason') return 'Предсезонная подготовка';
+  if (c.phase === 'preseason') return 'Предсезонка';
   if (c.phase === 'regular') return `${LEAGUES[t.lg].short} · ${t.rec.gp}-й тур позади`;
   return 'Межсезонье';
 }
@@ -77,3 +77,11 @@ export function clubLabel(L: League, p: Player) {
   return 'Свободный агент';
 }
 export const fitColor = (f: number) => (f >= 85 ? '#3ddc97' : f >= 70 ? '#ffb547' : '#ff5a5f');
+
+/** Player photo on the Transfermarkt CDN: 'big' (300×390) for cards, 'header' (139×181) for lists. */
+export const photoUrl = (p: Player, size: 'big' | 'header' = 'header') => (p.img ? `https://img.a.transfermarkt.technology/portrait/${size}/${p.img}?lm=1` : null);
+
+/** Scouts know their own players exactly; for others the potential is an estimate. */
+export function potLabel(L: League, p: Player) {
+  return p.team === L.user || playerAge(L, p) >= 27 ? `${p.pot}` : `${Math.max(p.ovr, p.pot - 3)}–${Math.min(99, p.pot + 3)}`;
+}

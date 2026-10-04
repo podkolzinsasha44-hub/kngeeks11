@@ -1,5 +1,6 @@
+import { motion } from 'motion/react';
 import { useMemo } from 'react';
-import { useL } from '../../store/game';
+import { useGame, useL } from '../../store/game';
 import { useNav } from '../../store/nav';
 import { LEAGUES, foreignLimit, isLeague, windowOpen } from '../../engine/leagues';
 import { lineupValid, teamPower } from '../../engine/lineup';
@@ -10,11 +11,11 @@ import { unreadCount } from '../../engine/news';
 import { wageBill } from '../../engine/contracts';
 import { foreignOnPitch } from '../../engine/ai';
 import { resultOf } from '../../store/game';
-import { Card, cx, Meter, SectionTitle, Chevron, Pill } from '../components/kit';
+import { Button, Card, cx, Meter, SectionTitle, Chevron, Pill } from '../components/kit';
 import { Screen, Icon } from '../components/shell';
-import { OddsBar, TeamBadge } from '../components/media';
+import { TeamBadge } from '../components/media';
 import { Ring } from '../components/charts';
-import { dateLong, dateShort, dowRu, money, recordStr, seasonLabel } from '../format';
+import { dateLong, dateShort, dowRu, money, phaseLabel, recordStr, seasonLabel } from '../format';
 import { SimDock } from './SimOverlay';
 
 export function Office() {
@@ -36,29 +37,36 @@ export function Office() {
   const valid = lineupValid(L, t) && (!lim || foreignOnPitch(L, t) <= lim[1]);
   const cfg = LEAGUES[t.lg];
   const place = placeOf(L, t.id);
+  const simulate = useGame((s) => s.simulate);
   return (
     <Screen
-      title={t.ru}
-      subtitle={`${cfg.short} · ${seasonLabel(L.season)} · ${dateLong(L.date)}`}
-      right={<button onClick={() => push('inbox')} className="press relative w-11 h-11 flex items-center justify-center" aria-label="Входящие"><Icon name="mail" />{!!unread && <span className="absolute top-1.5 right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-bad text-white text-[10.5px] font-semibold flex items-center justify-center">{unread}</span>}</button>}
+      title="Офис"
+      subtitle={`${L.gm.name} · ${dateLong(L.date)}`}
+      right={
+        <button onClick={() => push('inbox')} className="press relative w-11 h-11 flex items-center justify-center rounded-full glass" aria-label="Входящие">
+          <Icon name="mail" size={21} />
+          {!!unread && <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-bad text-white text-[11px] font-semibold flex items-center justify-center">{unread}</span>}
+        </button>
+      }
     >
-      <Card className="mt-1 relative overflow-hidden" pad={false}>
-        <div className="absolute inset-0 opacity-60" style={{ background: `linear-gradient(120deg, color-mix(in oklab, ${t.primary} 55%, transparent), transparent 65%)` }} />
-        <div className="relative p-4 flex items-center gap-3">
-          <TeamBadge team={t} size={54} />
-          <div className="flex-1 min-w-0">
-            <div className="font-display uppercase text-[22px] leading-tight truncate">{t.ru}</div>
-            <div className="text-[13px] text-ink/80">{t.rec.gp ? `${place}-е место · ${recordStr(t)} · ${t.rec.pts} очк.` : 'Сезон ещё не начался'}</div>
-          </div>
-          <div className="text-right">
-            <div className="num text-[26px] leading-none">{teamPower(L, t).toFixed(0)}</div>
-            <div className="text-[10.5px] uppercase tracking-wider text-muted">сила старта</div>
-          </div>
+      {/* Hero */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4 pt-1 pb-4">
+        <div className="relative shrink-0">
+          <div className="absolute inset-0 blur-2xl opacity-60 rounded-full" style={{ background: t.primary }} />
+          <span className="relative block"><TeamBadge team={t} size={72} /></span>
         </div>
-      </Card>
+        <div className="min-w-0">
+          <div className="text-[12px] uppercase tracking-[0.16em] text-muted truncate">{phaseLabel(L)} · {seasonLabel(L.season)}</div>
+          <div className="font-display uppercase text-[26px] leading-none mt-1 truncate">{t.ru}</div>
+          <div className="text-[14px] text-muted mt-1.5">
+            {t.rec.gp ? <><span className="num text-ink text-[16px]">{recordStr(t)}</span> · {t.rec.pts} оч. · {place}-е место, {cfg.short}</> : <>Сезон ещё не начался · {cfg.short}</>}
+          </div>
+          <div className="text-[12.5px] text-faint mt-0.5">{dowRu(L.date)}, {dateLong(L.date)} · сила старта <span className="num text-ink/80">{teamPower(L, t).toFixed(0)}</span></div>
+        </div>
+      </motion.div>
 
       {!valid && (
-        <Card className="mt-3 border-bad/40" onClick={() => go('roster', undefined, { tab: 'lineup' })}>
+        <Card className="mb-3 border-bad/40" onClick={() => go('roster', undefined, { tab: 'lineup' })}>
           <div className="flex items-center gap-3">
             <div className="text-2xl">⚠️</div>
             <div className="flex-1 text-[14px]"><b>Состав на матч неполный.</b> Игрок из старта травмирован, дисквалифицирован или превышен лимит на легионеров. Нажмите, чтобы поправить.</div>
@@ -68,28 +76,29 @@ export function Office() {
       )}
 
       {ng && opp && odds && (
-        <>
-          <SectionTitle right={<span className="text-[12px] text-muted">{dowRu(ng.day)}, {dateShort(ng.day)} · {isLeague(ng.comp) ? `${ng.rd}-й тур` : `${ng.comp === 'CUP' ? 'Кубок России' : 'Переходные матчи'}${ng.rd ? ` · ${ng.rd}` : ''}`}</span>}>Следующий матч</SectionTitle>
-          <Card>
-            <div className="flex items-center justify-between gap-2">
-              <Side name={L.teams[ng.h].ru} id={ng.h} power={teamPower(L, L.teams[ng.h])} sub={home ? 'мы · дома' : 'дома'} />
-              <div className="text-center shrink-0 px-1">
-                <div className="font-display text-[15px] text-muted">VS</div>
-                <div className="text-[11px] text-faint mt-1">ожид. голы</div>
-                <div className="num text-[15px]">{odds.xgH.toFixed(1)} : {odds.xgA.toFixed(1)}</div>
+        <div className="relative rounded-[28px] overflow-hidden p-[1px]" style={{ background: 'linear-gradient(135deg, var(--accent), rgba(255,255,255,0.08) 40%, rgba(255,255,255,0.03))' }}>
+          <div className="relative rounded-[27px] p-4 overflow-hidden" style={{ background: `linear-gradient(120deg, color-mix(in oklab, var(--team) 55%, #070b14), #070b14 55%, color-mix(in oklab, ${opp.primary} 40%, #070b14))` }}>
+            <div className="flex items-center justify-between gap-2 text-[11.5px] uppercase tracking-[0.14em] text-white/70">
+              <span className="truncate">{isLeague(ng.comp) ? `Следующий матч · ${ng.rd}-й тур` : `${ng.comp === 'CUP' ? 'Кубок России' : 'Переходные матчи'}${ng.rd ? ` · ${ng.rd}` : ''}`}</span>
+              <span className="shrink-0">{dowRu(ng.day)}, {dateShort(ng.day)}</span>
+            </div>
+            <div className="flex items-center justify-between mt-3">
+              <Side id={ng.h} />
+              <div className="flex flex-col items-center min-w-0">
+                <div className="font-display text-[13px] text-white/60 uppercase tracking-widest">{home ? 'дома' : 'в гостях'}</div>
+                <div className="num text-[34px] leading-none mt-1">{Math.round((home ? odds.h : odds.a) * 100)}%</div>
+                <div className="text-[11px] text-white/60 mt-0.5">шанс победы</div>
+                <div className="text-[11px] text-white/50 mt-1 whitespace-nowrap tnum">ничья {Math.round(odds.d * 100)}% · xG {odds.xgH.toFixed(1)}:{odds.xgA.toFixed(1)}</div>
               </div>
-              <Side name={L.teams[ng.a].ru} id={ng.a} power={teamPower(L, L.teams[ng.a])} sub={home ? 'в гостях' : 'мы · в гостях'} right />
+              <Side id={ng.a} />
             </div>
-            <div className="mt-4">
-              <OddsBar h={home ? odds.h : odds.a} d={odds.d} a={home ? odds.a : odds.h} />
-            </div>
-            <div className="text-[11.5px] text-muted mt-2.5 leading-snug">Шансы — это {400} прогонов матчевого движка с вашими одиннадцатью и составом соперника. Поменяете состав или тактику — цифры изменятся.</div>
+            <div className="text-[11.5px] text-white/55 mt-3 leading-snug text-center">Шансы — {400} прогонов матчевого движка с вашими одиннадцатью и составом соперника.</div>
             <div className="flex gap-2 mt-3">
-              <button onClick={() => go('roster', undefined, { tab: 'lineup' })} className="press flex-1 h-10 rounded-xl glass text-[14px] font-medium">Расстановка {t.lineup.auto ? '· авто' : ''}</button>
-              <button onClick={() => push('team', { id: opp.id })} className="press flex-1 h-10 rounded-xl glass text-[14px] font-medium">Соперник</button>
+              <Button size="sm" full onClick={() => simulate('game', undefined, { watch: true })} icon={<Icon name="eye" size={16} />}>Смотреть матч</Button>
+              <Button size="sm" full onClick={() => go('roster', undefined, { tab: 'lineup' })} icon={<Icon name="roster" size={16} />}>Расстановка{t.lineup.auto ? ' · авто' : ''}</Button>
             </div>
-          </Card>
-        </>
+          </div>
+        </div>
       )}
 
       {recent.length > 0 && (
@@ -162,12 +171,15 @@ export function Office() {
   );
 }
 
-function Side({ name, id, power, sub, right }: { name: string; id: string; power: number; sub: string; right?: boolean }) {
+function Side({ id }: { id: string }) {
+  const L = useL();
+  const push = useNav((s) => s.push);
+  const t = L.teams[id];
   return (
-    <div className={cx('flex-1 min-w-0 flex flex-col gap-1', right ? 'items-end text-right' : 'items-start')}>
-      <TeamBadge id={id} size={46} />
-      <div className="font-display uppercase text-[16px] leading-tight truncate max-w-full">{name}</div>
-      <div className="text-[11.5px] text-muted">{sub} · сила {power.toFixed(0)}</div>
-    </div>
+    <button onClick={() => push('team', { id })} className="press flex flex-col items-center w-24 min-w-0">
+      <TeamBadge team={t} size={58} />
+      <div className="font-display uppercase text-[14px] mt-1.5 truncate max-w-full">{t.ru}</div>
+      <div className="text-[11.5px] text-white/60 tnum">{t.rec.gp ? recordStr(t) : `сила ${teamPower(L, t).toFixed(0)}`}</div>
+    </button>
   );
 }

@@ -7,7 +7,7 @@ import type { Difficulty, LeagueId } from '../../engine/types';
 import type { WorldTeam } from '../../engine/world';
 import { Button, Card, Chips, cx, Segmented, Spinner } from '../components/kit';
 import { Icon, Sheet } from '../components/shell';
-import { Kit } from '../components/media';
+import { TeamBadge } from '../components/media';
 import { dateLong, money, seasonLabel } from '../format';
 
 export function Menu() {
@@ -111,7 +111,7 @@ function NewCareer({ onBack }: { onBack: () => void }) {
             const active = t.id === team;
             return (
               <button key={t.id} onClick={() => setTeam(t.id)} className={cx('press glass rounded-2xl p-3 flex items-center gap-3 text-left border', active ? 'border-white/60' : 'border-transparent')} style={active ? { background: `linear-gradient(135deg, color-mix(in oklab, ${t.primary} 45%, transparent), rgba(255,255,255,0.03))` } : undefined}>
-                <Kit primary={t.primary} secondary={t.secondary} size={44} />
+                <TeamBadge team={t} size={44} />
                 <div className="flex-1 min-w-0">
                   <div className="font-display uppercase tracking-wide text-[17px] truncate">{t.ru}</div>
                   <div className="text-[12.5px] text-muted truncate">сила состава {inf ? inf.power.toFixed(0) : '—'} · {inf?.n ?? 0} игроков · бюджет {money(t.budget)}</div>

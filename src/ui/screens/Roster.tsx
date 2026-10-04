@@ -4,14 +4,13 @@ import { useNav } from '../../store/nav';
 import { aiLineup, foreignOnPitch } from '../../engine/ai';
 import { wageBill } from '../../engine/contracts';
 import { foreignLimit, isForeign } from '../../engine/leagues';
-import { BENCH_SIZE, FORMATIONS, FORMATION_IDS, available, lineupValid, slotRating, slotXY, squad, teamPower, teamStrength } from '../../engine/lineup';
+import { BENCH_SIZE, FORMATIONS, FORMATION_IDS, available, lineupValid, slotRating, squad, teamPower, teamStrength } from '../../engine/lineup';
 import type { FormationId, League, Player, Pos, Role, Tactic, Team } from '../../engine/types';
 import { Button, Card, Chips, cx, Ovr, Pill, SectionTitle, Segmented } from '../components/kit';
 import { Screen, Sheet } from '../components/shell';
 import { PlayerRow, StatusDots } from '../components/media';
-import { EmptyCard, PlayerCard, surname } from '../components/PlayerCard';
+import { EmptyCard, PitchCard } from '../components/PlayerCard';
 import { PitchSvg } from '../components/charts';
-import { Pitch3D } from '../components/three';
 import { dispName, dispShort, fitColor, money, playerAge, POS_FULL, ROLE_RU } from '../format';
 
 type TabId = 'pitch' | 'list';
@@ -75,8 +74,6 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
   const act = useGame((s) => s.act);
   const toast = useGame((s) => s.toast);
   const push = useNav((s) => s.push);
-  const fx = L.settings.fx3d;
-  const [view, setView] = useState<'2d' | '3d'>('2d');
   const [sel, setSel] = useState<Sel | null>(null);
   const [pick, setPick] = useState<number | null>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -88,7 +85,7 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
     ro.observe(el);
     setW(el.clientWidth);
     return () => ro.disconnect();
-  }, [view]);
+  }, []);
   const ln = t.lineup;
   const roles = FORMATIONS[ln.form];
   const xy = useMemo(() => cardXY(ln.form), [ln.form]);
@@ -165,7 +162,6 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
     <>
       <div className="flex items-center gap-2 mt-1">
         <div className="flex-1 min-w-0"><Chips value={ln.form} onChange={setForm} options={FORMATION_IDS.map((f) => ({ v: f, label: f }))} /></div>
-        {fx && <Segmented value={view} onChange={setView} options={[{ v: '2d', label: 'Карты' }, { v: '3d', label: '3D' }]} className="w-[124px] shrink-0" />}
       </div>
       <div className="flex gap-1.5 flex-wrap mt-2 mb-2">
         <Pill color="var(--accent)">Сила {teamPower(L, t).toFixed(1)}</Pill>
@@ -179,39 +175,30 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
         </div>
       )}
 
-      {view === '3d' && fx ? (
-        <Pitch3D
-          height={400}
-          selected={sel?.zone === 'xi' ? sel.i : null}
-          onSelect={(i) => tap({ zone: 'xi', i, id: ln.xi[i] ?? null })}
-          players={ln.xi.map((id, i) => { const p = L.players[id]; const c = slotXY(ln.form)[i]; return { id, x: c[0], y: c[1], primary: t.primary, secondary: t.secondary, num: p?.num, name: p ? surname(p) : '', keeper: roles[i] === 'GK', ht: p?.ht }; })}
-        />
-      ) : (
-        <div ref={box} className="relative w-full max-w-[520px] mx-auto overflow-hidden rounded-[18px]" style={{ aspectRatio: '68 / 110' }}>
-          <PitchSvg vertical stretch className="absolute inset-0 w-full h-full" />
-          <div className="absolute inset-0" style={{ background: 'radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.10), transparent 60%), linear-gradient(180deg, transparent 70%, rgba(0,0,0,.22))' }} />
-          {roles.map((r, i) => {
-            const p = L.players[ln.xi[i]];
-            const style = { left: `${xy[i][0] * 100}%`, top: `${xy[i][1] * 100}%` };
-            if (!p) return <div key={i} className="absolute -translate-x-1/2 -translate-y-1/2" style={style}><EmptyCard width={cardW} label={ROLE_RU[r]} onClick={() => (sel ? tap({ zone: 'xi', i, id: null }) : setPick(i))} /></div>;
-            const rating = Math.round(slotRating(p, r));
-            return (
-              <div key={i} className={cx('absolute -translate-x-1/2 -translate-y-1/2', isSel('xi', i) && 'z-10')} style={style}>
-                <PlayerCard p={p} team={t} width={cardW} rating={rating} role={r} warn={rating < p.ovr - 2} unavailable={p.team !== t.id || !available(p)} selected={isSel('xi', i)} onClick={() => tap({ zone: 'xi', i, id: p.id })} />
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <div ref={box} className="relative w-full max-w-[520px] mx-auto overflow-hidden rounded-[18px]" style={{ aspectRatio: '68 / 110' }}>
+        <PitchSvg vertical stretch className="absolute inset-0 w-full h-full" />
+        <div className="absolute inset-0" style={{ background: 'radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.10), transparent 60%), linear-gradient(180deg, transparent 70%, rgba(0,0,0,.22))' }} />
+        {roles.map((r, i) => {
+          const p = L.players[ln.xi[i]];
+          const style = { left: `${xy[i][0] * 100}%`, top: `${xy[i][1] * 100}%` };
+          if (!p) return <div key={i} className="absolute -translate-x-1/2 -translate-y-1/2" style={style}><EmptyCard width={cardW} label={ROLE_RU[r]} onClick={() => (sel ? tap({ zone: 'xi', i, id: null }) : setPick(i))} /></div>;
+          const rating = Math.round(slotRating(p, r));
+          return (
+            <div key={i} className={cx('absolute -translate-x-1/2 -translate-y-1/2', isSel('xi', i) && 'z-10')} style={style}>
+              <PitchCard p={p} team={t} width={cardW} rating={rating} role={r} warn={rating < p.ovr - 2} unavailable={p.team !== t.id || !available(p)} selected={isSel('xi', i)} onClick={() => tap({ zone: 'xi', i, id: p.id })} />
+            </div>
+          );
+        })}
+      </div>
 
-      <div className="mt-3 rounded-[18px] border border-white/10 overflow-hidden" style={{ background: 'linear-gradient(180deg, rgba(40,48,66,.9), rgba(16,20,30,.95))' }}>
+      <div className="mt-3 glass rounded-[22px] overflow-hidden">
         <div className="flex items-center justify-between px-3 pt-2.5">
           <span className="font-display uppercase tracking-[0.12em] text-[13px] text-muted">Скамейка</span>
           <span className="text-[12px] text-muted">{ln.bench.length} из {BENCH_SIZE} · до 5 замен</span>
         </div>
         <div className="hscroll flex gap-2 px-3 pt-2 pb-3" style={{ scrollSnapType: 'none' }}>
           {ln.bench.map((id, i) => L.players[id] && (
-            <PlayerCard key={id} p={L.players[id]} team={t} width={cardW} unavailable={!available(L.players[id])} selected={isSel('bench', i)} onClick={() => tap({ zone: 'bench', i, id })} />
+            <PitchCard key={id} p={L.players[id]} team={t} width={cardW} unavailable={!available(L.players[id])} selected={isSel('bench', i)} onClick={() => tap({ zone: 'bench', i, id })} />
           ))}
           {ln.bench.length < BENCH_SIZE && <EmptyCard width={cardW} label="запас" onClick={() => (sel?.zone === 'res' ? tap({ zone: 'bench', i: ln.bench.length, id: null }) : toast('Выберите игрока из резерва, затем нажмите сюда'))} />}
         </div>
@@ -220,7 +207,7 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
       <SectionTitle right={<span className="text-[12px] text-muted">{reserves.length} вне заявки на матч</span>}>Резерв</SectionTitle>
       {reserves.length ? (
         <div className="flex flex-wrap gap-2">
-          {reserves.map((p, i) => <PlayerCard key={p.id} p={p} team={t} width={cardW} unavailable={!available(p)} selected={isSel('res', i)} onClick={() => tap({ zone: 'res', i, id: p.id })} />)}
+          {reserves.map((p, i) => <PitchCard key={p.id} p={p} team={t} width={cardW} unavailable={!available(p)} selected={isSel('res', i)} onClick={() => tap({ zone: 'res', i, id: p.id })} />)}
         </div>
       ) : <div className="text-muted text-[13.5px] px-1">Все игроки в заявке на матч.</div>}
 

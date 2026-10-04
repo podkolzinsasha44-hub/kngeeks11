@@ -79,6 +79,7 @@ export interface Player {
   ctry: string;
   ht: number;
   num: number | null;
+  /** Photo file on the Transfermarkt image CDN ("<id>-<timestamp>.jpg"), loaded by the UI at runtime. */
   img: string | null;
   real: boolean;
   team: string | null;
@@ -353,8 +354,6 @@ export interface Settings {
   stopOnUserGames: boolean;
   watchGames: boolean;
   hideMedia: boolean;
-  /** 3D figures of the players on cards and in the match centre. */
-  fx3d: boolean;
   noFiring?: boolean;
   /** Russia takes part in FIFA / UEFA tournaments (suspended in reality since 2022). */
   intlRussia?: boolean;

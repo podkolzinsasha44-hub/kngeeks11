@@ -17,6 +17,8 @@ export interface WorldPlayer {
   id: number; fn: string; ln: string; ru?: string; role: Role; alt?: Role[]; foot: 'L' | 'R' | 'B'; bd: string; ab?: 1;
   c: string; ht?: number; n?: number; t?: string; x?: string; o: number; p: number; r: number[]; v: number; w: number; u: number; cr?: 1;
   caps?: number; ig?: number; h?: (string | number)[][]; wc?: string | 1; loan?: string;
+  /** Transfermarkt portrait: "<timestamp>" of a .jpg or "<timestamp>.<ext>". */
+  im?: string;
 }
 export interface WorldTeam {
   id: string; lg: LeagueId; name: string; ru: string; short: string; country: string; primary: string; secondary: string; stadium: string; cap: number;
@@ -42,11 +44,23 @@ export interface NewCareerOpts {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  difficulty: 'real', sound: false, assistant: true, stopOnUserGames: false, watchGames: false, hideMedia: false, fx3d: true,
+  difficulty: 'real', sound: false, assistant: true, stopOnUserGames: false, watchGames: false, hideMedia: false,
 };
 
 const OUT: (keyof OutfieldAttrs)[] = ['pac', 'sho', 'pas', 'dri', 'att', 'def', 'phy', 'hea', 'dis', 'sta'];
 const KEEP: (keyof KeeperAttrs)[] = ['ref', 'pos', 'han', 'kic', 'con', 'men', 'sta'];
+
+const photoFile = (w: WorldPlayer) => (w.im ? `${w.id}-${w.im}${w.im.includes('.') ? '' : '.jpg'}` : null);
+
+/** Saves made before photos were added to the snapshot get them from it. */
+export function attachPhotos(L: League, world: WorldJson) {
+  const byId = new Map(world.players.map((w) => [w.id, w]));
+  for (const p of Object.values(L.players)) {
+    if (p.img || !p.real) continue;
+    const w = byId.get(p.id);
+    if (w?.im) p.img = photoFile(w);
+  }
+}
 
 export function expandPlayer(w: WorldPlayer, season: number): Player {
   const pos = posOfRole(w.role);
@@ -56,7 +70,7 @@ export function expandPlayer(w: WorldPlayer, season: number): Player {
   const pers = { lead: 1 + Math.floor(h(1) * 20), prof: 4 + Math.floor(h(2) * 17), loy: 1 + Math.floor(h(3) * 20), greed: 1 + Math.floor(h(4) * 20), win: 1 + Math.floor(h(5) * 20) };
   const medal = typeof w.wc === 'string' ? [`wc:2026:${w.wc}`] : undefined;
   return {
-    id: w.id, fn: w.fn, ln: w.ln, ru: w.ru, pos, role: w.role, alt: w.alt, foot: w.foot, bd: w.bd, ...(w.ab ? { bdApprox: true } : {}), ctry: w.c, ht: w.ht ?? 181, num: w.n ?? null, img: null, real: true,
+    id: w.id, fn: w.fn, ln: w.ln, ru: w.ru, pos, role: w.role, alt: w.alt, foot: w.foot, bd: w.bd, ...(w.ab ? { bdApprox: true } : {}), ctry: w.c, ht: w.ht ?? 181, num: w.n ?? null, img: photoFile(w), real: true,
     team: w.t ?? null, ext: w.x, st: w.t || w.x ? 'ACT' : 'FA', ovr: w.o, pot: w.p, r: r as unknown as OutfieldAttrs, tr: [], val: w.v,
     c: w.t || w.x ? { wage: w.w, until: w.u, real: !!w.cr } : null,
     loan: w.loan != null && w.t ? { from: w.loan, until: season + 1 } : undefined,

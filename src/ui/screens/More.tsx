@@ -10,37 +10,50 @@ import { LEAGUES, foreignLimit, isForeign, transferWindows } from '../../engine/
 import { squad } from '../../engine/lineup';
 import { ownerGoalFor } from '../../engine/owner';
 import type { IntlGame, League, Message, Tournament } from '../../engine/types';
-import { Button, Card, Chevron, cx, Divider, Empty, Meter, Pill, Row, SectionTitle, Segmented } from '../components/kit';
+import { Button, Card, cx, Divider, Empty, Meter, Pill, Row, SectionTitle, Segmented } from '../components/kit';
 import { Screen, Sheet } from '../components/shell';
 import { PlayerRow, TeamBadge } from '../components/media';
 import { dateLong, dateShort, dispName, flag, money, nationName, seasonLabel } from '../format';
+
+const TILES: { route: string; icon: string; title: string; sub: (L: League) => string; badge?: (L: League) => number }[] = [
+  { route: 'news', icon: '📰', title: 'Новости', sub: (L) => `${L.news.length} материалов` },
+  { route: 'inbox', icon: '✉️', title: 'Входящие', sub: (L) => { const n = L.inbox.filter((m) => !m.read).length; return n ? `${n} непрочитанных` : 'Всё прочитано'; }, badge: (L) => L.inbox.filter((m) => !m.read).length },
+  { route: 'finance', icon: '💰', title: 'Финансы', sub: (L) => `Бюджет ${money(L.teams[L.user].budget)}` },
+  { route: 'intl', icon: '🌍', title: 'Сборные', sub: (L) => L.intl.current?.name ?? 'ЧМ и Евро' },
+  { route: 'career', icon: '👔', title: 'Карьера', sub: (L) => `Доверие ${L.owner.trust}/100` },
+  { route: 'history', icon: '📜', title: 'История', sub: (L) => `${L.history.length} сез.` },
+  { route: 'settings', icon: '⚙️', title: 'Настройки', sub: () => 'Сохранения, звук, режимы' },
+];
 
 export function MoreScreen() {
   const L = useL();
   const push = useNav((s) => s.push);
   const quit = useGame((s) => s.quit);
-  const items: [string, string, string, string?][] = [
-    ['📰', 'Новости', 'news'], ['✉️', 'Входящие', 'inbox', `${L.inbox.filter((m) => !m.read).length || ''}`], ['💶', 'Финансы и контракты', 'finance'],
-    ['🌍', 'Сборные: ЧМ и Евро', 'intl'], ['🏆', 'История и трофеи', 'history'], ['👔', 'Карьера', 'career'], ['⚙️', 'Настройки и сохранения', 'settings'],
-  ];
   return (
     <Screen title="Ещё" large subtitle={`${L.gm.name} · ${L.teams[L.user].ru}`}>
-      <Card pad={false} className="overflow-hidden">
-        {items.map(([icon, label, route, badge], i) => (
-          <div key={route}>
-            {i > 0 && <Divider />}
-            <Row onClick={() => push(route)}>
-              <span className="text-[22px] w-8 text-center">{icon}</span>
-              <span className="flex-1 text-[16px]">{label}</span>
-              {badge && <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-bad text-white text-[11px] font-semibold flex items-center justify-center">{badge}</span>}
-              <Chevron />
-            </Row>
-          </div>
-        ))}
-      </Card>
+      <div className="grid grid-cols-2 gap-2.5">
+        {TILES.map((t, i) => {
+          const badge = t.badge?.(L) ?? 0;
+          return (
+            <motion.button
+              key={t.route}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.025 }}
+              onClick={() => push(t.route)}
+              className="press glass relative rounded-3xl p-4 text-left min-h-[104px] flex flex-col"
+            >
+              <div className="text-[28px] leading-none">{t.icon}</div>
+              {badge > 0 && <span className="absolute right-3 top-3 min-w-[20px] h-5 px-1.5 rounded-full bg-bad text-white text-[11px] font-semibold flex items-center justify-center">{badge}</span>}
+              <div className="font-display uppercase tracking-wide text-[16px] mt-auto pt-3">{t.title}</div>
+              <div className="text-[12px] text-muted truncate">{t.sub(L)}</div>
+            </motion.button>
+          );
+        })}
+      </div>
       <Button full className="mt-4" onClick={quit}>Выйти в главное меню</Button>
       <p className="text-[11.5px] text-faint mt-5 leading-snug">
-        Фан-проект, не связан с РПЛ, РФС, FIFA, UEFA и клубами; некоммерческий. Составы клубов — сентябрь 2026 (Википедия, CC BY-SA). Биографии, оценки стоимости и статистика — открытый набор transfermarkt-datasets (CC0). Зарплаты — модель. Все игроки на старте реальные; вымышлены только воспитанники академий следующих сезонов.
+        Фан-проект, не связан с РПЛ, РФС, FIFA, UEFA и клубами; некоммерческий. Составы клубов — сентябрь 2026 (Википедия, CC BY-SA). Биографии, оценки стоимости и статистика — открытый набор transfermarkt-datasets (CC0). Фотографии игроков загружаются с Transfermarkt. Зарплаты — модель. Все игроки на старте реальные; вымышлены только воспитанники академий следующих сезонов.
       </p>
     </Screen>
   );
@@ -231,7 +244,7 @@ export function SettingsScreen() {
   const save = useGame((s) => s.save);
   const toast = useGame((s) => s.toast);
   const s = L.settings;
-  const T = ({ k, label, sub }: { k: 'sound' | 'stopOnUserGames' | 'watchGames' | 'hideMedia' | 'fx3d' | 'noFiring' | 'intlRussia'; label: string; sub?: string }) => (
+  const T = ({ k, label, sub }: { k: 'sound' | 'stopOnUserGames' | 'watchGames' | 'hideMedia' | 'noFiring' | 'intlRussia'; label: string; sub?: string }) => (
     <Row onClick={() => act(() => { s[k] = !s[k]; })}>
       <div className="flex-1"><div className="text-[15.5px]">{label}</div>{sub && <div className="text-[12.5px] text-muted">{sub}</div>}</div>
       <div className={cx('w-[48px] h-[30px] rounded-full relative transition-colors shrink-0', s[k] ? 'accent-bg' : 'bg-white/15')}><span className={cx('absolute top-[3px] w-6 h-6 rounded-full bg-white transition-all', s[k] ? 'left-[21px]' : 'left-[3px]')} /></div>
@@ -243,7 +256,6 @@ export function SettingsScreen() {
       <Card pad={false} className="overflow-hidden">
         <T k="watchGames" label="Показывать матч после игры" sub="Матч-центр с живым повтором открывается сам" /><Divider />
         <T k="stopOnUserGames" label="Останавливаться после каждого матча" /><Divider />
-        <T k="fx3d" label="3D-фигурки игроков" sub="Профиль игрока и расстановка в 3D" /><Divider />
         <T k="sound" label="Звук гола" /><Divider />
         <T k="hideMedia" label="Скрыть соцсети в новостях" /><Divider />
         <T k="noFiring" label="Без увольнения" sub="Доверие руководства считается, но уволить вас нельзя" /><Divider />

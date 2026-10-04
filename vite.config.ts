@@ -28,6 +28,18 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,woff2,json}'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        // Player photos: once seen, they stay available offline.
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/img\.a\.transfermarkt\.technology\/portrait\/.*/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'player-photos',
+              expiration: { maxEntries: 2500, maxAgeSeconds: 60 * 60 * 24 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
     }),
   ],

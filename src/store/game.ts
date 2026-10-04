@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { Game, League } from '../engine/types';
 import type { WorldJson, NewCareerOpts } from '../engine/world';
-import { newCareer } from '../engine/world';
+import { attachPhotos, newCareer } from '../engine/world';
 import { advanceDay, lastUserBox } from '../engine/season';
 import { setNations } from '../engine/intl';
 import { saveLeague, loadLeague, requestPersistence } from '../persistence/db';
@@ -110,12 +110,15 @@ export const useGame = create<GameState>((set, get) => ({
       set({ loading: false });
       return false;
     }
+    attachPhotos(L, get().world!);
     applyTheme(L);
     useNav.getState().reset();
     set({ L, saveId: id, loading: false, ver: get().ver + 1 });
     return true;
   },
   setLeague: (L, id) => {
+    const w = get().world;
+    if (w) attachPhotos(L, w);
     applyTheme(L);
     useNav.getState().reset();
     set({ L, saveId: id ?? `career-${Date.now()}`, ver: get().ver + 1 });

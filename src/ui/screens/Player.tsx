@@ -7,12 +7,12 @@ import { askingPrice, releasePlayer, squadRank, userBid } from '../../engine/tra
 import { avgRating, career } from '../../engine/stats';
 import type { KeeperAttrs, League, OutfieldAttrs, Player } from '../../engine/types';
 import { fullName } from '../../engine/util';
-import { Button, Card, cx, Meter, Ovr, Pill, SectionTitle } from '../components/kit';
-import { Screen, Sheet } from '../components/shell';
-import { PlayerKit, TeamBadge } from '../components/media';
+import { Button, Card, cx, Meter, Pill, SectionTitle, Segmented } from '../components/kit';
+import { Icon, Screen, Sheet } from '../components/shell';
+import { TeamBadge } from '../components/media';
+import { PlayerCard } from '../components/PlayerCard';
 import { Sparkline } from '../components/charts';
-import { Figure3D } from '../components/three';
-import { ATTR_RU, clubLabel, dispName, fitColor, flag, FOOT_RU, money, nationName, ovrColor, playerAge, ROLE_FULL, ROLE_RU, seasonLabel, tierOf, TIER_RU } from '../format';
+import { ATTR_RU, clubLabel, dispName, fitColor, flag, FOOT_RU, money, nationName, ovrColor, playerAge, potLabel, ROLE_FULL, ROLE_RU, seasonLabel } from '../format';
 
 const OUT: (keyof OutfieldAttrs)[] = ['pac', 'sho', 'pas', 'dri', 'att', 'def', 'phy', 'hea', 'sta', 'dis'];
 const KEEP: (keyof KeeperAttrs)[] = ['ref', 'pos', 'han', 'kic', 'con', 'men'];
@@ -20,78 +20,130 @@ const KEEP: (keyof KeeperAttrs)[] = ['ref', 'pos', 'han', 'kic', 'con', 'men'];
 const MEDAL: Record<string, string> = { gold: '🥇', silver: '🥈', bronze: '🥉' };
 const TOUR: Record<string, string> = { wc: 'ЧМ', euro: 'Евро' };
 
+type Tab = 'info' | 'stats' | 'contract';
+
 export function PlayerScreen({ params }: { params: Record<string, unknown> }) {
   const L = useL();
   const act = useGame((s) => s.act);
-  const toast = useGame((s) => s.toast);
-  const push = useNav((s) => s.push);
   const p = L.players[Number(params.id)];
-  const [bid, setBid] = useState(false);
-  const [confirm, setConfirm] = useState(false);
+  const [tab, setTab] = useState<Tab>('info');
   if (!p) return <Screen title="Игрок"><div className="text-muted mt-6">Игрок не найден.</div></Screen>;
   const t = p.team ? L.teams[p.team] : null;
-  const mine = p.team === L.user;
-  const age = playerAge(L, p);
-  const tier = tierOf(p.ovr);
-  const a = p.r as unknown as Record<string, number>;
-  const keys = p.pos === 'G' ? KEEP : OUT;
-  // Scouts know their own players exactly; for others the potential is an estimate.
-  const potText = mine || age >= 27 ? `${p.pot}` : `${Math.max(p.ovr, p.pot - 3)}–${Math.min(99, p.pot + 3)}`;
-  const seasons = Object.keys(p.stats).sort().reverse();
-  const c = career(p);
-  const blocked = p.talksBlockedUntil && p.talksBlockedUntil > L.date;
   const shortlisted = L.scouting.shortlist.includes(p.id);
   return (
-    <Screen title={dispName(p)} subtitle={p.ru ? fullName(p) : undefined} right={<button onClick={() => act(() => { L.scouting.shortlist = shortlisted ? L.scouting.shortlist.filter((x) => x !== p.id) : [...L.scouting.shortlist, p.id]; })} className={cx('press w-11 h-11 flex items-center justify-center text-[20px]', shortlisted ? 'text-gold' : 'text-muted')} aria-label="Список наблюдения">{shortlisted ? '★' : '☆'}</button>}>
-      <Card pad={false} className="relative overflow-hidden mt-1">
-        <div className="absolute inset-0" style={{ background: `radial-gradient(120% 90% at 50% 0%, color-mix(in oklab, ${t?.primary ?? '#334155'} 60%, transparent), transparent 70%)` }} />
-        <div className={cx('absolute inset-x-0 top-0 h-1', tier === 'legend' && 'holo')} style={tier !== 'legend' ? { background: ovrColor(p.ovr) } : undefined} />
-        <div className="relative">
-          {L.settings.fx3d ? (
-            <Figure3D height={250} spec={{ primary: t?.primary ?? '#3a4458', secondary: t?.secondary ?? '#aab4c8', num: t ? p.num : null, name: (p.ru ?? p.ln).split(' ').slice(-1)[0], keeper: p.pos === 'G', ht: p.ht }} />
-          ) : (
-            <div className="flex justify-center py-6"><PlayerKit L={L} p={p} size={120} /></div>
-          )}
-          <div className="absolute top-3 left-3 flex flex-col items-center gap-1">
-            <Ovr v={p.ovr} size={52} />
-            <div className="text-[10px] uppercase tracking-wider text-muted">{TIER_RU[tier]}</div>
-          </div>
-          <div className="absolute top-3 right-3 text-right">
-            <div className="num text-[22px] leading-none">{ROLE_RU[p.role]}</div>
-            <div className="text-[22px] leading-none mt-1.5">{flag(p.ctry)}</div>
-          </div>
-        </div>
-        <div className="relative px-4 pb-4 -mt-1">
-          <div className="font-display uppercase text-[24px] leading-tight">{dispName(p)}</div>
-          <div className="text-[13px] text-muted">{ROLE_FULL[p.role]}{p.alt?.length ? ` (также ${p.alt.map((r) => ROLE_RU[r]).join(', ')})` : ''} · {nationName(p.ctry)} · {p.bdApprox ? '≈' : ''}{age} {age % 10 === 1 && age !== 11 ? 'год' : age % 10 >= 2 && age % 10 <= 4 && (age < 12 || age > 14) ? 'года' : 'лет'} · {p.ht} см · нога: {FOOT_RU[p.foot]}</div>
-          <div className="flex gap-1.5 flex-wrap mt-2.5">
-            <Pill color="#e8c26a">Потенциал {potText}</Pill>
-            {!p.real && <Pill>Воспитанник академии</Pill>}
-            {p.inj && <Pill color="#ff5a5f">Травма: {p.inj.type}, {p.inj.days} дн.</Pill>}
-            {!!p.susp && <Pill color="#ff5a5f">Дисквалификация: {p.susp} матч.</Pill>}
-            {p.wantsOut && <Pill color="#ffb547">Хочет сменить клуб</Pill>}
-            {p.listed && <Pill color="#7fd3ff">На трансфере</Pill>}
-            {p.caps > 0 && <Pill>Сборная: {p.caps} матч., {p.ig} гол.</Pill>}
-          </div>
-        </div>
-      </Card>
-
-      <div className="grid grid-cols-2 gap-2 mt-3">
-        <Card onClick={t ? () => push('team', { id: t.id }) : undefined} className="!p-3 flex items-center gap-2.5">
-          {t ? <TeamBadge team={t} size={34} /> : <div className="text-2xl">🌍</div>}
-          <div className="min-w-0">
-            <div className="text-[11px] uppercase tracking-wider text-muted">Клуб</div>
-            <div className="text-[14.5px] font-medium truncate">{clubLabel(L, p)}</div>
-            {p.loan && <div className="text-[11px] text-muted truncate">аренда из {p.loan.from ? L.teams[p.loan.from]?.ru : p.ext ?? 'другого клуба'}</div>}
-          </div>
-        </Card>
-        <Card className="!p-3">
-          <div className="text-[11px] uppercase tracking-wider text-muted">Рыночная стоимость</div>
-          <div className="num text-[20px] leading-tight">{money(p.val)}</div>
-          <div className="text-[11.5px] text-muted truncate">{p.c ? `${money(p.c.wage)}/год · до лета ${p.c.until}` : 'без контракта'}</div>
-        </Card>
+    <Screen
+      title={dispName(p)}
+      subtitle={`${ROLE_FULL[p.role]} · ${clubLabel(L, p)}`}
+      right={
+        <button
+          onClick={() => act(() => { L.scouting.shortlist = shortlisted ? L.scouting.shortlist.filter((x) => x !== p.id) : [...L.scouting.shortlist, p.id]; })}
+          className="press w-11 h-11 rounded-full flex items-center justify-center"
+          aria-label="Список наблюдения"
+        >
+          <Icon name="star" className={shortlisted ? 'text-gold fill-gold' : 'text-muted'} />
+        </button>
+      }
+    >
+      <div className="pt-2 pb-4">
+        <PlayerCard p={p} L={L} width={Math.min(300, window.innerWidth - 80)} />
       </div>
+      <Badges L={L} p={p} />
+      <Facts L={L} p={p} />
+      <Actions L={L} p={p} />
+      <Segmented className="mt-5" value={tab} onChange={setTab} options={[{ v: 'info', label: 'Обзор' }, { v: 'stats', label: 'Статистика' }, { v: 'contract', label: 'Контракт' }]} />
+      {tab === 'info' && <Info p={p} />}
+      {tab === 'stats' && <Stats L={L} p={p} />}
+      {tab === 'contract' && <ContractTab L={L} p={p} team={t} />}
+    </Screen>
+  );
+}
 
+function Badges({ L, p }: { L: League; p: Player }) {
+  const items = [
+    !p.real && <Pill key="acad">Воспитанник академии</Pill>,
+    p.inj && <Pill key="inj" color="#ff5a5f">Травма: {p.inj.type}, {p.inj.days} дн.</Pill>,
+    !!p.susp && <Pill key="susp" color="#ff5a5f">Дисквалификация: {p.susp} матч.</Pill>,
+    p.wantsOut && <Pill key="out" color="#ffb547">Хочет сменить клуб</Pill>,
+    p.listed && <Pill key="list" color="#7fd3ff">На трансфере</Pill>,
+    p.loan && <Pill key="loan">Аренда из {p.loan.from ? L.teams[p.loan.from]?.ru : p.ext ?? 'другого клуба'}</Pill>,
+    p.ru && <Pill key="name">{fullName(p)}</Pill>,
+  ].filter(Boolean);
+  return items.length ? <div className="flex gap-1.5 flex-wrap mb-3 justify-center">{items}</div> : null;
+}
+
+function Facts({ L, p }: { L: League; p: Player }) {
+  const age = playerAge(L, p);
+  const items: [string, string][] = [
+    ['Возраст', `${p.bdApprox ? '≈' : ''}${age}`],
+    ['Рост', `${p.ht} см`],
+    ['Нога', FOOT_RU[p.foot]],
+    ['Страна', `${flag(p.ctry)} ${p.ctry}`],
+    ['Потенциал', potLabel(L, p)],
+    ['Стоимость', money(p.val)],
+  ];
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {items.map(([k, v]) => (
+        <div key={k} className="glass rounded-2xl px-3 py-2 min-w-0">
+          <div className="text-[10.5px] uppercase tracking-wider text-muted">{k}</div>
+          <div className="num text-[17px] mt-0.5 truncate">{v}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Actions({ L, p }: { L: League; p: Player }) {
+  const act = useGame((s) => s.act);
+  const toast = useGame((s) => s.toast);
+  const push = useNav((s) => s.push);
+  const [bid, setBid] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const mine = p.team === L.user;
+  const blocked = p.talksBlockedUntil && p.talksBlockedUntil > L.date;
+  const btns: React.ReactNode[] = [];
+  if (mine && !p.loan) {
+    btns.push(
+      <Button key="ext" variant="primary" disabled={!!blocked} onClick={() => { act(() => startTalks(L, p, L.user, 'extend')); push('negotiate', { id: p.id }); }}>
+        {blocked ? 'Агент не готов' : yearsLeft(L, p) === 0 ? 'Продлить — истекает' : 'Продлить'}
+      </Button>,
+      <Button key="list" onClick={() => act(() => { p.listed = !p.listed; toast(p.listed ? 'Игрок выставлен на трансфер: клубы будут присылать предложения' : 'Игрок снят с трансфера'); })} icon={<Icon name="swap" size={16} />}>
+        {p.listed ? 'Снять с трансфера' : 'На трансфер'}
+      </Button>,
+      <Button key="rel" variant="danger" onClick={() => setConfirm(true)}>Расторгнуть</Button>,
+    );
+  }
+  if (!mine && p.st === 'FA') {
+    btns.push(
+      <Button key="fa" variant="primary" disabled={!!blocked} onClick={() => {
+        if (interest(L, p, L.teams[L.user]) < 0.35) return toast(`${dispName(p)} не рассматривает ваш клуб`, 'bad');
+        act(() => startTalks(L, p, L.user, 'free')); push('negotiate', { id: p.id });
+      }}>Предложить контракт</Button>,
+    );
+  }
+  if (!mine && p.st === 'ACT') {
+    btns.push(L.negotiations[p.id]?.kind === 'transfer' && L.negotiations[p.id].status === 'open'
+      ? <Button key="talk" variant="good" onClick={() => push('negotiate', { id: p.id })}>Клубы договорились — к контракту</Button>
+      : <Button key="bid" variant="primary" onClick={() => setBid(true)} icon={<Icon name="swap" size={16} />}>Сделать предложение</Button>);
+  }
+  if (p.team && !mine) btns.push(<Button key="club" onClick={() => push('team', { id: p.team })}>Клуб</Button>);
+  return (
+    <>
+      {btns.length > 0 && <div className="flex flex-wrap gap-2 mt-3">{btns}</div>}
+      <BidSheet open={bid} onClose={() => setBid(false)} L={L} p={p} />
+      <Sheet open={confirm} onClose={() => setConfirm(false)} title="Расторгнуть контракт?">
+        <div className="text-[14.5px] text-muted mb-4">{dispName(p)} станет свободным агентом. Клуб выплатит половину оставшейся зарплаты из трансферного бюджета.</div>
+        <Button variant="danger" size="lg" full onClick={() => { const cost = act(() => releasePlayer(L, p)); setConfirm(false); toast(`Контракт расторгнут. Компенсация: ${money(cost)}`); }}>Расторгнуть</Button>
+      </Sheet>
+    </>
+  );
+}
+
+function Info({ p }: { p: Player }) {
+  const a = p.r as unknown as Record<string, number>;
+  const keys = p.pos === 'G' ? KEEP : OUT;
+  return (
+    <>
       <SectionTitle>Характеристики</SectionTitle>
       <Card>
         <div className="grid grid-cols-2 gap-x-5 gap-y-2.5">
@@ -107,6 +159,9 @@ export function PlayerScreen({ params }: { params: Record<string, unknown> }) {
           <Mini label="Готовность" value={`${Math.round(p.fit)}%`} color={fitColor(p.fit)} />
           <Mini label="Настроение" value={p.morale >= 70 ? 'отличное' : p.morale >= 50 ? 'нормальное' : p.morale >= 35 ? 'недоволен' : 'плохое'} color={p.morale < 40 ? '#ff5a5f' : undefined} />
         </div>
+        <div className="text-[12.5px] text-muted mt-3">
+          {ROLE_FULL[p.role]}{p.alt?.length ? ` (также ${p.alt.map((r) => ROLE_RU[r]).join(', ')})` : ''} · {nationName(p.ctry)}{p.caps > 0 ? ` · сборная: ${p.caps} матч., ${p.ig} гол.` : ''}
+        </div>
       </Card>
 
       {p.hist.length >= 2 && (
@@ -116,6 +171,24 @@ export function PlayerScreen({ params }: { params: Record<string, unknown> }) {
         </>
       )}
 
+      {(p.awards.length > 0 || !!p.intl?.length) && (
+        <>
+          <SectionTitle>Достижения</SectionTitle>
+          <Card className="flex flex-col gap-1.5 text-[14px]">
+            {(p.intl ?? []).map((x, i) => { const [k, y, m] = x.split(':'); return <div key={i}>{MEDAL[m]} {TOUR[k]}-{y}{k === 'wc' && y === '2026' ? ' (реальный турнир)' : ''}</div>; })}
+            {p.awards.map((x, i) => <div key={`a${i}`}>🏅 {x}</div>)}
+          </Card>
+        </>
+      )}
+    </>
+  );
+}
+
+function Stats({ L, p }: { L: League; p: Player }) {
+  const seasons = Object.keys(p.stats).sort().reverse();
+  const c = career(p);
+  return (
+    <>
       <SectionTitle right={<span className="text-[12px] text-muted">лиги: {c.gp} матч., {c.g} гол., {c.a} пас.</span>}>Статистика</SectionTitle>
       <Card pad={false} className="overflow-hidden">
         <div className="grid grid-cols-[1.5fr_repeat(5,minmax(0,0.5fr))] text-[11px] uppercase tracking-wider text-muted px-3 py-2 border-b border-white/5">
@@ -140,48 +213,41 @@ export function PlayerScreen({ params }: { params: Record<string, unknown> }) {
         {!seasons.length && !p.h?.length && <div className="px-3 py-4 text-muted text-[13.5px]">Данных о матчах пока нет.</div>}
       </Card>
       {!!p.h?.length && <div className="text-[11.5px] text-faint mt-1.5 px-1">Сезоны до 2026/27 — реальная статистика игрока во всех турнирах.</div>}
+    </>
+  );
+}
 
-      {(p.awards.length > 0 || p.intl?.length) && (
-        <>
-          <SectionTitle>Достижения</SectionTitle>
-          <Card className="flex flex-col gap-1.5 text-[14px]">
-            {(p.intl ?? []).map((x, i) => { const [k, y, m] = x.split(':'); return <div key={i}>{MEDAL[m]} {TOUR[k]}-{y}{k === 'wc' && y === '2026' ? ' (реальный турнир)' : ''}</div>; })}
-            {p.awards.map((x, i) => <div key={`a${i}`}>🏅 {x}</div>)}
-          </Card>
-        </>
-      )}
-
-      <div className="flex flex-col gap-2 mt-5">
-        {mine && !p.loan && (
-          <>
-            <Button variant="primary" size="lg" full disabled={!!blocked} onClick={() => { act(() => startTalks(L, p, L.user, 'extend')); push('negotiate', { id: p.id }); }}>
-              {blocked ? 'Агент не готов к переговорам' : `Продлить контракт${yearsLeft(L, p) === 0 ? ' — истекает летом' : ''}`}
-            </Button>
-            <div className="flex gap-2">
-              <Button full onClick={() => act(() => { p.listed = !p.listed; toast(p.listed ? 'Игрок выставлен на трансфер: клубы будут присылать предложения' : 'Игрок снят с трансфера'); })}>{p.listed ? 'Снять с трансфера' : 'Выставить на трансфер'}</Button>
-              <Button full variant="danger" onClick={() => setConfirm(true)}>Расторгнуть</Button>
-            </div>
-          </>
-        )}
-        {!mine && p.st === 'FA' && (
-          <Button variant="primary" size="lg" full disabled={!!blocked} onClick={() => {
-            if (interest(L, p, L.teams[L.user]) < 0.35) return toast(`${dispName(p)} не рассматривает ваш клуб`, 'bad');
-            act(() => startTalks(L, p, L.user, 'free')); push('negotiate', { id: p.id });
-          }}>Предложить контракт (свободный агент)</Button>
-        )}
-        {!mine && p.st === 'ACT' && (
-          L.negotiations[p.id]?.kind === 'transfer' && L.negotiations[p.id].status === 'open'
-            ? <Button variant="good" size="lg" full onClick={() => push('negotiate', { id: p.id })}>Клубы договорились — к контракту</Button>
-            : <Button variant="primary" size="lg" full onClick={() => setBid(true)}>Сделать предложение клубу</Button>
-        )}
+function ContractTab({ L, p, team }: { L: League; p: Player; team: League['teams'][string] | null }) {
+  const push = useNav((s) => s.push);
+  return (
+    <>
+      <SectionTitle>Контракт</SectionTitle>
+      <div className="grid grid-cols-2 gap-2">
+        <Card onClick={team ? () => push('team', { id: team.id }) : undefined} className="!p-3 flex items-center gap-2.5">
+          {team ? <TeamBadge team={team} size={34} /> : <div className="text-2xl">🌍</div>}
+          <div className="min-w-0">
+            <div className="text-[11px] uppercase tracking-wider text-muted">Клуб</div>
+            <div className="text-[14.5px] font-medium truncate">{clubLabel(L, p)}</div>
+            {p.loan && <div className="text-[11px] text-muted truncate">аренда из {p.loan.from ? L.teams[p.loan.from]?.ru : p.ext ?? 'другого клуба'}</div>}
+          </div>
+        </Card>
+        <Card className="!p-3">
+          <div className="text-[11px] uppercase tracking-wider text-muted">Рыночная стоимость</div>
+          <div className="num text-[20px] leading-tight">{money(p.val)}</div>
+          <div className="text-[11.5px] text-muted truncate">{p.listed ? 'выставлен на трансфер' : 'оценка рынка'}</div>
+        </Card>
       </div>
-
-      <BidSheet open={bid} onClose={() => setBid(false)} L={L} p={p} />
-      <Sheet open={confirm} onClose={() => setConfirm(false)} title="Расторгнуть контракт?">
-        <div className="text-[14.5px] text-muted mb-4">{dispName(p)} станет свободным агентом. Клуб выплатит половину оставшейся зарплаты из трансферного бюджета.</div>
-        <Button variant="danger" size="lg" full onClick={() => { const cost = act(() => releasePlayer(L, p)); setConfirm(false); toast(`Контракт расторгнут. Компенсация: ${money(cost)}`); }}>Расторгнуть</Button>
-      </Sheet>
-    </Screen>
+      <Card className="mt-2">
+        {p.c ? (
+          <div className="grid grid-cols-3 gap-2">
+            <Mini label="Зарплата" value={`${money(p.c.wage)}/год`} />
+            <Mini label="До лета" value={`${p.c.until}`} color={yearsLeft(L, p) === 0 ? '#ffb547' : undefined} />
+            <Mini label="Осталось" value={`${yearsLeft(L, p)} сез.`} />
+          </div>
+        ) : <div className="text-[14px] text-muted">Без контракта{p.st === 'FA' ? ' — свободный агент' : ''}.</div>}
+        {p.c && !p.c.real && <div className="text-[11.5px] text-faint mt-2">Зарплата — модель по рейтингу и лиге: реальные суммы не публикуются.</div>}
+      </Card>
+    </>
   );
 }
 
