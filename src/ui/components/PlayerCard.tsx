@@ -44,55 +44,26 @@ function Pattern({ tier, accent }: { tier: Tier; accent: string }) {
   );
 }
 
-/** Head-and-shoulders portrait: the real photo above a shirt drawn in the club colours. */
+/** The real photo only, as large as the card allows: whatever the photo shows (head, shoulders) is what is seen. */
 function Bust({ p, team, w, top, onError, err }: { p: Player; team: Team | null; w: number; top: number; onError: () => void; err: boolean }) {
-  const keeper = p.pos === 'G';
-  const shirt = keeper ? '#f2c230' : team?.primary ?? '#3a4458';
-  const trim = keeper ? '#1b1b1b' : team?.secondary ?? '#aab4c8';
   const src = photoUrl(p, 'big');
-  const torsoW = w * 0.94, torsoH = torsoW * 0.42;
-  const photoW = w * 0.52, photoH = photoW / (300 / 390);
-  const neck = top + photoH * 0.86;
-  const uid = `bust${p.id}`;
+  const photoW = w * 0.62, photoH = photoW / (300 / 390);
+  const fade = 'linear-gradient(90deg, transparent, #000 13%, #000 87%, transparent), linear-gradient(180deg, transparent, #000 8%, #000 80%, transparent)';
   return (
-    <>
-      <svg className="absolute left-1/2 -translate-x-1/2" style={{ top: neck - torsoH * 0.12, width: torsoW, height: torsoH }} viewBox="0 0 200 84">
-        <defs>
-          <linearGradient id={uid} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor={shirt} />
-            <stop offset="1" stopColor={`color-mix(in oklab, ${shirt} 55%, #000)`} />
-          </linearGradient>
-          <radialGradient id={`${uid}h`} cx="0.5" cy="0" r="0.7">
-            <stop offset="0" stopColor="#fff" stopOpacity="0.28" />
-            <stop offset="1" stopColor="#fff" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <path d="M0 84 L0 56 C0 36 16 26 44 19 L76 9 C86 20 114 20 124 9 L156 19 C184 26 200 36 200 56 L200 84 Z" fill={`url(#${uid})`} />
-        <path d="M0 84 L0 56 C0 36 16 26 44 19 L76 9 C86 20 114 20 124 9 L156 19 C184 26 200 36 200 56 L200 84 Z" fill={`url(#${uid}h)`} />
-        <path d="M44 19 C30 23 16 32 10 48" fill="none" stroke={trim} strokeWidth="3" opacity="0.8" />
-        <path d="M156 19 C170 23 184 32 190 48" fill="none" stroke={trim} strokeWidth="3" opacity="0.8" />
-        <path d="M76 9 C86 20 114 20 124 9 L118 7 C108 16 92 16 82 7 Z" fill={trim} />
-      </svg>
-      <div className="absolute left-1/2 -translate-x-1/2" style={{ top, width: photoW, height: photoH }}>
-        {src && !err ? (
-          <img
-            src={src}
-            alt=""
-            onError={onError}
-            draggable={false}
-            className="w-full h-full object-cover"
-            style={{
-              maskImage: 'linear-gradient(90deg, transparent, #000 20%, #000 80%, transparent), linear-gradient(180deg, transparent, #000 14%, #000 74%, transparent 92%)',
-              WebkitMaskImage: 'linear-gradient(90deg, transparent, #000 20%, #000 80%, transparent), linear-gradient(180deg, transparent, #000 14%, #000 74%, transparent 92%)',
-              maskComposite: 'intersect',
-              WebkitMaskComposite: 'source-in',
-            }}
-          />
-        ) : (
-          <div className="absolute inset-x-0 bottom-0" style={{ height: photoH * 0.9 }}><Silhouette p={p} color={clubAccent(team)} /></div>
-        )}
-      </div>
-    </>
+    <div className="absolute left-1/2 -translate-x-1/2" style={{ top, width: photoW, height: photoH }}>
+      {src && !err ? (
+        <img
+          src={src}
+          alt=""
+          onError={onError}
+          draggable={false}
+          className="w-full h-full object-cover"
+          style={{ maskImage: fade, WebkitMaskImage: fade, maskComposite: 'intersect', WebkitMaskComposite: 'source-in' }}
+        />
+      ) : (
+        <div className="absolute inset-x-0 bottom-0" style={{ height: photoH * 0.8 }}><Silhouette p={p} color={clubAccent(team)} /></div>
+      )}
+    </div>
   );
 }
 
@@ -151,7 +122,7 @@ export function PlayerCard({ p, L, width = 260, interactive = true }: { p: Playe
           <Pattern tier={tier} accent={accent} />
           {/* club colour wash behind the player */}
           <div className="absolute inset-x-0 top-0" style={{ height: h * 0.6, background: `radial-gradient(60% 55% at 50% 45%, color-mix(in oklab, ${clubBase(t)} 55%, transparent), transparent 75%)` }} />
-          <Bust p={p} team={t} w={width} top={h * 0.03} err={imgErr} onError={() => setImgErr(true)} />
+          <Bust p={p} team={t} w={width} top={h * 0.035} err={imgErr} onError={() => setImgErr(true)} />
           {tier === 'icon' && <motion.div className="absolute inset-0 foil pointer-events-none" style={{ ['--fx' as string]: foilX }} />}
           {rank >= 5 && SPARKLES.map(([x, y, d], i) => <span key={i} className="sparkle" style={{ left: `${x}%`, top: `${y}%`, animationDelay: `${d}s`, transform: 'scale(0)' }} />)}
           <motion.div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(circle at var(--gx) 0%, rgba(255,255,255,0.2), transparent 55%)', ['--gx' as string]: glareX }} />
