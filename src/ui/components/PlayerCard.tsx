@@ -203,53 +203,52 @@ export function MiniCard({ p, L, onClick }: { p: Player; L: League; onClick?: ()
   );
 }
 
-/** Round photo inside a pitch tile; falls back to the silhouette. */
-function TilePhoto({ p, team, size, ring }: { p: Player; team: Team | null; size: number; ring: string }) {
-  const [err, setErr] = useState(false);
-  const src = photoUrl(p, 'header');
-  const bg = team ? `radial-gradient(circle at 50% 30%, color-mix(in oklab, ${clubBase(team)} 70%, #1a2440), #0b1120)` : 'radial-gradient(circle at 50% 30%, #1b2a44, #0b1120)';
-  return (
-    <span className="relative block rounded-full overflow-hidden shrink-0" style={{ width: size, height: size, background: bg, boxShadow: `0 0 0 2px ${ring}` }}>
-      {src && !err ? <img src={src} alt="" loading="lazy" onError={() => setErr(true)} className="absolute inset-0 w-full h-full object-cover object-top" draggable={false} /> : <Silhouette p={p} color={clubAccent(team)} />}
-    </span>
-  );
-}
-
 /**
- * A player on the team sheet, drawn like the line tiles of NHL GM: role, photo, surname, rating.
- * `rating` and `role` show how the player rates in the slot he is standing in.
+ * A player on the team sheet as a small FIFA-style card in the colours of his tier:
+ * rating, position, photo, surname, fitness. `rating` and `role` show how he rates in the slot he stands in.
  */
 export function PitchCard({ p, team, width, rating, role, selected, unavailable, warn, onClick }: {
   p: Player; team: Team | null; width: number; rating?: number; role?: Role; selected?: boolean; unavailable?: boolean; warn?: boolean; onClick?: () => void;
 }) {
+  const [err, setErr] = useState(false);
   const v = rating ?? p.ovr;
-  const h = Math.round(width * 1.3);
+  const h = Math.round(width * 1.4);
   const tier = tierOf(p.ovr);
-  const c = TIERS[tier].color;
-  const rare = RANK[tier] >= 4;
-  const idle = `inset 0 0 0 1px color-mix(in oklab, ${c} ${rare ? 70 : 35}%, transparent), 0 6px 14px rgba(0,0,0,.45)${rare ? `, 0 0 14px -3px ${c}` : ''}`;
+  const src = photoUrl(p, 'header');
+  const fade = 'linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent), linear-gradient(180deg, #000 62%, transparent 96%)';
   return (
     <button
       onClick={onClick}
-      className={cx(
-        'press relative shrink-0 rounded-2xl border flex flex-col items-center transition-colors',
-        selected ? 'border-[var(--accent)] bg-[color-mix(in_oklab,var(--accent)_26%,#0b1120)]' : 'border-transparent bg-[rgba(9,13,24,0.78)]',
-        selected && 'z-10',
-      )}
-      style={{ width, height: h, padding: `${width * 0.07}px ${width * 0.05}px`, gap: width * 0.035, WebkitBackdropFilter: 'blur(14px)', backdropFilter: 'blur(14px)', boxShadow: selected ? '0 0 0 2px var(--accent), 0 8px 18px rgba(0,0,0,.5)' : idle }}
-      aria-label={`${surname(p)}, ${ROLE_RU[role ?? p.role]}, рейтинг ${v}`}
+      className={cx('press relative block shrink-0 transition-transform duration-150', selected && '-translate-y-1 scale-[1.08] z-10')}
+      style={{ width, height: h, filter: selected ? 'drop-shadow(0 0 2px var(--accent)) drop-shadow(0 0 8px var(--accent))' : 'drop-shadow(0 5px 8px rgba(0,0,0,.55))' }}
+      aria-label={`${surname(p)}, ${ROLE_RU[role ?? p.role]}, рейтинг ${v}, ${TIERS[tier].name}`}
     >
-      <span className="absolute font-display text-muted leading-none" style={{ left: width * 0.09, top: width * 0.08, fontSize: Math.max(9, width * 0.13) }}>{ROLE_RU[role ?? p.role]}</span>
-      <span className={cx('block', unavailable && 'grayscale opacity-60')} style={{ marginTop: width * 0.1 }}><TilePhoto p={p} team={team} size={width * 0.54} ring={c} /></span>
-      <span className="font-medium truncate w-full text-center leading-tight" style={{ fontSize: Math.max(10, width * 0.155) }}>{surname(p)}</span>
-      <span className="flex items-center leading-none" style={{ gap: width * 0.05 }}>
-        <span className="num" style={{ fontSize: Math.max(12, width * 0.2), color: warn || unavailable ? '#ff5a5f' : c }}>{v}</span>
-        <span className="rounded-full overflow-hidden" style={{ width: width * 0.24, height: 3, background: 'rgba(255,255,255,.12)' }}>
-          <span className="block h-full" style={{ width: `${p.fit}%`, background: fitColor(p.fit) }} />
+      <Frame tier={tier} radius={Math.max(9, width * 0.15)} pad={RANK[tier] >= 4 ? 2.5 : 2} className={cx('w-full h-full', unavailable && 'grayscale opacity-70')}>
+        <div className="absolute inset-x-0 top-0" style={{ height: h * 0.62, background: `radial-gradient(70% 60% at 60% 45%, color-mix(in oklab, ${clubBase(team)} 50%, transparent), transparent 80%)` }} />
+        {/* photo */}
+        <div className="absolute" style={{ right: 0, top: h * 0.04, width: width * 0.72, height: h * 0.6 }}>
+          {src && !err ? (
+            <img src={src} alt="" loading="lazy" draggable={false} onError={() => setErr(true)} className="w-full h-full object-cover object-top" style={{ maskImage: fade, WebkitMaskImage: fade, maskComposite: 'intersect', WebkitMaskComposite: 'source-in' }} />
+          ) : (
+            <div className="absolute inset-x-0 bottom-0" style={{ height: h * 0.5 }}><Silhouette p={p} color={clubAccent(team)} /></div>
+          )}
+        </div>
+        {RANK[tier] >= 5 && <><span className="sparkle" style={{ left: '70%', top: '8%', width: 8, height: 8 }} /><span className="sparkle" style={{ left: '14%', top: '52%', width: 7, height: 7, animationDelay: '1.2s' }} /></>}
+        {/* rating and position */}
+        <span className="absolute flex flex-col items-center leading-none z-10 [filter:drop-shadow(0_1px_2px_rgba(0,0,0,.85))]" style={{ left: width * 0.07, top: width * 0.08, ['--glow' as string]: TIERS[tier].color }}>
+          <span className={cx('num font-semibold', warn ? 'text-bad' : NUM_CLASS[tier])} style={{ fontSize: Math.max(13, width * 0.27) }}>{v}</span>
+          <span className="font-display text-white/90" style={{ fontSize: Math.max(8.5, width * 0.13), marginTop: width * 0.02 }}>{ROLE_RU[role ?? p.role]}</span>
         </span>
-      </span>
+        {/* name band */}
+        <span className="absolute inset-x-0 bottom-0 flex flex-col items-center" style={{ height: h * 0.34, paddingTop: h * 0.08, background: 'linear-gradient(180deg, transparent, rgba(0,0,0,.6) 38%, rgba(0,0,0,.7))' }}>
+          <span className="font-display uppercase text-white truncate w-full text-center leading-none" style={{ fontSize: Math.max(9, width * 0.145), padding: `0 ${width * 0.06}px` }}>{surname(p)}</span>
+          <span className="rounded-full overflow-hidden" style={{ width: width * 0.42, height: 3, marginTop: h * 0.045, background: 'rgba(255,255,255,.18)' }}>
+            <span className="block h-full" style={{ width: `${p.fit}%`, background: fitColor(p.fit) }} />
+          </span>
+        </span>
+      </Frame>
       {(p.inj || !!p.susp) && (
-        <span className="absolute rounded-full bg-bad text-white font-bold flex items-center justify-center" style={{ right: width * 0.06, top: width * 0.06, width: width * 0.22, height: width * 0.22, fontSize: width * 0.13 }}>
+        <span className="absolute rounded-full bg-bad text-white font-bold flex items-center justify-center z-20" style={{ right: -3, top: -4, width: Math.max(14, width * 0.26), height: Math.max(14, width * 0.26), fontSize: Math.max(9, width * 0.15) }}>
           {p.inj ? '✚' : '!'}
         </span>
       )}
@@ -260,7 +259,7 @@ export function PitchCard({ p, team, width, rating, role, selected, unavailable,
 /** Empty place on the pitch or on the bench. */
 export function EmptyCard({ width, label, onClick }: { width: number; label: string; onClick?: () => void }) {
   return (
-    <button onClick={onClick} className="press relative shrink-0 rounded-2xl border border-dashed border-white/35 bg-black/30 flex flex-col items-center justify-center text-white/75" style={{ width, height: Math.round(width * 1.3) }}>
+    <button onClick={onClick} className="press relative shrink-0 border border-dashed border-white/40 bg-black/30 flex flex-col items-center justify-center text-white/75" style={{ width, height: Math.round(width * 1.4), borderRadius: Math.max(9, width * 0.15) }}>
       <span style={{ fontSize: width * 0.34, lineHeight: 1 }}>+</span>
       <span className="font-display" style={{ fontSize: Math.max(10, width * 0.14) }}>{label}</span>
     </button>
