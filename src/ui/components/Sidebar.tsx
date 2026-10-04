@@ -1,4 +1,5 @@
 import { motion } from 'motion/react';
+import { club } from '../../engine/ucl';
 import { useState } from 'react';
 import { useGame } from '../../store/game';
 import { useNav, type Tab } from '../../store/nav';
@@ -60,7 +61,7 @@ export function Sidebar({ badges }: { badges: Partial<Record<Tab, number>> }) {
               <Icon name="play" size={20} />
               <div className="flex-1 min-w-0 leading-tight">
                 <div className="font-display uppercase tracking-wider text-[17px]">Продолжить</div>
-                {ng && <div className="text-[11.5px] text-white/85 truncate">матч {dateShort(ng.day)} · {L.teams[ng.h === L.user ? ng.a : ng.h]?.ru}</div>}
+                {ng && <div className="text-[11.5px] text-white/85 truncate">матч {dateShort(ng.day)} · {club(L, ng.h === L.user ? ng.a : ng.h)?.ru}</div>}
               </div>
               <kbd className="!bg-white/20 !text-white">Пробел</kbd>
             </button>

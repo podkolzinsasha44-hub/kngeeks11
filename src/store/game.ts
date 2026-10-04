@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { Game, League } from '../engine/types';
 import type { WorldJson, NewCareerOpts } from '../engine/world';
-import { attachPhotos, newCareer } from '../engine/world';
+import { upgradeSave, newCareer } from '../engine/world';
 import { advanceDay, lastUserBox } from '../engine/season';
 import { setNations } from '../engine/intl';
 import { saveLeague, loadLeague, requestPersistence } from '../persistence/db';
@@ -51,7 +51,7 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let toastId = 1;
 
 /** Reasons that always stop the simulation, and those that stop the "until the next event" mode. */
-const ALWAYS = new Set(['lineup', 'cup', 'season-end', 'rollover', 'intl', 'expiring']);
+const ALWAYS = new Set(['lineup', 'cup', 'ucl', 'season-end', 'rollover', 'intl', 'expiring']);
 const EVENT = new Set([...ALWAYS, 'offer', 'injury', 'player']);
 
 export function applyTheme(L: League | null) {
@@ -110,7 +110,7 @@ export const useGame = create<GameState>((set, get) => ({
       set({ loading: false });
       return false;
     }
-    attachPhotos(L, get().world!);
+    upgradeSave(L, get().world!);
     applyTheme(L);
     useNav.getState().reset();
     set({ L, saveId: id, loading: false, ver: get().ver + 1 });
@@ -118,7 +118,7 @@ export const useGame = create<GameState>((set, get) => ({
   },
   setLeague: (L, id) => {
     const w = get().world;
-    if (w) attachPhotos(L, w);
+    if (w) upgradeSave(L, w);
     applyTheme(L);
     useNav.getState().reset();
     set({ L, saveId: id ?? `career-${Date.now()}`, ver: get().ver + 1 });
@@ -208,7 +208,7 @@ function onStop(reason: string | null, mode: SimMode, watch: boolean, played: bo
     game.toast('Состав на матч нужно поправить: игрок из старта не может выйти на поле', 'bad');
     return nav.go('roster', undefined, { tab: 'lineup' });
   }
-  if (reason === 'cup') return nav.openModal('celebration', { what: 'cup' });
+  if (reason === 'cup' || reason === 'ucl') return nav.openModal('celebration', { what: reason });
   if (reason === 'season-end') {
     if (L.comps[L.teams[L.user].lg].champion === L.user) return nav.openModal('celebration', { what: 'title' });
     return nav.go('league');

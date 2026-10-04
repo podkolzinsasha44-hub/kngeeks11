@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
+import { club } from '../../engine/ucl';
 import { useState } from 'react';
 import { useGame, type SimMode } from '../../store/game';
 import { nextUserGame } from '../../engine/season';
@@ -21,7 +22,7 @@ export function SimOverlay() {
             <div className="flex-1 min-w-0">
               <div className="font-display uppercase tracking-wide text-[15px]">{dateLong(L.date)}</div>
               <div className="text-[12.5px] text-muted truncate">
-                {sim.last ? <>{sim.last.res === 'W' ? '✅' : sim.last.res === 'D' ? '➖' : '❌'} {L.teams[sim.last.game.h].short} {sim.last.game.hs}:{sim.last.game.as} {L.teams[sim.last.game.a].short} · {w}–{d}–{l}</> : phaseLabel(L)}
+                {sim.last ? <>{sim.last.res === 'W' ? '✅' : sim.last.res === 'D' ? '➖' : '❌'} {club(L, sim.last.game.h).short} {sim.last.game.hs}:{sim.last.game.as} {club(L, sim.last.game.a).short} · {w}–{d}–{l}</> : phaseLabel(L)}
               </div>
             </div>
             <Button size="sm" variant="glass" onClick={stop} icon={<Icon name="pause" size={16} />}>Стоп</Button>
@@ -81,7 +82,7 @@ export function SimDock() {
             <Icon name="play" size={20} />
             <div className="text-left leading-tight">
               <div className="font-display uppercase tracking-wider text-[17px]">Продолжить</div>
-              {ng && <div className="text-[11.5px] text-white/85 -mt-0.5">матч {dateShort(ng.day)} · {ng.h === L.user ? 'дома' : 'в гостях'} · {L.teams[ng.h === L.user ? ng.a : ng.h]?.ru}</div>}
+              {ng && <div className="text-[11.5px] text-white/85 -mt-0.5">матч {dateShort(ng.day)} · {ng.h === L.user ? 'дома' : 'в гостях'} · {club(L, ng.h === L.user ? ng.a : ng.h)?.ru}</div>}
             </div>
           </button>
           <button onClick={() => setOpen(true)} className="press w-[56px] h-[56px] rounded-[20px] glass-strong flex items-center justify-center" aria-label="Режимы симуляции"><Icon name="ff" size={20} /></button>

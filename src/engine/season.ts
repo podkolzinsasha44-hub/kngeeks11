@@ -6,7 +6,7 @@ import { weeklyMorale } from './events';
 import { genPlayer } from './gen';
 import { intlDaily } from './intl';
 import { LEAGUES, LEAGUE_IDS, foreignLimit, isLeague, rolloverDay, statKey, styleOf, windowOpen } from './leagues';
-import { FORMATIONS, lineupValid, squad, validateLineup } from './lineup';
+import { FORMATIONS, lineupValid, validateLineup } from './lineup';
 import { simulateMatch, type MatchBox } from './match';
 import { pushMsg, pushNews, social } from './news';
 import { rollover, endLeague } from './offseason';
@@ -18,6 +18,7 @@ import { ensureSquads, weeklyMarket } from './transfers';
 import type { Game, League, OutfieldAttrs, Player, Team } from './types';
 import { addDays, clamp, dispName, dow } from './util';
 import { autoRenew, renewalCases, VERDICT_RU } from './renewals';
+import { club, onUclGame, rosterOf, UCL } from './ucl';
 
 export interface DayReport {
   date: string;
@@ -68,7 +69,7 @@ function prepareUserLineup(L: League, t: Team, roster: Player[], date: string): 
 }
 
 export function playGame(L: League, g: Game): MatchBox {
-  const H = L.teams[g.h], A = L.teams[g.a];
+  const H = club(L, g.h), A = club(L, g.a);
   const isUser = g.h === L.user || g.a === L.user;
   const box = simulateMatch(L.players, sideOf(H), sideOf(A), {
     knockout: isDecider(L, g), agg: aggregateFor(L, g), neutral: g.neutral, style: styleOf(g), detail: isUser,
@@ -88,7 +89,7 @@ function applyGame(L: League, g: Game, box: MatchBox) {
   g.xg = [Math.round(r.xgH * 100), Math.round(r.xgA * 100)];
   if (r.et) g.et = true;
   if (r.pen) g.pen = r.pen;
-  const H = L.teams[g.h], A = L.teams[g.a];
+  const H = club(L, g.h), A = club(L, g.a);
   H.lastGame = A.lastGame = g.day;
   const league = isLeague(g.comp);
   if (league) {
@@ -120,14 +121,14 @@ function applyGame(L: League, g: Game, box: MatchBox) {
       }
     }
     if (s.g >= 3) {
-      pushNews(L, { kind: 'game', title: `Хет-трик! ${dispName(p)} («${L.teams[p.team ?? g.h]?.ru ?? ''}»)`, players: [p.id], team: p.team ?? undefined });
+      pushNews(L, { kind: 'game', title: `Хет-трик! ${dispName(p)} («${club(L, p.team ?? (p.ext === A.name ? g.a : g.h))?.ru ?? ''}»)`, players: [p.id], team: p.team ?? undefined });
       if (p.team === L.user) social(L, `⚽⚽⚽ ${dispName(p)} оформляет хет-трик! Мяч забирает домой`, { kind: 'fan', team: L.user, players: [p.id] });
     }
     if ((s.rc || s.yc === 2) && p.team === L.user) pushMsg(L, { from: 'Тренерский штаб', kind: 'staff', title: `${dispName(p)} удалён и дисквалифицирован`, body: `Игрок пропустит ${s.yc === 2 ? 'следующий матч' : 'два матча'}.`, ref: { type: 'player', id: p.id } });
   }
   // Suspended players of both clubs have served one match.
   for (const t of [H, A]) {
-    for (const p of squad(L, t.id)) if (p.susp && p.susp > 0 && !played.has(p.id)) p.susp--;
+    for (const p of rosterOf(L, t.id)) if (p.susp && p.susp > 0 && !played.has(p.id)) p.susp--;
   }
   for (const inj of r.injuries) {
     const p = L.players[inj.id];
@@ -153,7 +154,9 @@ function applyGame(L: League, g: Game, box: MatchBox) {
     const t = L.teams[L.user];
     t.fans = clamp(t.fans + (won ? 1.2 : mine === their ? -0.1 : -1.2) * (g.tie ? 2 : 1), 0, 100);
   }
-  if (g.tie) {
+  if (g.comp === UCL) {
+    if (onUclGame(L, g) === 'final' && (g.h === L.user || g.a === L.user)) L.stops.push('ucl');
+  } else if (g.tie) {
     const res = onCupGame(L, g);
     if (res === 'final' && (g.h === L.user || g.a === L.user)) L.stops.push('cup');
   }
@@ -193,13 +196,15 @@ export function advanceDay(L: League): DayReport {
     const byTeam = groupByTeam(L);
     const playing = new Set<string>();
     for (const g of todays) { playing.add(g.h); playing.add(g.a); }
+    // Champions League guests: their squads are not in the club index.
+    for (const id of playing) if (!byTeam.has(id)) byTeam.set(id, rosterOf(L, id));
     if (playing.has(L.user) && !prepareUserLineup(L, L.teams[L.user], byTeam.get(L.user) ?? [], date)) {
       L.rng = getState();
       report.blocked = true;
       return report;
     }
     // AI coaches keep their shape between matches and reconsider it once a week.
-    for (const id of playing) if (id !== L.user) aiLineup(L, L.teams[id], byTeam.get(id) ?? [], L.teams[id].lineup.xi.length === 11 && dow(date) !== 6);
+    for (const id of playing) if (id !== L.user) aiLineup(L, club(L, id), byTeam.get(id) ?? [], club(L, id).lineup.xi.length === 11 && dow(date) !== 6);
     for (const g of todays) {
       const box = playGame(L, g);
       report.games.push(g);

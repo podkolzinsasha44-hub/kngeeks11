@@ -32,6 +32,10 @@ const REAL: Record<LeagueId, { gpm: number; home: number; draw: number; champ: n
   FRA: { gpm: 2.9, home: 0.464, draw: 0.224, champ: 80, last: 20, scorer: 23 },
 };
 const CORRIDOR = { gpm: 0.18, home: 0.06, draw: 0.055, champ: 9, last: 10, scorer: 8 };
+/** Champions League, mean of 2024-25 and 2025-26 (189 + 188 matches of the same dataset). */
+const UCL_REAL = { gpm: 3.4, home: 0.504, draw: 0.157 };
+const UCL_CORRIDOR = { gpm: 0.2, home: 0.07, draw: 0.06 };
+const ucl = { gpm: 0, home: 0, draw: 0, n: 0 };
 
 const acc: Record<string, { gpm: number; home: number; draw: number; champ: number; last: number; scorer: number; cards: number; reds: number }> = {};
 for (const lg of LEAGUE_IDS) acc[lg] = { gpm: 0, home: 0, draw: 0, champ: 0, last: 0, scorer: 0, cards: 0, reds: 0 };
@@ -50,6 +54,11 @@ for (let s = 0; s < N; s++) {
     }
   }
   while (L.date < `${L.season + 1}-06-01`) { advanceDay(L); L.stops.length = 0; }
+  for (const g of L.games) {
+    if (g.comp !== 'UCL' || !g.played) continue;
+    ucl.n++; ucl.gpm += g.hs! + g.as!;
+    if (!g.neutral) { ucl.home += Number(g.hs! > g.as!); ucl.draw += Number(g.hs === g.as); }
+  }
   for (const lg of LEAGUE_IDS) {
     const t = sortedTeams(L, lg);
     const gp = t.reduce((x, y) => x + y.rec.gp, 0) / 2;
@@ -77,6 +86,15 @@ for (const lg of LEAGUE_IDS) {
     return `${f(a[k], d)}/${f(r[k], d)}${ok ? ' ' : '!'}`;
   };
   console.log(`${lg.padEnd(6)} ${cell('gpm')} ${cell('home', 3)} ${cell('draw', 3)} ${cell('champ', 0)} ${cell('last', 0)} ${cell('scorer', 0)} ${f(a.cards)} ${f(a.reds)}`);
+}
+{
+  const v = { gpm: ucl.gpm / ucl.n, home: ucl.home / ucl.n, draw: ucl.draw / ucl.n };
+  const cell = (k: keyof typeof UCL_CORRIDOR, d = 2) => {
+    const ok = Math.abs(v[k] - UCL_REAL[k]) <= UCL_CORRIDOR[k];
+    if (!ok) bad++;
+    return `${f(v[k], d)}/${f(UCL_REAL[k], d)}${ok ? ' ' : '!'}`;
+  };
+  console.log(`UCL    ${cell('gpm')} ${cell('home', 3)} ${cell('draw', 3)}   (${ucl.n} matches)`);
 }
 console.log(`Odds: analytic formula vs. 1500 engine runs — mean absolute difference ${((oddsErr / oddsN) * 100).toFixed(1)} p.p.`);
 console.log(bad ? `\n${bad} metric(s) outside the corridor (marked "!")` : '\nAll metrics inside their corridors.');

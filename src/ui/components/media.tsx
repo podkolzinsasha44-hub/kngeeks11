@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { playerClub } from '../../engine/ucl';
 import { useGame } from '../../store/game';
 import { useNav } from '../../store/nav';
 import type { League, Player, Team } from '../../engine/types';
@@ -11,7 +12,8 @@ export const inkOn = (hex: string) => (lum(hex) > 0.6 ? '#0b1220' : '#ffffff');
 
 /** Club crest: the real one from the Transfermarkt image CDN; offline (or for an unknown club) a badge drawn from the club colours. */
 export function TeamBadge({ team, id, size = 36 }: { team?: Pick<Team, 'id' | 'primary' | 'secondary' | 'short' | 'tm'>; id?: string; size?: number }) {
-  const t = team ?? (id ? useGame.getState().L?.teams[id] : undefined);
+  const L = id && !team ? useGame.getState().L : null;
+  const t = team ?? (id && L ? L.teams[id] ?? L.ext?.[id] : undefined);
   const [err, setErr] = useState(false);
   if (t?.tm && !err) {
     return (
@@ -99,7 +101,7 @@ export function Kit({ primary, secondary, num, size = 40 }: { primary: string; s
 }
 
 export function PlayerKit({ L, p, size = 40 }: { L: League; p: Player; size?: number }) {
-  const t = p.team ? L.teams[p.team] : null;
+  const t = playerClub(L, p);
   return <Kit primary={t?.primary ?? '#3a4458'} secondary={t?.secondary ?? '#8b98ae'} num={p.team ? p.num : null} size={size} />;
 }
 
@@ -132,7 +134,7 @@ export const clubAccent = (t: Team | null | undefined) => (t ? (lum(t.primary) <
 
 export function PlayerPhoto({ p, L, size = 44, className, round = true }: { p: Player; L: League; size?: number; className?: string; round?: boolean }) {
   const [err, setErr] = useState(false);
-  const t = p.team ? L.teams[p.team] : null;
+  const t = playerClub(L, p);
   const src = photoUrl(p, size > 72 ? 'big' : 'header');
   const bg = t ? `radial-gradient(circle at 50% 30%, color-mix(in oklab, ${clubBase(t)} 70%, #1a2440), #0b1120)` : 'radial-gradient(circle at 50% 30%, #1b2a44, #0b1120)';
   return (

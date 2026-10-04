@@ -138,7 +138,7 @@ function NewCareer({ onBack }: { onBack: () => void }) {
             <div className="text-[11.5px] text-muted mt-1.5 mb-2.5 px-1">Сложность меняет жадность клубов и агентов и терпение руководства. На шансы в матчах она не влияет никогда.</div>
             <div className="flex gap-2 mb-3">
               <Toggle on={noFiring} set={setNoFiring} label="Без увольнения" />
-              <Toggle on={intlRussia} set={setIntlRussia} label="Россия на ЧМ и Евро" />
+              <Toggle on={intlRussia} set={setIntlRussia} label="Россия в турнирах FIFA и UEFA" />
             </div>
             <Button variant="primary" size="lg" full disabled={loading} onClick={() => start({ team: sel.id, gmName: name.trim() || 'Спортивный директор', settings: { difficulty: diff, noFiring, intlRussia } })}>
               {loading ? <Spinner /> : `Возглавить «${sel.ru}»`}

@@ -31,12 +31,14 @@ export const targetPlace = (L: League) => {
 };
 
 /** Evaluates the season for the board. Returns the trust change. */
-export function evaluateSeason(L: League, place: number, extra: { champion: boolean; cup: boolean; relegated: boolean; promoted: boolean }) {
+export function evaluateSeason(L: League, place: number, extra: { champion: boolean; cup: boolean; relegated: boolean; promoted: boolean; ucl?: number }) {
   const o = L.owner;
   const target = targetPlace(L);
   let delta = (target - place) * 4 + (place <= target ? 9 : -7);
   if (extra.champion) delta += 25;
   if (extra.cup) delta += 12;
+  // Champions League: the knock-out rounds reached (-1 = league phase, 0 = play-offs … 4 = final, 5 = won).
+  if (extra.ucl != null) delta += [0, 2, 5, 8, 12, 16, 25][extra.ucl + 1] ?? 0;
   if (extra.promoted) delta += 20;
   if (extra.relegated) delta -= 35;
   const mul = L.settings.difficulty === 'rookie' ? 0.6 : L.settings.difficulty === 'hard' ? 1.3 : 1;

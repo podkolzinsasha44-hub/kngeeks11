@@ -210,7 +210,7 @@ function Stats({ L, p }: { L: League; p: Player }) {
           const [y, comp] = k.split(':');
           return (
             <div key={k} className="grid grid-cols-[1.5fr_repeat(5,minmax(0,0.5fr))] text-[13.5px] px-3 py-2 border-b border-white/5 tnum">
-              <span className="truncate">{seasonLabel(Number(y))} · <span className="text-muted">{isLeague(comp) ? LEAGUES[comp].short : comp === 'CUP' ? 'Кубок' : comp === 'WC' ? 'ЧМ' : comp === 'EURO' ? 'Евро' : 'Стыки'}</span></span>
+              <span className="truncate">{seasonLabel(Number(y))} · <span className="text-muted">{isLeague(comp) ? LEAGUES[comp].short : comp === 'CUP' ? 'Кубок' : comp === 'UCL' ? 'ЛЧ' : comp === 'WC' ? 'ЧМ' : comp === 'EURO' ? 'Евро' : 'Стыки'}</span></span>
               <span className="text-right">{s.gp}</span><span className="text-right">{p.pos === 'G' ? s.cs : s.g}</span><span className="text-right">{p.pos === 'G' ? s.ga : s.a}</span><span className="text-right">{s.yc}</span><span className="text-right">{avgRating(s).toFixed(1)}</span>
             </div>
           );

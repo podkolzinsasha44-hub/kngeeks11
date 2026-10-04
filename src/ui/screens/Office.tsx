@@ -1,4 +1,6 @@
 import { motion } from 'motion/react';
+import { club, gameLabel, UCL, uclOrder, uclStage } from '../../engine/ucl';
+import { openUcl } from './Ucl';
 import { useMemo } from 'react';
 import { useGame, useL } from '../../store/game';
 import { useNav } from '../../store/nav';
@@ -33,7 +35,7 @@ export function Office() {
   const ng = nextUserGame(L);
   const lim = foreignLimit(t.lg, L.season);
   const xiKey = t.lineup.xi.join(',') + t.lineup.form + t.tactic;
-  const opp = ng ? L.teams[ng.h === L.user ? ng.a : ng.h] : null;
+  const opp = ng ? club(L, ng.h === L.user ? ng.a : ng.h) : null;
   // The odds come from the match engine itself, played with the two elevens as they stand now.
   const odds = useMemo(() => (ng ? gameOdds(L, ng.h, ng.a, ng.comp, 400) : null), [ng?.id, xiKey, opp?.lineup.xi.join(','), L.date]); // eslint-disable-line react-hooks/exhaustive-deps
   const so = useMemo(() => (L.comps[t.lg].phase !== 'done' ? seasonOdds(L, t.lg, 250)[t.id] : null), [L.date, xiKey, t.lg]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -87,7 +89,7 @@ export function Office() {
         <div className="relative rounded-[28px] overflow-hidden p-[1px]" style={{ background: 'linear-gradient(135deg, var(--accent), rgba(255,255,255,0.08) 40%, rgba(255,255,255,0.03))' }}>
           <div className="relative rounded-[27px] p-4 overflow-hidden" style={{ background: `linear-gradient(120deg, color-mix(in oklab, var(--team) 55%, #070b14), #070b14 55%, color-mix(in oklab, ${opp.primary} 40%, #070b14))` }}>
             <div className="flex items-center justify-between gap-2 text-[11.5px] uppercase tracking-[0.14em] text-white/70">
-              <span className="truncate">{isLeague(ng.comp) ? `Следующий матч · ${ng.rd}-й тур` : `${ng.comp === 'CUP' ? 'Кубок России' : 'Переходные матчи'}${ng.rd ? ` · ${ng.rd}` : ''}`}</span>
+              <span className="truncate">{isLeague(ng.comp) ? `Следующий матч · ${ng.rd}-й тур` : gameLabel(ng)}</span>
               <span className="shrink-0">{dowRu(ng.day)}, {dateShort(ng.day)}</span>
             </div>
             <div className="flex items-center justify-between mt-3">
@@ -120,7 +122,7 @@ export function Office() {
               <button key={g.id} onClick={() => openModal('match', { id: g.id })} className="press flex-1 glass rounded-xl py-1.5 text-center">
                 <div className={cx('text-[11px] font-semibold', r === 'W' ? 'text-good' : r === 'L' ? 'text-bad' : 'text-muted')}>{r === 'W' ? 'В' : r === 'L' ? 'П' : 'Н'}</div>
                 <div className="num text-[14px] leading-tight">{g.hs}:{g.as}</div>
-                <div className="text-[10px] text-faint">{L.teams[g.h === L.user ? g.a : g.h].short}</div>
+                <div className="text-[10px] text-faint">{club(L, g.h === L.user ? g.a : g.h).short}</div>
               </button>
             );
           })}
@@ -141,6 +143,8 @@ export function Office() {
           </Card>
         </>
       )}
+
+      {L.ucl?.table[L.user] && <UclCard />}
 
       </div>
       <div className="min-w-0 lg:pt-1">
@@ -186,10 +190,36 @@ export function Office() {
   );
 }
 
+/** The club's Champions League at a glance; opens the tournament in the League tab. */
+function UclCard() {
+  const L = useL();
+  const u = L.ucl!;
+  const place = useMemo(() => uclOrder(L).indexOf(L.user) + 1, [L.date]); // eslint-disable-line react-hooks/exhaustive-deps
+  const r = u.table[L.user];
+  const stage = uclStage(L, L.user);
+  const next = L.games.filter((g) => g.comp === UCL && !g.played && (g.h === L.user || g.a === L.user)).sort((a, b) => (a.day < b.day ? -1 : 1))[0];
+  const opp = next ? club(L, next.h === L.user ? next.a : next.h) : null;
+  return (
+    <>
+      <SectionTitle>Лига чемпионов</SectionTitle>
+      <Card onClick={() => openUcl()} className="flex items-center gap-3">
+        <div className="w-12 h-12 rounded-2xl grid place-items-center bg-white/8 shrink-0">
+          {!r.gp ? <span className="text-[22px]">⭐</span> : u.phase === 'league' || !stage || stage.round < 0 ? <span className="num text-[20px]">{place}</span> : <span className="text-[22px]">{u.champion === L.user ? '🏆' : '⭐'}</span>}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[15px] font-medium truncate">{!r.gp ? 'Общий этап: 8 матчей' : u.phase === 'league' ? `${place}-е место · ${r.pts} очк. за ${r.gp} матч.` : stage?.round === -1 ? `Общий этап: ${place}-е место` : stage?.text ?? ''}</div>
+          <div className="text-[12.5px] text-muted truncate">{next && opp ? `${next.h === L.user ? 'Дома' : 'В гостях'}: «${opp.ru}» · ${dateShort(next.day)}` : u.phase === 'league' ? 'Все матчи общего этапа сыграны' : u.champion ? `Победитель — «${club(L, u.champion).ru}»` : 'Турнир для клуба окончен'}</div>
+        </div>
+        <Chevron />
+      </Card>
+    </>
+  );
+}
+
 function Side({ id }: { id: string }) {
   const L = useL();
   const push = useNav((s) => s.push);
-  const t = L.teams[id];
+  const t = club(L, id);
   return (
     <button onClick={() => push('team', { id })} className="press flex flex-col items-center w-24 min-w-0">
       <TeamBadge team={t} size={58} />

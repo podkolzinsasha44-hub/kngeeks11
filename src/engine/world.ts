@@ -10,6 +10,7 @@ import { ownerGoalFor } from './owner';
 import { getState, hash01, seedState, useState_ } from './rng';
 import { scheduleLeague } from './schedule';
 import { emptyRecord } from './standings';
+import { initUclFromWorld, makeExt, type UclWorld } from './ucl';
 import type { KeeperAttrs, League, LeagueId, OutfieldAttrs, Player, Role, Settings, Team } from './types';
 import { ageOn, money, posOfRole, seasonLabel } from './util';
 
@@ -36,6 +37,8 @@ export interface WorldJson {
   nations: Record<string, [string, string]>;
   wc2026: { groups: Record<string, string[]>; squads: Record<string, number[]>; medals: string[]; fourth: string; mvp: string; keeper: string; young: string };
   facts: { champions: Record<string, string>; cup: string; cupFinalist: string };
+  /** Champions League 2026-27: the real draw and the clubs from outside the simulated leagues. */
+  ucl?: UclWorld;
 }
 
 export interface NewCareerOpts {
@@ -54,8 +57,31 @@ const KEEP: (keyof KeeperAttrs)[] = ['ref', 'pos', 'han', 'kic', 'con', 'men', '
 
 const photoFile = (w: WorldPlayer) => (w.im ? `${w.id}-${w.im}${w.im.includes('.') ? '' : '.jpg'}` : null);
 
+/** Brings a save made with an older snapshot up to date (photos, crests, the Champions League). */
+export function upgradeSave(L: League, world: WorldJson) {
+  attachPhotos(L, world);
+  attachUcl(L, world);
+}
+
+/** Saves made before the Champions League: the guest clubs and their squads join the world; the real
+ *  2026-27 draw is used if the first matchday is still ahead, otherwise the tournament starts next season. */
+function attachUcl(L: League, world: WorldJson) {
+  const w = world.ucl;
+  if (!w || L.ext) return;
+  const names = new Set(w.ext.map((e) => e.name));
+  for (const p of world.players) {
+    if (!p.x || !names.has(p.x)) continue;
+    const q = L.players[p.id];
+    if (!q) L.players[p.id] = expandPlayer(p, L.season);
+    else if (!q.team && q.st === 'ACT' && q.ext) q.ext = p.x;
+  }
+  const first = w.md.reduce((m, x) => (x[1] < m ? x[1] : m), '9999');
+  if (L.season === w.season && L.date < first) initUclFromWorld(L, w);
+  else L.ext = Object.fromEntries(w.ext.map((e) => [e.id, makeExt(e)]));
+}
+
 /** Saves made before photos and crests were added to the snapshot get them from it. */
-export function attachPhotos(L: League, world: WorldJson) {
+function attachPhotos(L: League, world: WorldJson) {
   for (const w of world.teams) if (w.tm && L.teams[w.id] && !L.teams[w.id].tm) L.teams[w.id].tm = w.tm;
   const byId = new Map(world.players.map((w) => [w.id, w]));
   for (const p of Object.values(L.players)) {
@@ -122,6 +148,7 @@ export function newCareer(world: WorldJson, o: NewCareerOpts): League {
   L.teams[o.team].lineup.auto = false;
   for (const lg of LEAGUE_IDS) scheduleLeague(L, lg, season);
   initCup(L, season);
+  if (world.ucl) initUclFromWorld(L, world.ucl);
   const mvp = world.players.find((p) => p.c === 'ESP' && `${p.fn} ${p.ln}`.trim().endsWith(world.wc2026.mvp))?.id;
   initIntl(L, { medals: world.wc2026.medals, mvp });
   updateStrategies(L);

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { openUcl } from './Ucl';
 import { motion } from 'motion/react';
 import { useGame, useL, applyTheme } from '../../store/game';
 import { useNav } from '../../store/nav';
@@ -72,7 +73,7 @@ export function InboxScreen({ params }: { params: Record<string, unknown> }) {
     if (!m.ref) return;
     if (m.ref.type === 'player') nav.push('player', { id: m.ref.id });
     else if (m.ref.type === 'offer') nav.go('market', undefined, { tab: 'offers' });
-    else if (m.ref.type === 'screen') { if (m.ref.id === 'roster') nav.go('roster', undefined, { tab: 'lineup' }); else nav.go('more', String(m.ref.id)); }
+    else if (m.ref.type === 'screen') { if (m.ref.id === 'roster') nav.go('roster', undefined, { tab: 'lineup' }); else if (m.ref.id === 'ucl') openUcl(); else nav.go('more', String(m.ref.id)); }
   };
   return (
     <Screen title="Входящие" right={<button className="text-[13px] accent-text px-3 h-11" onClick={() => act(() => L.inbox.forEach((m) => (m.read = true)))}>Прочитать все</button>}>
@@ -256,7 +257,7 @@ export function SettingsScreen() {
         <T k="sound" label="Звук гола" /><Divider />
         <T k="hideMedia" label="Скрыть соцсети в новостях" /><Divider />
         <T k="noFiring" label="Без увольнения" sub="Доверие руководства считается, но уволить вас нельзя" /><Divider />
-        <T k="intlRussia" label="Россия на ЧМ и Евро" sub="В реальности сборная отстранена с 2022 года" />
+        <T k="intlRussia" label="Россия в турнирах FIFA и UEFA" sub="Сборная на ЧМ и Евро, чемпион РПЛ — в Лиге чемпионов (со следующего сезона). В реальности отстранены с 2022 года" />
       </Card>
       <SectionTitle>Сложность</SectionTitle>
       <Segmented value={s.difficulty} onChange={(v) => act(() => { s.difficulty = v; })} options={[{ v: 'rookie', label: 'Новичок' }, { v: 'real', label: 'Реализм' }, { v: 'hard', label: 'Хардкор' }]} />
@@ -346,7 +347,7 @@ export function CelebrationModal({ params }: { params: Record<string, unknown> }
   const L = useL();
   const close = useNav((s) => s.closeModal);
   const t = L.teams[L.user];
-  const cup = params.what === 'cup';
+  const cup = params.what === 'cup', ucl = params.what === 'ucl';
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6" style={{ background: `radial-gradient(90% 60% at 50% 30%, color-mix(in oklab, ${t.primary} 70%, #05070d), #05070d)` }}>
       {Array.from({ length: 26 }, (_, i) => (
@@ -354,9 +355,9 @@ export function CelebrationModal({ params }: { params: Record<string, unknown> }
       ))}
       <motion.div initial={{ scale: 0.3, opacity: 0, rotate: -15 }} animate={{ scale: 1, opacity: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 120, damping: 10 }} className="text-[120px] leading-none">🏆</motion.div>
       <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }}>
-        <div className="font-display uppercase text-[40px] leading-none text-gradient-gold mt-6">{cup ? 'Кубок России наш!' : 'Чемпионы!'}</div>
-        <div className="text-[17px] mt-3">«{t.ru}» — {cup ? 'обладатель Кубка России' : `чемпион: ${LEAGUES[t.lg].name}`}</div>
-        <div className="text-muted mt-1">Сезон {seasonLabel(L.season)}</div>
+        <div className="font-display uppercase text-[40px] leading-none text-gradient-gold mt-6">{ucl ? 'Лига чемпионов наша!' : cup ? 'Кубок России наш!' : 'Чемпионы!'}</div>
+        <div className="text-[17px] mt-3">«{t.ru}» — {ucl ? 'победитель Лиги чемпионов' : cup ? 'обладатель Кубка России' : `чемпион: ${LEAGUES[t.lg].name}`}</div>
+        <div className="text-muted mt-1">Сезон {seasonLabel(ucl ? L.ucl?.season ?? L.season : L.season)}</div>
       </motion.div>
       <Button variant="gold" size="lg" className="mt-10 relative" onClick={close}>Продолжить</Button>
     </div>

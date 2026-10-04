@@ -45,8 +45,10 @@ export function leagueTeams(L: League, lg: LeagueId): Team[] {
   return out;
 }
 
-/** Playing style for a game: league games use the league's, cups and play-offs the neutral one. */
-export const styleOf = (g: Pick<Game, 'comp'>) => (isLeague(g.comp) ? LEAGUES[g.comp].style : { shot: 1, fin: 1 });
+/** Champions League: the clubs of the top leagues against each other, a little more open than a domestic game (calibrated). */
+export const UCL_STYLE = { shot: 1.13, fin: 1.08 };
+/** Playing style for a game: league games use the league's, the Champions League its own, cups and play-offs the neutral one. */
+export const styleOf = (g: Pick<Game, 'comp'>) => (isLeague(g.comp) ? LEAGUES[g.comp].style : g.comp === 'UCL' ? UCL_STYLE : { shot: 1, fin: 1 });
 
 /** Citizens of the Eurasian Economic Union are not counted as foreign players in Russia. */
 const HOME_RUS = new Set(['RUS', 'BLR', 'KAZ', 'ARM', 'KGZ']);
@@ -57,7 +59,7 @@ export const isForeign = (p: Player, country: string) => (country === 'RUS' ? !H
  * 2026-27: 12 and 7; 2027-28: 11 and 6; from 2028-29: 10 and 5 (ministry order, reference values).
  */
 export function foreignLimit(lg: LeagueId, season: number): [number, number] | null {
-  if (LEAGUES[lg].country !== 'RUS') return null;
+  if (LEAGUES[lg]?.country !== 'RUS') return null;
   return season <= 2026 ? [12, 7] : season === 2027 ? [11, 6] : [10, 5];
 }
 

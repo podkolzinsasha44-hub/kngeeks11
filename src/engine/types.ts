@@ -158,7 +158,10 @@ export interface Coach {
 
 export interface Team {
   id: string;
+  /** League of the club. Clubs from outside the simulated leagues (Champions League guests) carry 'EXT'. */
   lg: LeagueId;
+  /** A club outside the seven simulated leagues: it lives in L.ext and plays only in the Champions League. */
+  ext?: true;
   /** Transfermarkt club id: the crest is loaded from its image CDN. */
   tm?: number;
   name: string;
@@ -357,7 +360,7 @@ export interface Settings {
   watchGames: boolean;
   hideMedia: boolean;
   noFiring?: boolean;
-  /** Russia takes part in FIFA / UEFA tournaments (suspended in reality since 2022). */
+  /** Russia takes part in FIFA / UEFA tournaments, the Champions League included (suspended in reality since 2022). */
   intlRussia?: boolean;
   /** The assistant extends good contracts of the user's players by itself (on unless switched off). */
   autoRenew?: boolean;
@@ -381,6 +384,26 @@ export interface LeagueComp {
   /** Reigning champion. */
   champion: string;
   history: { season: number; champion: string; second: string; third: string; topScorer?: { id: number; name: string; g: number }; mvp?: number; relegated: string[]; standings: { id: string; pts: number }[] }[];
+}
+
+/** A club's line in the league phase of the Champions League. */
+export interface UclRow { gp: number; w: number; d: number; l: number; pts: number; gf: number; ga: number; agf: number; aw: number }
+export interface Ucl {
+  season: number;
+  /** Clubs of the league phase in pot order (pot 1 first). */
+  pots: string[][];
+  table: Record<string, UclRow>;
+  phase: 'league' | 'ko' | 'done';
+  /** Final league-phase order (set when the league phase ends). */
+  order?: string[];
+  /** Round of 16 plan: [seeded club, id of the knock-out play-off tie whose winner it meets], in bracket order. */
+  plan?: [string, string][];
+  /** Reigning holder (the winner of the previous season). */
+  holder: string;
+  champion?: string;
+  finalist?: string;
+  final: string;
+  history: { season: number; champion: string; finalist: string; topScorer?: { id: number; name: string; g: number } }[];
 }
 
 export type IntlKind = 'wc' | 'euro';
@@ -445,6 +468,9 @@ export interface League {
   cups: Record<string, Cup>;
   intl: IntlState;
   teams: Record<string, Team>;
+  /** Clubs from outside the simulated leagues that play in the Champions League (see ucl.ts). */
+  ext?: Record<string, Team>;
+  ucl?: Ucl;
   players: Record<number, Player>;
   nextId: number;
   games: Game[];

@@ -1,4 +1,5 @@
 import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
+import { playerClub } from '../../engine/ucl';
 import { useState, type ReactNode } from 'react';
 import type { League, Player, Role, Team } from '../../engine/types';
 import { ATTR_SHORT, fitColor, money, photoUrl, playerAge, potLabel, ROLE_RU, tierOf, TIERS, type Tier } from '../format';
@@ -86,7 +87,7 @@ function Frame({ tier, radius, pad, className, style, children }: { tier: Tier; 
  * the player from the chest up, rating, position, attributes. Tilts under the finger.
  */
 export function PlayerCard({ p, L, width = 260, interactive = true }: { p: Player; L: League; width?: number; interactive?: boolean }) {
-  const t = p.team ? L.teams[p.team] : null;
+  const t = playerClub(L, p);
   const tier = tierOf(p.ovr);
   const rank = RANK[tier];
   const [imgErr, setImgErr] = useState(false);
@@ -184,7 +185,7 @@ export function TierBadge({ tier, small }: { tier: Tier; small?: boolean }) {
 
 /** Small collectible tile used in lists of cards. */
 export function MiniCard({ p, L, onClick }: { p: Player; L: League; onClick?: () => void }) {
-  const t = p.team ? L.teams[p.team] : null;
+  const t = playerClub(L, p);
   const tier = tierOf(p.ovr);
   const [err, setErr] = useState(false);
   const src = photoUrl(p, 'big');

@@ -71,14 +71,14 @@ export function phaseLabel(L: League) {
   return 'Межсезонье';
 }
 
-export const teamName = (L: League, id: string | null | undefined) => (id && L.teams[id] ? L.teams[id].ru : '—');
+export const teamName = (L: League, id: string | null | undefined) => (id ? (L.teams[id] ?? L.ext?.[id])?.ru ?? '—' : '—');
 export const recordStr = (t: Team) => `${t.rec.w}–${t.rec.d}–${t.rec.l}`;
 export const pct = (x: number, digits = 0) => `${(x * 100).toFixed(digits)}%`;
 /** Where the player is right now, for lists. */
 export function clubLabel(L: League, p: Player) {
   if (p.st === 'RET') return 'Завершил карьеру';
   if (p.team) return L.teams[p.team].ru;
-  if (p.ext) return p.ext;
+  if (p.ext) return Object.values(L.ext ?? {}).find((t) => t.name === p.ext)?.ru ?? p.ext;
   return 'Свободный агент';
 }
 export const fitColor = (f: number) => (f >= 85 ? '#3ddc97' : f >= 70 ? '#ffb547' : '#ff5a5f');

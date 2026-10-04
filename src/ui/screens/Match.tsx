@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
+import { club, gameLabel } from '../../engine/ucl';
 import { motion } from 'motion/react';
 import { useL } from '../../store/game';
 import { useNav } from '../../store/nav';
-import { isLeague, LEAGUES } from '../../engine/leagues';
 import { lastUserBox } from '../../engine/season';
 import type { GameEvent } from '../../engine/types';
 import { Button, Card, cx, Ovr, SectionTitle, Segmented } from '../components/kit';
@@ -34,11 +34,11 @@ export function MatchScreen({ params }: { params: Record<string, unknown> }) {
   const goalsNow = shown.filter((e) => e.type === 'goal' || e.type === 'pen').length;
   useEffect(() => { if (live && goalsNow && L.settings.sound) horn(); }, [goalsNow]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!g) return null;
-  const H = L.teams[g.h], A = L.teams[g.a];
+  const H = club(L, g.h), A = club(L, g.a);
   const last = [...shown].reverse().find((e) => e.score);
   const score = live ? last?.score ?? [0, 0] : [g.hs ?? 0, g.as ?? 0];
   const r = box?.result;
-  const comp = isLeague(g.comp) ? `${LEAGUES[g.comp].short} · ${g.rd}-й тур` : `${g.comp === 'CUP' ? 'Кубок России' : 'Переходные матчи'} · ${g.rd ?? ''}`;
+  const comp = gameLabel(g);
   const rows = box ? [...box.players].sort((a, b) => Number(b.home) - Number(a.home) || Number(b.started) - Number(a.started) || b.rt - a.rt) : [];
   return (
     <div className="absolute inset-0 flex flex-col" style={{ background: '#05070d' }}>

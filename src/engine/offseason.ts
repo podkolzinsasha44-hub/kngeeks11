@@ -16,6 +16,7 @@ import { scheduleLeague } from './schedule';
 import { emptyRecord, sortedTeams } from './standings';
 import { leaders } from './stats';
 import { ensureSquads, returnLoans } from './transfers';
+import { initUclSeason, uclStage } from './ucl';
 import type { League, LeagueId, Player, Team } from './types';
 import { ageOn, clamp, dispName, money, seasonLabel } from './util';
 
@@ -79,13 +80,14 @@ export function rollover(L: League) {
   const place = table.findIndex((t) => t.id === me.id) + 1;
   const moves = movers(L);
   const cup = L.cups.CUP?.season === season ? L.cups.CUP : null;
+  const ucl = uclStage(L, me.id);
 
   // --- the board judges the season
   const relegated = moves.some(([d]) => d.id === me.id), promoted = moves.some(([, u]) => u.id === me.id);
   const champion = L.comps[myLg].champion === me.id && place === 1;
   const goalWas = L.owner.goalText, target = targetPlace(L);
-  const delta = evaluateSeason(L, place, { champion, cup: cup?.champion === me.id, relegated, promoted });
-  const result = `${place}-е место${champion ? ', чемпион' : ''}${cup?.champion === me.id ? ', Кубок России' : ''}${relegated ? ', вылет' : ''}${promoted ? ', повышение в классе' : ''}`;
+  const delta = evaluateSeason(L, place, { champion, cup: cup?.champion === me.id, relegated, promoted, ucl: ucl?.round });
+  const result = `${place}-е место${champion ? ', чемпион' : ''}${cup?.champion === me.id ? ', Кубок России' : ''}${ucl ? `, ${ucl.text}` : ''}${relegated ? ', вылет' : ''}${promoted ? ', повышение в классе' : ''}`;
   L.gm.history.push({ season, team: me.id, result });
   L.gm.seasons++;
   L.gm.rep = clamp(L.gm.rep + Math.round(delta / 3), 0, 100);
@@ -191,6 +193,7 @@ export function rollover(L: League) {
   for (const lg of LEAGUE_IDS) scheduleLeague(L, lg, L.season);
   initCup(L, L.season);
   delete L.cups.PO;
+  initUclSeason(L, L.season);
   updateStrategies(L);
   updateRanking(L);
   L.phase = 'preseason';

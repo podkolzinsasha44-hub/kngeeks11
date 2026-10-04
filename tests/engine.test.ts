@@ -16,7 +16,8 @@ import { offerView, saleView, sellAdvice } from '../src/engine/sale';
 import { buyerCeiling, respondOffer } from '../src/engine/transfers';
 import { wageBill, wageFor } from '../src/engine/contracts';
 import type { League } from '../src/engine/types';
-import { newCareer, type WorldJson } from '../src/engine/world';
+import { newCareer, upgradeSave, type WorldJson } from '../src/engine/world';
+import { club, drawLeague, makePots, matchdays, rosterOf, uclOrder, UCL } from '../src/engine/ucl';
 
 let world: WorldJson;
 beforeAll(() => {
@@ -386,11 +387,104 @@ describe('injuries in the advice', () => {
   });
 });
 
+/** Checks the league-phase rules for a set of fixtures. */
+function checkLeaguePhase(L: League, games: { h: string; a: string }[], pots: string[][]) {
+  const potOf = new Map(pots.flatMap((p, i) => p.map((id) => [id, i] as [string, number])));
+  expect(games).toHaveLength(144);
+  for (const id of potOf.keys()) {
+    const mine = games.filter((g) => g.h === id || g.a === id);
+    expect(mine, id).toHaveLength(8);
+    expect(mine.filter((g) => g.h === id), id).toHaveLength(4);
+    const opp = mine.map((g) => (g.h === id ? g.a : g.h));
+    expect(new Set(opp).size, id).toBe(8);
+    for (let p = 0; p < 4; p++) expect(opp.filter((o) => potOf.get(o) === p), `${id} pot ${p + 1}`).toHaveLength(2);
+    const ctry = club(L, id).country;
+    expect(opp.filter((o) => club(L, o).country === ctry), id).toHaveLength(0);
+    const per = new Map<string, number>();
+    for (const o of opp) per.set(club(L, o).country, (per.get(club(L, o).country) ?? 0) + 1);
+    expect(Math.max(...per.values()), id).toBeLessThanOrEqual(2);
+  }
+}
+
+describe('Champions League', () => {
+  it('2026-27 is the real draw: 36 clubs, 144 fixtures, the guests with real squads', () => {
+    const L = career();
+    const u = L.ucl!;
+    expect(u.holder).toBe('PSG');
+    expect(u.pots.flat()).toHaveLength(36);
+    expect(Object.keys(L.ext!)).toHaveLength(15);
+    const games = L.games.filter((g) => g.comp === UCL);
+    checkLeaguePhase(L, games, u.pots);
+    expect(games.find((g) => g.h === 'AEK' && g.a === 'LAS')?.day).toBe('2026-09-08');
+    for (const id of Object.keys(L.ext!)) {
+      const sq = rosterOf(L, id);
+      expect(sq.length, id).toBeGreaterThanOrEqual(20);
+      expect(sq.filter((p) => p.pos === 'G').length, id).toBeGreaterThanOrEqual(2);
+      expect(sq.every((p) => p.real || p.yth), id).toBe(true);
+      expect(club(L, id).lineup.xi, id).toHaveLength(11);
+    }
+    // No club plays twice within two days.
+    for (const g of games) {
+      const near = L.games.filter((x) => x !== g && [x.h, x.a].some((id) => id === g.h || id === g.a) && Math.abs(Date.parse(x.day) - Date.parse(g.day)) <= 86_400_000);
+      expect(near, `${g.h}-${g.a} ${g.day}`).toHaveLength(0);
+    }
+  });
+  it('later draws follow the rules and fit into eight matchdays', () => {
+    const L = career();
+    const ids = L.ucl!.pots.flat();
+    for (let s = 1; s <= 5; s++) {
+      useState_(seedState(s));
+      const order = [...ids].sort((a, b) => club(L, b).rep - club(L, a).rep);
+      const pots = makePots(order, (id) => club(L, id).country);
+      const pairs = drawLeague(pots, (id) => club(L, id).country)!;
+      expect(pairs).toBeTruthy();
+      checkLeaguePhase(L, pairs.map(([h, a]) => ({ h, a })), pots);
+      const md = matchdays(pairs, ids)!;
+      expect(md).toBeTruthy();
+      for (let d = 0; d < 8; d++) {
+        const on = pairs.filter((_, i) => md[i] === d).flat();
+        expect(new Set(on).size).toBe(36);
+      }
+    }
+  });
+  it('an old save gets the guests, and the tournament if the first matchday is still ahead', () => {
+    const before = career();
+    delete before.ucl; delete before.ext; delete before.cups.UCL;
+    before.games = before.games.filter((g) => g.comp !== UCL);
+    upgradeSave(before, world);
+    expect(before.games.filter((g) => g.comp === UCL)).toHaveLength(144);
+    const late = career();
+    delete late.ucl; delete late.ext; delete late.cups.UCL;
+    late.games = late.games.filter((g) => g.comp !== UCL);
+    late.date = '2026-10-01';
+    upgradeSave(late, world);
+    expect(late.ucl).toBeUndefined();
+    expect(Object.keys(late.ext!)).toHaveLength(15);
+  });
+});
+
 describe('a full season', () => {
-  it('runs through promotion, relegation, the cup and the rollover', () => {
+  it('runs through promotion, relegation, the cup, the Champions League and the rollover', () => {
     const L = career('SPA', 5);
     L.teams.SPA.lineup.auto = true;
     L.settings.noFiring = true;
+    while (L.date < '2027-06-19') { advanceDay(L); L.stops.length = 0; }
+    // Champions League: league phase, play-offs, round of 16 … the final.
+    const u = L.ucl!, cup = L.cups[UCL];
+    expect(u.phase).toBe('done');
+    expect(L.games.filter((g) => g.comp === UCL && g.played)).toHaveLength(189);
+    expect(u.champion).toBeTruthy();
+    expect(u.history[0].champion).toBe(u.champion);
+    const order = uclOrder(L);
+    const r16 = cup.ties.filter((t) => t.round === 1);
+    expect(r16).toHaveLength(8);
+    // The top eight are seeded in the round of 16 and host the second leg; 1st and 2nd are in different halves.
+    for (const t of r16) expect(order.indexOf(t.a)).toBeLessThan(8);
+    const half = (id: string) => Math.floor(r16.findIndex((t) => t.a === id) / 4);
+    expect(half(order[0])).not.toBe(half(order[1]));
+    const final = L.games.find((g) => g.comp === UCL && g.rd === 'Финал')!;
+    expect(final.neutral).toBe(true);
+    expect(club(L, u.champion!).trophies.at(-1)).toMatch(/Лига чемпионов/);
     while (L.season === 2026) { advanceDay(L); L.stops.length = 0; }
     expect(L.date).toBe('2027-06-21');
     const rpl = Object.values(L.teams).filter((t) => t.lg === 'RPL'), fnl = Object.values(L.teams).filter((t) => t.lg === 'FNL');
@@ -402,5 +496,9 @@ describe('a full season', () => {
     expect(L.games.filter((g) => g.comp === 'RPL')).toHaveLength(240);
     expect(L.games.every((g) => !g.played)).toBe(true);
     for (const t of rpl) expect(squad(L, t.id).length).toBeGreaterThanOrEqual(18);
-  }, 120_000);
+    // The next Champions League is drawn from the final tables, with the holder in pot 1.
+    expect(L.ucl!.season).toBe(2027);
+    expect(L.ucl!.pots[0][0]).toBe(u.champion);
+    checkLeaguePhase(L, L.games.filter((g) => g.comp === UCL), L.ucl!.pots);
+  }, 180_000);
 });

@@ -2,27 +2,41 @@ import { useMemo } from 'react';
 import { useL } from '../../store/game';
 import { useNav } from '../../store/nav';
 import { LEAGUES, LEAGUE_IDS, statKey } from '../../engine/leagues';
-import { FORMATIONS, squad, teamPower } from '../../engine/lineup';
+import { FORMATIONS, teamPower } from '../../engine/lineup';
 import { seasonOdds } from '../../engine/projection';
 import { sortedTeams } from '../../engine/standings';
 import { avgRating, leaders } from '../../engine/stats';
 import type { Game, League, LeagueId } from '../../engine/types';
+import { club, rosterOf, UCL } from '../../engine/ucl';
+import { UCL_TABS, UclView, uclDefaultTab, type UclTab } from './Ucl';
 import { Card, Chips, cx, Empty, Pill, SectionTitle, Segmented } from '../components/kit';
 import { Screen } from '../components/shell';
 import { PlayerRow, TeamBadge } from '../components/media';
-import { dateShort, dispName, dowRu, money, ROLE_RU, seasonLabel } from '../format';
+import { clubLabel, dateShort, dispName, dowRu, money, ROLE_RU, seasonLabel } from '../format';
+import { nationName } from '../../engine/intl';
 import { useKeep } from '../keep';
 
 type TabId = 'table' | 'games' | 'players' | 'cup';
 
 export function LeagueScreen({ params }: { params: Record<string, unknown> }) {
   const L = useL();
-  const [lg, setLg] = useKeep<LeagueId>('league.lg', (params.lg as LeagueId) ?? L.teams[L.user].lg);
+  const [lg, setLg] = useKeep<LeagueId | typeof UCL>('league.lg', (params.lg as LeagueId) ?? L.teams[L.user].lg);
   const [tab, setTab] = useKeep<TabId>('league.tab', (params.tab as TabId) ?? 'table');
+  const [uclTab, setUclTab] = useKeep<UclTab>('ucl.tab', () => uclDefaultTab(L));
+  const chips = <Chips value={lg} onChange={setLg} options={[{ v: UCL, label: '⭐ ЛЧ' }, ...LEAGUE_IDS.map((id) => ({ v: id, label: LEAGUES[id].short }))]} />;
+  if (lg === UCL) {
+    const holder = L.ucl?.holder ? club(L, L.ucl.holder) : null;
+    return (
+      <Screen title="Лига чемпионов" subtitle={`Сезон ${seasonLabel(L.ucl?.season ?? L.season)}${L.ucl?.champion ? ` · победитель: ${club(L, L.ucl.champion).ru}` : holder ? ` · обладатель: ${holder.ru}` : ''}`}
+        headerExtra={<div className="px-4 pb-2 flex flex-col gap-2">{chips}{L.ucl && <Segmented value={uclTab} onChange={setUclTab} options={UCL_TABS} />}</div>}>
+        <UclView L={L} tab={uclTab} />
+      </Screen>
+    );
+  }
   const russian = LEAGUES[lg].country === 'RUS';
   return (
     <Screen title={LEAGUES[lg].name} subtitle={`Сезон ${seasonLabel(L.season)}${L.comps[lg].champion && L.teams[L.comps[lg].champion] ? ` · чемпион: ${L.teams[L.comps[lg].champion].ru}` : ''}`}
-      headerExtra={<div className="px-4 pb-2 flex flex-col gap-2"><Chips value={lg} onChange={setLg} options={LEAGUE_IDS.map((id) => ({ v: id, label: LEAGUES[id].short }))} /><Segmented value={tab} onChange={setTab} options={[{ v: 'table', label: 'Таблица' }, { v: 'games', label: 'Матчи' }, { v: 'players', label: 'Игроки' }, { v: 'cup', label: 'Кубок' }]} /></div>}>
+      headerExtra={<div className="px-4 pb-2 flex flex-col gap-2">{chips}<Segmented value={tab} onChange={setTab} options={[{ v: 'table', label: 'Таблица' }, { v: 'games', label: 'Матчи' }, { v: 'players', label: 'Игроки' }, { v: 'cup', label: 'Кубок' }]} /></div>}>
       {tab === 'table' && <Table L={L} lg={lg} />}
       {tab === 'games' && <Games L={L} lg={lg} />}
       {tab === 'players' && <Leaders L={L} lg={lg} />}
@@ -85,11 +99,11 @@ export function GameRow({ L, g }: { L: League; g: Game }) {
   const mine = g.h === L.user || g.a === L.user;
   return (
     <div onClick={() => g.played && openModal('match', { id: g.id })} className={cx('grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 min-h-[46px] border-b border-white/5 last:border-0 text-[14px]', g.played && 'press', mine && 'bg-white/[0.06]')}>
-      <span className="flex items-center justify-end gap-2 min-w-0"><span className="truncate text-right">{L.teams[g.h].ru}</span><TeamBadge id={g.h} size={22} /></span>
+      <span className="flex items-center justify-end gap-2 min-w-0"><span className="truncate text-right">{club(L, g.h).ru}</span><TeamBadge team={club(L, g.h)} size={22} /></span>
       {g.played
         ? <span className="num text-[16px] w-[64px] text-center">{g.hs}:{g.as}{g.pen ? <span className="text-[10px] text-muted block -mt-1">пен. {g.pen[0]}:{g.pen[1]}</span> : g.et ? <span className="text-[10px] text-muted block -mt-1">д.в.</span> : null}</span>
         : <span className="text-[11.5px] text-muted w-[64px] text-center leading-tight">{dowRu(g.day)}<br />{dateShort(g.day)}</span>}
-      <span className="flex items-center gap-2 min-w-0"><TeamBadge id={g.a} size={22} /><span className="truncate">{L.teams[g.a].ru}</span></span>
+      <span className="flex items-center gap-2 min-w-0"><TeamBadge team={club(L, g.a)} size={22} /><span className="truncate">{club(L, g.a).ru}</span></span>
     </div>
   );
 }
@@ -122,7 +136,7 @@ function Leaders({ L, lg }: { L: League; lg: LeagueId }) {
       <div className="mt-1"><Chips value={stat} onChange={setStat} options={[{ v: 'g', label: 'Голы' }, { v: 'a', label: 'Передачи' }, { v: 'ga', label: 'Гол + пас' }, { v: 'rt', label: 'Оценка' }, { v: 'cs', label: 'Сухие матчи' }]} /></div>
       {list.length ? (
         <Card pad={false} className="mt-3 overflow-hidden">
-          {list.map(({ p, v }, i) => <PlayerRow key={p.id} dense p={p} sub={<>{i + 1}. {L.teams[p.team ?? '']?.ru ?? '—'} · {ROLE_RU[p.role]} · {p.stats[key].gp} матч.</>} right={<span className="num text-[19px] mr-2 accent-text">{stat === 'rt' ? v.toFixed(2) : v}</span>} />)}
+          {list.map(({ p, v }, i) => <PlayerRow key={p.id} dense p={p} sub={<>{i + 1}. {clubLabel(L, p)} · {ROLE_RU[p.role]} · {p.stats[key].gp} матч.</>} right={<span className="num text-[19px] mr-2 accent-text">{stat === 'rt' ? v.toFixed(2) : v}</span>} />)}
         </Card>
       ) : <Empty title="Сезон ещё не начался" />}
     </>
@@ -159,15 +173,15 @@ function CupView({ L }: { L: League }) {
 
 export function TeamScreen({ params }: { params: Record<string, unknown> }) {
   const L = useL();
-  const t = L.teams[String(params.id)];
+  const t = club(L, String(params.id));
   if (!t) return <Screen title="Клуб"><div /></Screen>;
-  const sq = squad(L, t.id).sort((a, b) => b.ovr - a.ovr);
+  const sq = rosterOf(L, t.id).sort((a, b) => b.ovr - a.ovr);
   const roles = FORMATIONS[t.lineup.form];
-  const table = sortedTeams(L, t.lg);
   const games = L.games.filter((g) => (g.h === t.id || g.a === t.id)).sort((a, b) => (a.day < b.day ? -1 : 1));
-  const key = statKey(L.season, t.lg);
+  const key = statKey(L.season, t.ext ? UCL : t.lg);
+  const sub = t.ext ? `${nationName(t.country)} · Лига чемпионов` : `${LEAGUES[t.lg].short} · ${sortedTeams(L, t.lg).findIndex((x) => x.id === t.id) + 1}-е место`;
   return (
-    <Screen title={t.ru} subtitle={`${LEAGUES[t.lg].short} · ${table.findIndex((x) => x.id === t.id) + 1}-е место`}>
+    <Screen title={t.ru} subtitle={sub}>
       <Card className="mt-1 relative overflow-hidden" pad={false}>
         <div className="absolute inset-0 opacity-60" style={{ background: `linear-gradient(120deg, color-mix(in oklab, ${t.primary} 55%, transparent), transparent 65%)` }} />
         <div className="relative p-4 flex items-center gap-3">
@@ -178,7 +192,7 @@ export function TeamScreen({ params }: { params: Record<string, unknown> }) {
           </div>
         </div>
         <div className="relative grid grid-cols-4 gap-2 px-4 pb-4">
-          <Mini l="Сила" v={teamPower(L, t).toFixed(0)} /><Mini l="Схема" v={t.lineup.form} /><Mini l="Бюджет" v={money(t.budget, 0)} /><Mini l="Титулы" v={`${t.titles}🏆 ${t.cups}🥇`} />
+          <Mini l="Сила" v={teamPower(L, t).toFixed(0)} /><Mini l="Схема" v={t.lineup.form} />{t.ext ? <Mini l="Состав" v={`${sq.length}`} /> : <Mini l="Бюджет" v={money(t.budget, 0)} />}<Mini l="Титулы" v={`${t.titles}🏆 ${t.cups}🥇`} />
         </div>
       </Card>
       {t.trophies.length > 0 && <div className="flex gap-1.5 flex-wrap mt-2">{t.trophies.slice(-6).map((x, i) => <Pill key={i} color="#e8c26a">{x}</Pill>)}</div>}

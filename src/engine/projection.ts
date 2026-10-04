@@ -2,7 +2,7 @@
 //  * matchOdds plays the real match engine many times with the two line-ups as they are now;
 //  * seasonOdds uses the engine's own expected-goals formula for every remaining fixture.
 // A change in the user's eleven therefore changes the odds exactly as it changes the matches.
-import { LEAGUES, isLeague } from './leagues';
+import { LEAGUES, styleOf } from './leagues';
 import { lineupOnPitch, teamStrength, type Strength } from './lineup';
 import { expectedGoals, finishing, simulateMatch, type MatchOpts, type MatchSide } from './match';
 import { getState, seedState, useState_ } from './rng';
@@ -30,7 +30,7 @@ export function matchOdds(players: Record<number, Player>, home: MatchSide, away
 }
 
 export function gameOdds(L: League, home: string, away: string, comp: string, n = 300): Odds {
-  return matchOdds(L.players, sideOf(L.teams[home]), sideOf(L.teams[away]), { style: isLeague(comp) ? LEAGUES[comp].style : undefined }, n);
+  return matchOdds(L.players, sideOf(L.teams[home] ?? L.ext?.[home]), sideOf(L.teams[away] ?? L.ext?.[away]), { style: styleOf({ comp }) }, n);
 }
 
 export interface Rating { str: Strength; fin: number }
