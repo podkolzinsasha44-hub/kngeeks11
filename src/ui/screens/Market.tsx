@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useGame, useL } from '../../store/game';
 import { transferAdvice, type Chance, type Pick } from '../../engine/advice';
+import { offerView } from '../../engine/sale';
 import { useNav } from '../../store/nav';
 import { LEAGUES, LEAGUE_IDS, windowOpen } from '../../engine/leagues';
 import { foreignLeft, respondOffer } from '../../engine/transfers';
@@ -96,6 +97,8 @@ function Offers({ L }: { L: League }) {
       {incoming.length > 0 && <SectionTitle className="!mt-2">Предложения по вашим игрокам</SectionTitle>}
       {incoming.map((o) => {
         const p = L.players[o.player], from = L.teams[o.from];
+        const v = offerView(L, o);
+        const [title, color] = OFFER_VERDICT[v.verdict === 'reject' && v.keep ? 'keep' : v.verdict];
         return (
           <Card key={o.id} className="mb-2.5">
             <div className="flex items-center gap-3" onClick={() => push('player', { id: p.id })}>
@@ -104,11 +107,19 @@ function Offers({ L }: { L: League }) {
                 <div className="font-medium truncate">{dispName(p)} → «{from.ru}»</div>
                 <div className="text-[12.5px] text-muted">оценка рынка {money(p.val)} · до {dateShort(o.expires)}</div>
               </div>
-              <div className="num text-[20px] text-good">{money(o.fee)}</div>
+              <div className="num text-[20px]" style={{ color }}>{money(o.fee)}</div>
+            </div>
+            <div className="mt-3 rounded-2xl px-3 py-2.5" style={{ background: `color-mix(in oklab, ${color} 10%, transparent)`, boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${color} 30%, transparent)` }}>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[13px] font-semibold" style={{ color }}>🧭 {title}</span>
+                <span className="text-[12px] text-muted">{v.label}</span>
+              </div>
+              <div className="text-[13.5px] mt-1 leading-snug">{v.text}</div>
+              <div className="text-[12px] text-muted mt-1 leading-snug">{v.keep ? 'Замены нет' : <>Не дешевле <span className="num text-ink">{money(v.min)}</span> · хорошая цена <span className="num text-ink">{money(v.good)}</span></>} · {v.why.slice(0, 2).join('; ')}</div>
             </div>
             <div className="flex gap-2 mt-3">
-              <Button full variant="good" size="sm" onClick={() => toast(act(() => respondOffer(L, o.id, 'accept')), 'good')}>Принять</Button>
-              <Button full size="sm" onClick={() => toast(act(() => respondOffer(L, o.id, 'counter', Math.round((o.fee * 1.2) / 1e5) * 1e5)))}>Просить {money(Math.round((o.fee * 1.2) / 1e5) * 1e5)}</Button>
+              <Button full variant={v.verdict === 'accept' ? 'good' : 'glass'} size="sm" onClick={() => toast(act(() => respondOffer(L, o.id, 'accept')), 'good')}>Принять</Button>
+              {v.ask != null && <Button full variant={v.verdict === 'accept' ? 'glass' : 'primary'} size="sm" onClick={() => toast(act(() => respondOffer(L, o.id, 'counter', v.ask!)))}>Просить {money(v.ask)}</Button>}
               <Button full variant="danger" size="sm" onClick={() => toast(act(() => respondOffer(L, o.id, 'reject')))}>Отказать</Button>
             </div>
           </Card>
@@ -253,3 +264,10 @@ function AdviceRow({ L, x, kind }: { L: League; x: Pick; kind: 'now' | 'future' 
     />
   );
 }
+
+const OFFER_VERDICT: Record<'accept' | 'counter' | 'reject' | 'keep', [string, string]> = {
+  accept: ['выгодно — можно продавать', '#3ddc97'],
+  counter: ['торгуйтесь', '#ffb547'],
+  reject: ['дёшево', '#ff5a5f'],
+  keep: ['не продавать', '#ff5a5f'],
+};

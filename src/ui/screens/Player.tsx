@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { renewalCases, VERDICT_RU } from '../../engine/renewals';
+import { saleView } from '../../engine/sale';
 import { RenewalSheet, VERDICT_COLOR } from './More';
 import { useGame, useL } from '../../store/game';
 import { useNav } from '../../store/nav';
@@ -232,6 +233,7 @@ function ContractTab({ L, p, team }: { L: League; p: Player; team: League['teams
   const ver = useGame((s) => s.ver);
   const rc = useMemo(() => (p.team === L.user ? renewalCases(L).find((c) => c.p.id === p.id) ?? null : null), [L, p, ver]); // eslint-disable-line react-hooks/exhaustive-deps
   const [open, setOpen] = useState(false);
+  const sv = useMemo(() => (p.team === L.user && !p.loan ? saleView(L, p) : null), [L, p, ver]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <>
       {rc && (
@@ -246,6 +248,17 @@ function ContractTab({ L, p, team }: { L: League; p: Player; team: League['teams
         </Card>
       )}
       <RenewalSheet L={L} c={open ? rc : null} onClose={() => setOpen(false)} />
+      {sv && (
+        <Card className="mt-3">
+          <div className="text-[11px] uppercase tracking-wider text-muted">Если продавать</div>
+          <div className="text-[14.5px] font-medium mt-1">{sv.label[0].toUpperCase() + sv.label.slice(1)}</div>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <Mini label="Не дешевле" value={sv.keep ? 'не продавать' : money(sv.min)} color={sv.keep ? '#ff5a5f' : undefined} />
+            <Mini label="Хорошая цена" value={sv.keep ? '—' : money(sv.good)} color={sv.keep ? undefined : '#3ddc97'} />
+          </div>
+          <div className="text-[12.5px] text-muted mt-2 leading-snug">{sv.why.join('; ')}.</div>
+        </Card>
+      )}
       <SectionTitle>Контракт</SectionTitle>
       <div className="grid grid-cols-2 gap-2">
         <Card onClick={team ? () => push('team', { id: team.id }) : undefined} className="!p-3 flex items-center gap-2.5">

@@ -35,7 +35,7 @@ export interface RenewalCase {
 const NEED: Record<Pos, number> = { G: 2, D: 6, M: 6, F: 4 };
 
 /** Power lost if the player left: his slot in the eleven goes to the best player outside it. */
-function lossWithout(L: League, p: Player): number {
+export function lossWithout(L: League, p: Player): number {
   const t = L.teams[L.user];
   const i = t.lineup.xi.indexOf(p.id);
   if (i < 0) return 0;

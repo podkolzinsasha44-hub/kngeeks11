@@ -11,6 +11,8 @@ import { negotiate, userBid } from '../src/engine/transfers';
 import { canRegister, interest, startTalks } from '../src/engine/contracts';
 import { transferAdvice } from '../src/engine/advice';
 import { autoRenew, renewalCases } from '../src/engine/renewals';
+import { offerView, saleView } from '../src/engine/sale';
+import { respondOffer } from '../src/engine/transfers';
 import { wageBill, wageFor } from '../src/engine/contracts';
 import type { League } from '../src/engine/types';
 import { newCareer, type WorldJson } from '../src/engine/world';
@@ -300,6 +302,43 @@ describe('contract renewals', () => {
     expect(off.L.inbox.some((m) => m.title.startsWith('Автопродление'))).toBe(false);
     for (const c of off.before.filter((x) => x.final)) expect(c.p.c!.until).toBe(off.L.season + 1);
     expect(autoRenew(off.L)).toEqual([]);
+  });
+});
+
+describe('sale advice', () => {
+  const offer = (L: League, pid: number, fee: number) => {
+    const o = { id: L.nextMsgId++, date: L.date, player: pid, from: 'LIV', to: L.user, fee, status: 'pending' as const, expires: L.date };
+    L.offers.push(o);
+    return o;
+  };
+  it('a better offer never gets a worse verdict, and the suggested ask is accepted by the buyer', () => {
+    const L = career('ZEN');
+    const rank = { reject: 0, counter: 1, accept: 2 };
+    for (const p of squad(L, 'ZEN').sort((a, b) => b.ovr - a.ovr).slice(0, 12)) {
+      let last = -1;
+      for (const k of [0.5, 0.8, 1, 1.2, 1.5, 2]) {
+        const v = offerView(L, { id: 0, date: L.date, player: p.id, from: 'LIV', to: 'ZEN', fee: Math.round(p.val * k), status: 'pending', expires: L.date });
+        expect(rank[v.verdict]).toBeGreaterThanOrEqual(last);
+        last = rank[v.verdict];
+        expect(v.good).toBeGreaterThanOrEqual(v.min);
+        if (v.ask != null) expect(v.ask).toBeLessThanOrEqual(v.ceiling);
+      }
+    }
+    const p = squad(L, 'ZEN').sort((a, b) => b.ovr - a.ovr)[1];
+    const o = offer(L, p.id, Math.round(p.val * 0.9));
+    const v = offerView(L, o);
+    expect(v.ask).not.toBeNull();
+    respondOffer(L, o.id, 'counter', v.ask!);
+    expect(p.team).toBe('LIV');
+    expect(L.transfers[0].fee).toBe(v.ask);
+  });
+  it('a player who wants to leave or is out of contract may go for less', () => {
+    const L = career('ZEN');
+    const p = squad(L, 'ZEN').sort((a, b) => b.ovr - a.ovr)[4];
+    const before = saleView(L, p).min;
+    p.wantsOut = true;
+    expect(saleView(L, p).min).toBeLessThan(before);
+    expect(saleView(L, p).min).toBeLessThanOrEqual(Math.round(p.val * 0.5 / 1e5) * 1e5 + 1e5);
   });
 });
 

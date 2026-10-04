@@ -154,6 +154,11 @@ function offersToUser(L: League) {
 }
 
 /** The user answers an incoming bid. Countering asks for a higher fee. */
+/** The most a club will pay for the player when the user asks for more (above it the club walks away). */
+export function buyerCeiling(L: League, buyer: Team, p: Player) {
+  return Math.min(buyer.budget, p.val * (1.25 + (buyer.rep - 50) / 200) * (wouldStart(L, buyer, p) ? 1.15 : 0.95));
+}
+
 export function respondOffer(L: League, id: number, action: 'accept' | 'reject' | 'counter', amount?: number): string {
   const off = L.offers.find((o) => o.id === id);
   if (!off || off.status !== 'pending') return 'Предложение уже неактуально.';
@@ -166,8 +171,7 @@ export function respondOffer(L: League, id: number, action: 'accept' | 'reject' 
     return 'Предложение отклонено.';
   }
   if (action === 'counter' && amount) {
-    const max = Math.min(buyer.budget, p.val * (1.25 + (buyer.rep - 50) / 200) * (wouldStart(L, buyer, p) ? 1.15 : 0.95));
-    if (amount <= max) off.fee = round(amount);
+    if (amount <= buyerCeiling(L, buyer, p)) off.fee = round(amount);
     else {
       off.status = 'rejected';
       L.offers = L.offers.filter((o) => o !== off);
