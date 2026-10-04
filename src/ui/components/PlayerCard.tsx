@@ -12,8 +12,15 @@ const TIER_BORDER: Record<string, string> = {
   elite: 'linear-gradient(140deg,#fff3c9,#1a1a1a 35%,#e8c26a 60%,#111 85%)',
   legend: '',
 };
-/** Transfermarkt portraits come with a background: the edges fade into the card. */
-const PHOTO_MASK = 'radial-gradient(ellipse 50% 50% at 50% 46%, #000 62%, transparent 100%)';
+/** Portraits keep the whole face: only the bottom and thin side strips fade into the card. */
+const PHOTO_FADE: React.CSSProperties = {
+  maskImage: 'linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent), linear-gradient(180deg, #000 68%, transparent)',
+  WebkitMaskImage: 'linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent), linear-gradient(180deg, #000 68%, transparent)',
+  maskComposite: 'intersect',
+  WebkitMaskComposite: 'source-in',
+};
+/** Transfermarkt portraits are 300×390. */
+const PHOTO_RATIO = 300 / 390;
 
 export const surname = (p: Player) => (p.ru ?? p.ln).split(' ').slice(-1)[0];
 const firstName = (p: Player) => (p.ru ? p.ru.split(' ').slice(0, -1).join(' ') : p.fn);
@@ -65,9 +72,9 @@ export function PlayerCard({ p, L, width = 260, interactive = true }: { p: Playe
           </svg>
           {/* photo */}
           <div className="absolute left-0 right-0 flex justify-center" style={{ top: h * 0.06, height: h * 0.52 }}>
-            <div className="relative" style={{ width: h * 0.5, height: h * 0.52 }}>
+            <div className="relative" style={{ width: h * 0.52 * PHOTO_RATIO, height: h * 0.52 }}>
               {src && !imgErr ? (
-                <img src={src} alt="" className="w-full h-full object-cover object-top" style={{ maskImage: PHOTO_MASK, WebkitMaskImage: PHOTO_MASK }} onError={() => setImgErr(true)} draggable={false} />
+                <img src={src} alt="" className="w-full h-full object-contain rounded-t-[18px]" style={PHOTO_FADE} onError={() => setImgErr(true)} draggable={false} />
               ) : (
                 <div className="absolute inset-x-0 bottom-0" style={{ height: h * 0.42 }}><Silhouette p={p} color={accent} /></div>
               )}
@@ -125,7 +132,7 @@ export function MiniCard({ p, L, onClick }: { p: Player; L: League; onClick?: ()
     <div onClick={onClick} className={cx('press relative rounded-2xl p-[2px]', tier === 'legend' && 'holo')} style={tier !== 'legend' ? { background: TIER_BORDER[tier] } : undefined}>
       <div className="relative rounded-[14px] overflow-hidden aspect-[0.72]" style={{ background: `linear-gradient(165deg, ${clubBase(t)}, #070b14 75%)` }}>
         <div className="absolute inset-x-0 top-3 bottom-8 flex justify-center">
-          {src && !err ? <img src={src} alt="" loading="lazy" onError={() => setErr(true)} className="h-full object-cover object-top" style={{ maskImage: PHOTO_MASK, WebkitMaskImage: PHOTO_MASK }} /> : <div className="w-3/4 self-end"><Silhouette p={p} color={clubAccent(t)} /></div>}
+          {src && !err ? <img src={src} alt="" loading="lazy" onError={() => setErr(true)} className="h-full object-contain rounded-t-lg" style={PHOTO_FADE} /> : <div className="w-3/4 self-end"><Silhouette p={p} color={clubAccent(t)} /></div>}
         </div>
         <div className="absolute left-2 top-1.5 num text-[20px] text-white leading-none">{p.ovr}</div>
         <div className="absolute left-2 top-7 font-display text-[10px] text-white/70">{ROLE_RU[p.role]}</div>
