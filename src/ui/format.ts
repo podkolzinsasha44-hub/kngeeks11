@@ -44,18 +44,23 @@ export function plural(n: number, one: string, few: string, many: string) {
   return many;
 }
 
-export function ovrColor(ovr: number) {
-  if (ovr >= 88) return '#ff8ad8';
-  if (ovr >= 82) return '#e8c26a';
-  if (ovr >= 75) return '#3ddc97';
-  if (ovr >= 68) return '#7fd3ff';
-  if (ovr >= 60) return '#c3cbd9';
-  return '#8b98ae';
-}
-export function tierOf(ovr: number): 'legend' | 'elite' | 'gold' | 'silver' | 'bronze' {
-  return ovr >= 90 ? 'legend' : ovr >= 84 ? 'elite' : ovr >= 76 ? 'gold' : ovr >= 66 ? 'silver' : 'bronze';
-}
-export const TIER_RU = { legend: 'Легенда', elite: 'Элита', gold: 'Золото', silver: 'Серебро', bronze: 'Бронза' };
+/**
+ * Card rarity by rating, like the card tiers of FIFA Mobile. Rarer tiers get richer frames and animation.
+ * Shares of the 6 523 players at the start: icon 0.9%, legend 1.7%, epic 4.7%, elite 9.9%, gold 22.5%, silver 38%, bronze 22.6%.
+ */
+export const TIERS = {
+  icon: { min: 90, name: 'Икона', color: '#ff8ad8' },
+  legend: { min: 87, name: 'Легенда', color: '#ffd76a' },
+  epic: { min: 84, name: 'Эпик', color: '#c58bff' },
+  elite: { min: 80, name: 'Элита', color: '#5fd4ff' },
+  gold: { min: 75, name: 'Золото', color: '#e8c26a' },
+  silver: { min: 68, name: 'Серебро', color: '#c3cbd9' },
+  bronze: { min: 0, name: 'Бронза', color: '#d4925f' },
+} as const;
+export type Tier = keyof typeof TIERS;
+const TIER_ORDER = Object.keys(TIERS) as Tier[];
+export const tierOf = (ovr: number): Tier => TIER_ORDER.find((t) => ovr >= TIERS[t].min) ?? 'bronze';
+export const ovrColor = (ovr: number) => TIERS[tierOf(ovr)].color;
 
 export function phaseLabel(L: League) {
   const t = L.teams[L.user];
@@ -78,8 +83,8 @@ export function clubLabel(L: League, p: Player) {
 }
 export const fitColor = (f: number) => (f >= 85 ? '#3ddc97' : f >= 70 ? '#ffb547' : '#ff5a5f');
 
-/** Player photo on the Transfermarkt CDN: 'big' (300×390) for cards, 'header' (139×181) for lists. */
-export const photoUrl = (p: Player, size: 'big' | 'header' = 'header') => (p.img ? `https://img.a.transfermarkt.technology/portrait/${size}/${p.img}?lm=1` : null);
+/** Player photo on the Transfermarkt CDN: 'original' (631×820) for the profile card, 'big' (300×390), 'header' (139×181) for lists. */
+export const photoUrl = (p: Player, size: 'original' | 'big' | 'header' = 'header') => (p.img ? `https://img.a.transfermarkt.technology/portrait/${size}/${p.img}?lm=1` : null);
 
 /** Scouts know their own players exactly; for others the potential is an estimate. */
 export function potLabel(L: League, p: Player) {

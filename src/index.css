@@ -227,3 +227,68 @@ button {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ------------------------------------------------------------------ card rarity */
+/* Frames: the rarer the tier, the richer the border and the more it moves. */
+.frame-bronze { background: linear-gradient(140deg, #f0b88a, #8a5330 45%, #d99a6c 70%, #5a3018); }
+.frame-silver { background: linear-gradient(140deg, #ffffff, #8f9bb0 40%, #e6ecf5 65%, #5d6778); }
+.frame-gold { background: linear-gradient(140deg, #fff3c9, #c9a24b 40%, #ffe7a3 65%, #8a6a22); }
+.frame-elite { background: linear-gradient(140deg, #ffe7a3, #5fd4ff 30%, #0f3a66 55%, #ffe7a3 80%, #5fd4ff); }
+.frame-epic,
+.frame-legend,
+.frame-icon { animation: holo 5s linear infinite; }
+.frame-epic { background: conic-gradient(from var(--holo-angle, 0deg), #c58bff, #ff6ad5, #6a3df0, #c58bff); box-shadow: 0 0 26px -6px #b06bff; }
+.frame-legend { background: conic-gradient(from var(--holo-angle, 0deg), #fff3c9, #c9a24b, #1a1408, #ffd76a, #fff3c9, #8a6a22, #1a1408, #fff3c9); box-shadow: 0 0 34px -6px #ffcf5a; }
+.frame-icon { background: conic-gradient(from var(--holo-angle, 0deg), #ff8ad8, #7fd3ff, #9dffb0, #ffe27a, #ff8ad8); box-shadow: 0 0 40px -4px rgba(255, 138, 216, 0.75); animation-duration: 3.5s; }
+
+/* Card faces */
+.face-bronze { background: linear-gradient(165deg, #9a6640 0%, #4a2c18 52%, #1e130b 100%); }
+.face-silver { background: linear-gradient(165deg, #a9b4c6 0%, #4d5768 52%, #141922 100%); }
+.face-gold { background: linear-gradient(165deg, #d8b25a 0%, #75591f 50%, #1a1408 100%); }
+.face-elite { background: radial-gradient(120% 70% at 50% 0%, #2b79b8 0%, #0f2a48 55%, #060c18 100%); }
+.face-epic { background: radial-gradient(120% 70% at 50% 0%, #8a3fd1 0%, #2a1048 55%, #0b0414 100%); }
+.face-legend { background: radial-gradient(120% 70% at 50% 0%, #4a3a14 0%, #15100a 55%, #000 100%); }
+.face-icon { background: radial-gradient(120% 70% at 50% 0%, #3a2f6e 0%, #141032 55%, #05040f 100%); }
+
+/* Rotating light rays behind the player (epic and above) */
+.rays {
+  background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, 0.11) 0deg 6deg, transparent 6deg 18deg);
+  animation: spin 40s linear infinite;
+  -webkit-mask-image: radial-gradient(circle, #000 0%, transparent 65%);
+  mask-image: radial-gradient(circle, #000 0%, transparent 65%);
+}
+
+/* Holographic foil of the icon cards: follows the tilt (--fx is set from the pointer). */
+.foil {
+  background: linear-gradient(115deg, transparent 20%, rgba(255, 138, 216, 0.35) 35%, rgba(127, 211, 255, 0.35) 45%, rgba(157, 255, 176, 0.3) 55%, rgba(255, 226, 122, 0.3) 65%, transparent 80%);
+  background-size: 250% 250%;
+  background-position: var(--fx, 50%) 50%;
+  mix-blend-mode: color-dodge;
+  animation: foil 6s ease-in-out infinite alternate;
+}
+@keyframes foil {
+  from { background-position: 0% 50%; }
+  to { background-position: 100% 50%; }
+}
+
+/* Sparkles of legend and icon cards */
+.sparkle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: radial-gradient(circle, #fff 0 18%, transparent 20%), conic-gradient(from 45deg, transparent 0 20%, #fff 22% 28%, transparent 30% 45%, #fff 47% 53%, transparent 55% 70%, #fff 72% 78%, transparent 80%);
+  border-radius: 50%;
+  animation: twinkle 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.3) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1) rotate(45deg); }
+}
+
+/* Breathing glow of the rating on epic and above */
+.glow-num { animation: glow-num 2.6s ease-in-out infinite; }
+@keyframes glow-num {
+  0%, 100% { text-shadow: 0 0 10px var(--glow, #fff6); }
+  50% { text-shadow: 0 0 22px var(--glow, #fff), 0 0 4px var(--glow, #fff); }
+}
