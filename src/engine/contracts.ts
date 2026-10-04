@@ -72,8 +72,11 @@ export function interest(L: League, p: Player, to: Team) {
   return 0.5 + level + role + home + need + (p.pers.win - 10) * (to.strategy === 'contend' ? 0.012 : -0.008);
 }
 
+/** Contract length the player wants: veterans a short deal, talents a long one. */
+export const talkYears = (age: number) => (age >= 33 ? 1 : age >= 30 ? 2 : age <= 22 ? 4 : 3);
+
 /** How keen the player is on these talks: interest in the club, or loyalty and mood for an extension. */
-const talksWill = (L: League, p: Player, t: Team, kind: Negotiation['kind']) =>
+export const talksWill = (L: League, p: Player, t: Team, kind: Negotiation['kind']) =>
   kind === 'extend' ? 0.75 + (p.morale - 60) / 200 + (p.pers.loy - 10) * 0.012 : interest(L, p, t);
 
 /** The yearly wage the player opens the talks with (the same number startTalks puts on the table). */
@@ -94,7 +97,7 @@ export function startTalks(L: League, p: Player, teamId: string, kind: Negotiati
   const a = ageOn(p.bd, L.date);
   const i = talksWill(L, p, t, kind);
   const ask = askingWage(L, p, t, kind);
-  const years = a >= 33 ? 1 : a >= 30 ? 2 : a <= 22 ? 4 : 3;
+  const years = talkYears(a);
   const n: Negotiation = {
     player: p.id, team: teamId, ask: { wage: ask, years }, floor: Math.round((ask * (0.84 + (p.pers.loy - 10) * (kind === 'extend' ? -0.006 : 0))) / 5000) * 5000,
     patience: clamp(Math.round(55 + (p.pers.prof - 10) * 2 + (i - 0.5) * 40), 20, 100), rounds: 0, history: [], status: 'open', kind, fee,

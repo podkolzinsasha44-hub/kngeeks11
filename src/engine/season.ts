@@ -17,6 +17,7 @@ import { line } from './stats';
 import { ensureSquads, weeklyMarket } from './transfers';
 import type { Game, League, OutfieldAttrs, Player, Team } from './types';
 import { addDays, clamp, dispName, dow } from './util';
+import { autoRenew, renewalCases, VERDICT_RU } from './renewals';
 
 export interface DayReport {
   date: string;
@@ -227,12 +228,13 @@ export function advanceDay(L: League): DayReport {
   if (date.slice(8) === '01') {
     updateValues(L);
     if (['03', '04', '05'].includes(date.slice(5, 7))) aiRenewals(L);
+    autoRenew(L);
     if (date.slice(5, 7) === '03') {
-      const exp = squad(L, L.user).filter((p) => p.c && p.c.until <= L.season + 1 && !p.loan);
+      const exp = renewalCases(L).filter((c) => c.final);
       if (exp.length) {
         pushMsg(L, {
           from: 'Спортивный отдел', kind: 'staff', title: `Летом истекают контракты: ${exp.length}`,
-          body: `Эти игроки уйдут бесплатно 20 июня, если не продлить контракт:\n${exp.sort((a, b) => b.ovr - a.ovr).map((p) => `${dispName(p)} (${p.ovr})`).join('\n')}`,
+          body: `Эти игроки уйдут бесплатно 20 июня, если не продлить контракт. Совет штаба:\n${exp.map((c) => `${dispName(c.p)} (${c.p.ovr}) — ${VERDICT_RU[c.verdict]}: ${c.short}`).join('\n')}`,
           ref: { type: 'screen', id: 'finance' },
         });
         L.stops.push('expiring');

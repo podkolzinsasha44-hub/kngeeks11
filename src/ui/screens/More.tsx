@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { useGame, useL, applyTheme } from '../../store/game';
 import { useNav } from '../../store/nav';
 import { exportFile } from '../../persistence/db';
 import { aiLineup } from '../../engine/ai';
-import { wageBill } from '../../engine/contracts';
+import { startTalks, wageBill } from '../../engine/contracts';
+import { renewalCases, renewNow, VERDICT_RU, type RenewalCase, type Verdict } from '../../engine/renewals';
 import { groupOrder, nationPower } from '../../engine/intl';
 import { LEAGUES, foreignLimit, isForeign, transferWindows } from '../../engine/leagues';
 import { squad } from '../../engine/lineup';
@@ -133,7 +134,6 @@ export function FinanceScreen() {
   const sq = squad(L, t.id).filter((p) => p.c).sort((a, b) => (b.c!.wage ?? 0) - (a.c!.wage ?? 0));
   const bill = wageBill(L, t.id);
   const lim = foreignLimit(t.lg, L.season);
-  const exp = sq.filter((p) => p.c!.until <= L.season + 1 && !p.loan);
   const [w1, w2] = transferWindows(L.season);
   return (
     <Screen title="Финансы">
@@ -146,12 +146,7 @@ export function FinanceScreen() {
         {lim && <div>Легионеры: {sq.filter((p) => isForeign(p, t.country)).length} из {lim[0]} в заявке, на поле не больше {lim[1]}. Граждане России, Беларуси, Казахстана, Армении и Киргизии легионерами не считаются.</div>}
         <div className="text-muted mt-1">Бюджет на следующий сезон зависит от места в таблице и репутации клуба. Деньги от продаж остаются в клубе.</div>
       </Card>
-      {exp.length > 0 && (
-        <>
-          <SectionTitle>Контракт истекает летом {L.season + 1}</SectionTitle>
-          <Card pad={false} className="overflow-hidden">{exp.map((p) => <PlayerRow key={p.id} dense p={p} right={<span className="text-[12px] text-warn mr-1">продлить?</span>} />)}</Card>
-        </>
-      )}
+      <Renewals L={L} />
       <SectionTitle>Зарплатная ведомость</SectionTitle>
       <Card pad={false} className="overflow-hidden">{sq.map((p) => <PlayerRow key={p.id} dense p={p} right={<span className="num text-[13px] mr-1 text-right leading-tight">{money(p.c!.wage)}<br /><span className="text-[10.5px] text-muted">до {p.c!.until}</span></span>} />)}</Card>
     </Screen>
@@ -245,10 +240,10 @@ export function SettingsScreen() {
   const save = useGame((s) => s.save);
   const toast = useGame((s) => s.toast);
   const s = L.settings;
-  const T = ({ k, label, sub }: { k: 'sound' | 'stopOnUserGames' | 'watchGames' | 'hideMedia' | 'noFiring' | 'intlRussia'; label: string; sub?: string }) => (
-    <Row onClick={() => act(() => { s[k] = !s[k]; })}>
+  const T = ({ k, label, sub }: { k: 'sound' | 'stopOnUserGames' | 'watchGames' | 'hideMedia' | 'noFiring' | 'intlRussia' | 'autoRenew'; label: string; sub?: string }) => (
+    <Row onClick={() => act(() => { s[k] = !isOn(s, k); })}>
       <div className="flex-1"><div className="text-[15.5px]">{label}</div>{sub && <div className="text-[12.5px] text-muted">{sub}</div>}</div>
-      <div className={cx('w-[48px] h-[30px] rounded-full relative transition-colors shrink-0', s[k] ? 'accent-bg' : 'bg-white/15')}><span className={cx('absolute top-[3px] w-6 h-6 rounded-full bg-white transition-all', s[k] ? 'left-[21px]' : 'left-[3px]')} /></div>
+      <Switch on={isOn(s, k)} />
     </Row>
   );
   return (
@@ -256,6 +251,7 @@ export function SettingsScreen() {
       <SectionTitle className="!mt-2">Игра</SectionTitle>
       <Card pad={false} className="overflow-hidden">
         <T k="watchGames" label="Показывать матч после игры" sub="Матч-центр с живым повтором открывается сам" /><Divider />
+        <T k="autoRenew" label="Автопродление выгодных контрактов" sub="Штаб сам продлевает нужных игроков на рыночных условиях и пишет почему" /><Divider />
         <T k="stopOnUserGames" label="Останавливаться после каждого матча" /><Divider />
         <T k="sound" label="Звук гола" /><Divider />
         <T k="hideMedia" label="Скрыть соцсети в новостях" /><Divider />
@@ -364,5 +360,92 @@ export function CelebrationModal({ params }: { params: Record<string, unknown> }
       </motion.div>
       <Button variant="gold" size="lg" className="mt-10 relative" onClick={close}>Продолжить</Button>
     </div>
+  );
+}
+
+/** Auto-renewal is on unless switched off (saves made before the setting existed have it undefined). */
+const isOn = (s: League['settings'], k: keyof League['settings']) => (k === 'autoRenew' ? s.autoRenew !== false : !!s[k]);
+
+function Switch({ on }: { on: boolean }) {
+  return <div className={cx('w-[48px] h-[30px] rounded-full relative transition-colors shrink-0', on ? 'accent-bg' : 'bg-white/15')}><span className={cx('absolute top-[3px] w-6 h-6 rounded-full bg-white transition-all', on ? 'left-[21px]' : 'left-[3px]')} /></div>;
+}
+
+export const VERDICT_COLOR: Record<Verdict, string> = { extend: '#3ddc97', haggle: '#ffb547', sell: '#7fd3ff', release: '#8b98ae' };
+
+/** The assistant's verdict on every contract that ends within two summers, with one-tap actions. */
+function Renewals({ L }: { L: League }) {
+  const act = useGame((s) => s.act);
+  const ver = useGame((s) => s.ver);
+  const cases = useMemo(() => renewalCases(L), [L, ver]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [open, setOpen] = useState<RenewalCase | null>(null);
+  const on = L.settings.autoRenew !== false;
+  const groups: [string, RenewalCase[]][] = [[`Истекают летом ${L.season + 1}`, cases.filter((c) => c.final)], [`Истекают летом ${L.season + 2}`, cases.filter((c) => !c.final)]];
+  return (
+    <>
+      <SectionTitle>Продления</SectionTitle>
+      <Card pad={false} className="overflow-hidden">
+        <Row onClick={() => act(() => { L.settings.autoRenew = !on; })}>
+          <div className="flex-1">
+            <div className="text-[15px] font-medium">Автопродление выгодных контрактов</div>
+            <div className="text-[12.5px] text-muted leading-snug">{on ? 'Раз в месяц с октября по май штаб продлевает тех, у кого вердикт «продлить», и пишет во входящие почему.' : 'Выключено: продлеваете сами. Советы штаба остаются.'}</div>
+          </div>
+          <Switch on={on} />
+        </Row>
+      </Card>
+      {groups.map(([title, list]) => list.length > 0 && (
+        <div key={title}>
+          <div className="text-[12px] uppercase tracking-wider text-muted mt-4 mb-2 px-1">{title}</div>
+          <Card pad={false} className="overflow-hidden">
+            {list.map((c) => (
+              <PlayerRow
+                key={c.p.id}
+                dense
+                p={c.p}
+                onClick={() => setOpen(c)}
+                sub={<><span className="font-semibold" style={{ color: VERDICT_COLOR[c.verdict] }}>{VERDICT_RU[c.verdict]}</span> · {c.short}</>}
+                right={<div className="text-right mr-1 leading-tight shrink-0"><div className="num text-[13px]">{money(c.wage)}</div><div className="text-[10.5px] text-muted">{c.years} {c.years === 1 ? 'год' : c.years < 5 ? 'года' : 'лет'}</div></div>}
+              />
+            ))}
+          </Card>
+        </div>
+      ))}
+      {!cases.length && <div className="text-[13px] text-muted px-1 mt-2">Ни у кого из игроков контракт не истекает в ближайшие два лета.</div>}
+      <RenewalSheet L={L} c={open} onClose={() => setOpen(null)} />
+    </>
+  );
+}
+
+export function RenewalSheet({ L, c, onClose }: { L: League; c: RenewalCase | null; onClose: () => void }) {
+  const act = useGame((s) => s.act);
+  const toast = useGame((s) => s.toast);
+  const push = useNav((s) => s.push);
+  return (
+    <Sheet open={!!c} onClose={onClose} title={c ? dispName(c.p) : ''}>
+      {c && (
+        <>
+          <div className="flex items-center gap-2 mb-3">
+            <Pill color={VERDICT_COLOR[c.verdict]}>Совет: {VERDICT_RU[c.verdict]}</Pill>
+            <span className="text-[13px] text-muted">{c.short}</span>
+          </div>
+          <ul className="flex flex-col gap-1.5 text-[14px] mb-4">
+            {c.why.map((w, i) => <li key={i} className="flex gap-2"><span className="text-muted">•</span><span>{w}</span></li>)}
+          </ul>
+          <div className="flex flex-col gap-2">
+            {(c.verdict === 'extend' || c.verdict === 'haggle') && (
+              <Button variant={c.verdict === 'extend' ? 'primary' : 'glass'} size="lg" full onClick={() => { act(() => renewNow(L, c)); toast(`${dispName(c.p)}: контракт до лета ${c.p.c?.until}`, 'good'); onClose(); }}>
+                Продлить сейчас: {money(c.wage)} в год на {c.years} {c.years === 1 ? 'год' : c.years < 5 ? 'года' : 'лет'}
+              </Button>
+            )}
+            {c.verdict !== 'sell' && !c.p.wantsOut && (
+              <Button full onClick={() => { act(() => startTalks(L, c.p, L.user, 'extend')); onClose(); push('negotiate', { id: c.p.id }); }}>Переговоры — попробовать дешевле</Button>
+            )}
+            {(c.verdict === 'sell' || c.verdict === 'release') && !c.p.listed && (
+              <Button full onClick={() => { act(() => { c.p.listed = true; }); toast('Игрок выставлен на трансфер: клубы будут присылать предложения'); onClose(); }}>Выставить на трансфер</Button>
+            )}
+            <Button full variant="ghost" onClick={() => { onClose(); push('player', { id: c.p.id }); }}>Профиль игрока</Button>
+          </div>
+        </>
+      )}
+    </Sheet>
   );
 }

@@ -10,6 +10,8 @@ import { advanceDay, lastUserBox, nextUserGame } from '../src/engine/season';
 import { negotiate, userBid } from '../src/engine/transfers';
 import { canRegister, interest, startTalks } from '../src/engine/contracts';
 import { transferAdvice } from '../src/engine/advice';
+import { autoRenew, renewalCases } from '../src/engine/renewals';
+import { wageBill, wageFor } from '../src/engine/contracts';
 import type { League } from '../src/engine/types';
 import { newCareer, type WorldJson } from '../src/engine/world';
 
@@ -243,6 +245,61 @@ describe('transfer advice', () => {
     const before = teamPower(L, me);
     me.lineup.xi[top.slot] = top.p.id;
     expect(teamPower(L, me) - before).toBeCloseTo(top.gain, 6);
+  });
+});
+
+describe('contract renewals', () => {
+  const toDate = (L: League, d: string) => { while (L.date < d) advanceDay(L); };
+  it('judges every expiring contract and keeps only sensible deals', () => {
+    const L = career('ROS', 7);
+    L.settings.autoRenew = false;
+    toDate(L, `${L.season}-09-30`);
+    const me = L.teams.ROS;
+    const cs = renewalCases(L);
+    expect(cs.length).toBeGreaterThan(0);
+    for (const c of cs) {
+      expect(c.p.team).toBe('ROS');
+      expect(c.p.c!.until).toBeLessThanOrEqual(L.season + 2);
+      expect(c.why.length).toBeGreaterThan(0);
+      if (c.verdict === 'extend') {
+        expect(c.wage / wageFor(c.p.ovr, me.lg)).toBeLessThanOrEqual(1.45);
+        expect(c.p.wantsOut).toBeFalsy();
+      }
+      expect(c.auto).toBe(c.verdict === 'extend' && c.final);
+    }
+    // A player who wants to leave is never extended.
+    const star = cs.find((c) => c.verdict === 'extend')!.p;
+    star.wantsOut = true;
+    expect(renewalCases(L).find((c) => c.p.id === star.id)!.verdict).not.toBe('extend');
+  });
+  it('auto-renewal signs the good deals on the player\'s terms and nothing else', () => {
+    const run = (on: boolean) => {
+      const L = career('ROS', 7);
+      L.settings.autoRenew = on;
+      toDate(L, `${L.season}-09-30`);
+      const before = renewalCases(L);
+      const wages = wageBill(L, 'ROS');
+      // The day of September 30 and then October 1, when the monthly renewal runs.
+      advanceDay(L);
+      advanceDay(L);
+      return { L, before, wages };
+    };
+    const { L, before } = run(true);
+    const auto = before.filter((c) => c.auto);
+    expect(auto.length).toBeGreaterThan(0);
+    // Each signature is followed by a fresh look: a depth player may no longer be needed once the others stay.
+    const now = renewalCases(L);
+    for (const c of auto) {
+      if (c.p.c!.until > L.season + 1) expect(c.p.c!.wage).toBe(c.wage);
+      else expect(now.find((x) => x.p.id === c.p.id)!.verdict).not.toBe('extend');
+    }
+    expect(auto.filter((c) => c.p.c!.until > L.season + 1).length).toBeGreaterThan(auto.length / 2);
+    for (const c of before.filter((x) => x.final && x.verdict !== 'extend')) expect(c.p.c!.until).toBe(L.season + 1);
+    expect(L.inbox.some((m) => m.title.startsWith('Автопродление'))).toBe(true);
+    const off = run(false);
+    expect(off.L.inbox.some((m) => m.title.startsWith('Автопродление'))).toBe(false);
+    for (const c of off.before.filter((x) => x.final)) expect(c.p.c!.until).toBe(off.L.season + 1);
+    expect(autoRenew(off.L)).toEqual([]);
   });
 });
 

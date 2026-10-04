@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { renewalCases, VERDICT_RU } from '../../engine/renewals';
+import { RenewalSheet, VERDICT_COLOR } from './More';
 import { useGame, useL } from '../../store/game';
 import { useNav } from '../../store/nav';
 import { interest, startTalks, yearsLeft } from '../../engine/contracts';
@@ -227,8 +229,23 @@ function Stats({ L, p }: { L: League; p: Player }) {
 
 function ContractTab({ L, p, team }: { L: League; p: Player; team: League['teams'][string] | null }) {
   const push = useNav((s) => s.push);
+  const ver = useGame((s) => s.ver);
+  const rc = useMemo(() => (p.team === L.user ? renewalCases(L).find((c) => c.p.id === p.id) ?? null : null), [L, p, ver]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [open, setOpen] = useState(false);
   return (
     <>
+      {rc && (
+        <Card className="mt-3" onClick={() => setOpen(true)}>
+          <div className="flex items-center gap-2">
+            <Pill color={VERDICT_COLOR[rc.verdict]}>Совет штаба: {VERDICT_RU[rc.verdict]}</Pill>
+            {rc.auto && L.settings.autoRenew !== false && <span className="text-[11.5px] text-muted">продлится автоматически</span>}
+          </div>
+          <div className="text-[14px] mt-2">{rc.short[0].toUpperCase() + rc.short.slice(1)}.</div>
+          <div className="text-[12.5px] text-muted mt-0.5 leading-snug">{rc.why.slice(0, 2).join('; ')}.</div>
+          <div className="text-[13px] accent-text font-semibold mt-2">Подробнее и действия →</div>
+        </Card>
+      )}
+      <RenewalSheet L={L} c={open ? rc : null} onClose={() => setOpen(false)} />
       <SectionTitle>Контракт</SectionTitle>
       <div className="grid grid-cols-2 gap-2">
         <Card onClick={team ? () => push('team', { id: team.id }) : undefined} className="!p-3 flex items-center gap-2.5">

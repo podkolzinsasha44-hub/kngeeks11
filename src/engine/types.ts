@@ -359,6 +359,8 @@ export interface Settings {
   noFiring?: boolean;
   /** Russia takes part in FIFA / UEFA tournaments (suspended in reality since 2022). */
   intlRussia?: boolean;
+  /** The assistant extends good contracts of the user's players by itself (on unless switched off). */
+  autoRenew?: boolean;
 }
 
 export interface Scouting {
