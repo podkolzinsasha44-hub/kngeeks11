@@ -20,7 +20,17 @@
   --team: #0a1428;
   --team2: #7fd3ff;
   --tabbar-h: 56px;
+  /* Width of the desktop sidebar; 0 on phones. */
+  --side-w: 0px;
   color-scheme: dark;
+}
+
+/* Desktop (PC, Chrome): sidebar instead of the tab bar. */
+@media (min-width: 1024px) {
+  :root {
+    --side-w: 264px;
+    --tabbar-h: 0px;
+  }
 }
 
 html,
@@ -291,4 +301,45 @@ button {
 @keyframes glow-num {
   0%, 100% { text-shadow: 0 0 10px var(--glow, #fff6); }
   50% { text-shadow: 0 0 22px var(--glow, #fff), 0 0 4px var(--glow, #fff); }
+}
+
+/* ------------------------------------------------------------------ desktop */
+/* Elements pinned to the bottom stay inside the content area, right of the sidebar. */
+.dock-x {
+  left: var(--side-w);
+  right: 0;
+}
+@media (hover: hover) and (pointer: fine) {
+  .press:hover {
+    filter: brightness(1.14);
+  }
+  .press:active {
+    transform: scale(0.985);
+  }
+  .scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+  }
+  .scroll::-webkit-scrollbar {
+    display: block;
+    width: 10px;
+  }
+  .scroll::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.14);
+    border-radius: 10px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+  .scroll::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.26);
+  }
+  kbd {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+    color: var(--color-muted);
+  }
 }

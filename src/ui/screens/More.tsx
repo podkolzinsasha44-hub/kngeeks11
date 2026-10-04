@@ -31,7 +31,7 @@ export function MoreScreen() {
   const quit = useGame((s) => s.quit);
   return (
     <Screen title="Ещё" large subtitle={`${L.gm.name} · ${L.teams[L.user].ru}`}>
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 lg:gap-3">
         {TILES.map((t, i) => {
           const badge = t.badge?.(L) ?? 0;
           return (
@@ -51,7 +51,7 @@ export function MoreScreen() {
           );
         })}
       </div>
-      <Button full className="mt-4" onClick={quit}>Выйти в главное меню</Button>
+      <Button full className="mt-4 lg:w-auto lg:px-8" onClick={quit}>Выйти в главное меню</Button>
       <p className="text-[11.5px] text-faint mt-5 leading-snug">
         Фан-проект, не связан с РПЛ, РФС, FIFA, UEFA и клубами; некоммерческий. Составы клубов — сентябрь 2026 (Википедия, CC BY-SA). Биографии, оценки стоимости и статистика — открытый набор transfermarkt-datasets (CC0). Фотографии игроков загружаются с Transfermarkt. Зарплаты — модель. Все игроки на старте реальные; вымышлены только воспитанники академий следующих сезонов.
       </p>

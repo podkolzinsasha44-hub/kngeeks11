@@ -49,6 +49,8 @@ export function Office() {
         </button>
       }
     >
+      <div className="lg:grid lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:gap-8 lg:items-start">
+      <div className="min-w-0">
       {/* Hero */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4 pt-1 pb-4">
         <div className="relative shrink-0">
@@ -131,7 +133,9 @@ export function Office() {
         </>
       )}
 
-      <SectionTitle>Руководство</SectionTitle>
+      </div>
+      <div className="min-w-0 lg:pt-1">
+      <SectionTitle className="lg:!mt-0">Руководство</SectionTitle>
       <Card>
         <div className="flex justify-between text-[13px] mb-1.5"><span className="text-muted">Доверие совета директоров</span><span className="num">{L.owner.trust}/100</span></div>
         <Meter value={L.owner.trust} color={L.owner.trust < 30 ? '#ff5a5f' : L.owner.trust < 55 ? '#ffb547' : '#3ddc97'} />
@@ -166,6 +170,8 @@ export function Office() {
           </Card>
         </>
       )}
+      </div>
+      </div>
       <SimDock />
     </Screen>
   );

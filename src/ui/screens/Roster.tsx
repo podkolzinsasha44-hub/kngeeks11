@@ -157,8 +157,7 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
   const candidates = useMemo(() => (pick == null ? [] : [...sq].sort((a, b) => slotRating(b, roles[pick]) - slotRating(a, roles[pick]))), [pick, sq, roles]);
   const selP = sel?.id != null ? L.players[sel.id] : null;
   const isSel = (zone: Zone, i: number) => sel?.zone === zone && sel.i === i;
-
-  return (
+  const controls = (
     <>
       <div className="flex items-center gap-2 mt-1">
         <div className="flex-1 min-w-0"><Chips value={ln.form} onChange={setForm} options={FORMATION_IDS.map((f) => ({ v: f, label: f }))} /></div>
@@ -174,7 +173,14 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
           {lim && fOn > lim[1] && <div>⚠️ Легионеров на поле: {fOn}, разрешено не больше {lim[1]}.</div>}
         </div>
       )}
+    </>
+  );
 
+  return (
+    <>
+      <div className="lg:hidden">{controls}</div>
+      <div className="lg:grid lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)] lg:gap-8 lg:items-start">
+      <div className="lg:sticky lg:top-2">
       <div ref={box} className="relative w-full max-w-[520px] mx-auto overflow-hidden rounded-[18px]" style={{ aspectRatio: '68 / 110' }}>
         <PitchSvg vertical stretch className="absolute inset-0 w-full h-full" />
         <div className="absolute inset-0" style={{ background: 'radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.10), transparent 60%), linear-gradient(180deg, transparent 70%, rgba(0,0,0,.22))' }} />
@@ -190,7 +196,9 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
           );
         })}
       </div>
-
+      </div>
+      <div className="min-w-0">
+      <div className="hidden lg:block">{controls}</div>
       <div className="mt-3 glass rounded-[22px] overflow-hidden">
         <div className="flex items-center justify-between px-3 pt-2.5">
           <span className="font-display uppercase tracking-[0.12em] text-[13px] text-muted">Скамейка</span>
@@ -240,9 +248,11 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
           ))}
         </div>
       </Card>
+      </div>
+      </div>
 
       {sel && (
-        <div className="fixed inset-x-0 z-30 px-3" style={{ bottom: 'calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 10px)' }}>
+        <div className="fixed dock-x z-30 px-3" style={{ bottom: 'calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 10px)' }}>
           <div className="glass-strong rounded-3xl p-2.5 pl-4 flex items-center gap-2 max-w-[560px] mx-auto shadow-2xl">
             <div className="flex-1 min-w-0">
               <div className="font-display uppercase tracking-wide text-[15px] truncate">{selP ? dispName(selP) : 'Свободное место'}</div>

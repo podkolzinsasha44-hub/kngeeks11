@@ -1,8 +1,18 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useNav, type Tab } from '../../store/nav';
 import { useGame } from '../../store/game';
 import { cx } from './kit';
+
+const DESKTOP = '(min-width: 1024px)';
+const subscribeDesktop = (cb: () => void) => {
+  const m = window.matchMedia(DESKTOP);
+  m.addEventListener('change', cb);
+  return () => m.removeEventListener('change', cb);
+};
+/** True on a wide screen (PC): sidebar navigation, two-column screens, dialogs instead of bottom sheets. */
+export const useDesktop = () => useSyncExternalStore(subscribeDesktop, () => window.matchMedia(DESKTOP).matches, () => false);
 
 export function Icon({ name, size = 24, className }: { name: string; size?: number; className?: string }) {
   const p = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, className };
@@ -59,7 +69,7 @@ export function Screen({
       }}
     >
       <header className={cx('pt-safe z-20 shrink-0 transition-colors duration-300', scrolled ? 'glass-strong border-x-0 border-t-0' : 'border-b border-transparent')}>
-        <div className="flex items-center gap-2 h-12 px-2">
+        <div className="flex items-center gap-2 h-12 px-2 lg:h-16 lg:px-6 w-full lg:max-w-[1240px] lg:mx-auto">
           {showBack ? (
             <button onClick={onBack ?? pop} className="press w-11 h-11 -ml-0.5 flex items-center justify-center rounded-full text-ink" aria-label="Назад">
               <Icon name="back" />
@@ -68,28 +78,30 @@ export function Screen({
             <div className="w-2" />
           )}
           <div className="flex-1 min-w-0">
-            {!large && title && <div className="font-display uppercase tracking-wide text-[18px] truncate leading-tight">{title}</div>}
-            {!large && subtitle && <div className="text-[12px] text-muted truncate leading-tight">{subtitle}</div>}
+            {!large && title && <div className="font-display uppercase tracking-wide text-[18px] lg:text-[22px] truncate leading-tight">{title}</div>}
+            {!large && subtitle && <div className="text-[12px] lg:text-[13px] text-muted truncate leading-tight">{subtitle}</div>}
           </div>
           <div className="flex items-center gap-1 pr-1">{right}</div>
         </div>
-        {headerExtra}
+        {headerExtra && <div className="lg:max-w-[1240px] lg:mx-auto lg:px-4 w-full">{headerExtra}</div>}
       </header>
-      <main className={cx('scroll flex-1', !noPad && 'px-4', className)} onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 6)}>
+      <main className={cx('scroll flex-1', !noPad && 'px-4 lg:px-10', className)} onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 6)}>
+        <div className="lg:max-w-[1180px] lg:mx-auto">
         {large && (
           <div className="pt-1 pb-3">
-            <div className="font-display uppercase text-[30px] leading-none tracking-wide">{title}</div>
+            <div className="font-display uppercase text-[30px] lg:text-[40px] leading-none tracking-wide">{title}</div>
             {subtitle && <div className="text-muted text-[14px] mt-1.5">{subtitle}</div>}
           </div>
         )}
         {children}
-        <div style={{ height: 'calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 96px)' }} />
+        </div>
+        <div className="h-[calc(var(--tabbar-h)+env(safe-area-inset-bottom)+96px)] lg:h-12" />
       </main>
     </div>
   );
 }
 
-const TABS: { id: Tab; label: string; icon: string }[] = [
+export const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'office', label: 'Офис', icon: 'office' },
   { id: 'roster', label: 'Состав', icon: 'roster' },
   { id: 'market', label: 'Рынок', icon: 'market' },
@@ -102,7 +114,7 @@ export function TabBar({ badges }: { badges: Partial<Record<Tab, number>> }) {
   const tab = useNav((s) => s.tab);
   const setTab = useNav((s) => s.setTab);
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-40 glass-strong border-x-0 border-b-0 pb-safe">
+    <nav className="fixed bottom-0 inset-x-0 z-40 glass-strong border-x-0 border-b-0 pb-safe lg:hidden">
       <div className="flex h-[56px] max-w-[560px] mx-auto">
         {TABS.map((t) => {
           const active = t.id === tab;
@@ -123,39 +135,68 @@ export function TabBar({ badges }: { badges: Partial<Record<Tab, number>> }) {
 }
 
 export function Sheet({ open, onClose, title, children, full }: { open: boolean; onClose: () => void; title?: ReactNode; children: ReactNode; full?: boolean }) {
-  return (
+  const desktop = useDesktop();
+  // Esc closes the sheet before anything underneath reacts to it.
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose(); } };
+    window.addEventListener('keydown', h, true);
+    return () => window.removeEventListener('keydown', h, true);
+  }, [open, onClose]);
+  // Rendered at the document root: a parent with backdrop-filter (the PC sidebar) would trap a fixed overlay.
+  return createPortal(
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-[60]">
+        <div data-sheet className={cx('fixed inset-0 z-[60]', desktop && 'flex items-center justify-center p-8')}>
           <motion.div className="absolute inset-0 bg-black/60" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
-          <motion.div
-            className={cx('absolute inset-x-0 bottom-0 glass-strong rounded-t-[28px] flex flex-col border-b-0 max-w-[620px] mx-auto', full ? 'h-[92dvh]' : 'max-h-[88dvh]')}
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            transition={{ type: 'spring', stiffness: 380, damping: 38 }}
-            drag="y"
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0, bottom: 0.6 }}
-            onDragEnd={(_, i) => { if (i.offset.y > 110 || i.velocity.y > 600) onClose(); }}
-          >
-            <div className="pt-2.5 pb-1 flex justify-center shrink-0"><div className="w-10 h-1.5 rounded-full bg-white/25" /></div>
-            {title && <div className="px-5 pb-2 pt-1 font-display uppercase tracking-wide text-[18px] shrink-0">{title}</div>}
-            <div className="scroll px-4 pb-safe flex-1" onPointerDownCapture={(e) => e.stopPropagation()}>
-              {children}
-              <div className="h-5" />
-            </div>
-          </motion.div>
+          {desktop ? (
+            <motion.div
+              className={cx('relative glass-strong rounded-[28px] flex flex-col w-full max-w-[600px] shadow-2xl', full ? 'h-[86dvh]' : 'max-h-[86dvh]')}
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97, y: 8 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 34 }}
+            >
+              <div className="flex items-center gap-3 px-6 pt-5 pb-3 shrink-0">
+                <div className="flex-1 font-display uppercase tracking-wide text-[20px] truncate">{title}</div>
+                <button onClick={onClose} className="press w-10 h-10 rounded-full glass flex items-center justify-center" aria-label="Закрыть"><Icon name="close" size={18} /></button>
+              </div>
+              <div className="scroll px-6 flex-1">
+                {children}
+                <div className="h-6" />
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              className={cx('absolute inset-x-0 bottom-0 glass-strong rounded-t-[28px] flex flex-col border-b-0 max-w-[620px] mx-auto', full ? 'h-[92dvh]' : 'max-h-[88dvh]')}
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+              drag="y"
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={{ top: 0, bottom: 0.6 }}
+              onDragEnd={(_, i) => { if (i.offset.y > 110 || i.velocity.y > 600) onClose(); }}
+            >
+              <div className="pt-2.5 pb-1 flex justify-center shrink-0"><div className="w-10 h-1.5 rounded-full bg-white/25" /></div>
+              {title && <div className="px-5 pb-2 pt-1 font-display uppercase tracking-wide text-[18px] shrink-0">{title}</div>}
+              <div className="scroll px-4 pb-safe flex-1" onPointerDownCapture={(e) => e.stopPropagation()}>
+                {children}
+                <div className="h-5" />
+              </div>
+            </motion.div>
+          )}
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
 
 export function Toasts() {
   const toasts = useGame((s) => s.toasts);
   return (
-    <div className="fixed top-0 inset-x-0 z-[80] pt-safe pointer-events-none flex flex-col items-center gap-2 px-4">
+    <div className="fixed top-0 inset-x-0 z-[80] pt-safe pointer-events-none flex flex-col items-center gap-2 px-4 lg:items-end lg:pt-5 lg:px-6">
       <AnimatePresence>
         {toasts.map((t) => (
           <motion.div
@@ -175,7 +216,7 @@ export function Toasts() {
 }
 
 export function Dialog({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-6">
@@ -185,6 +226,7 @@ export function Dialog({ open, onClose, children }: { open: boolean; onClose: ()
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }

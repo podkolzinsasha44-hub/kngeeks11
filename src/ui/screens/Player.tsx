@@ -8,7 +8,7 @@ import { avgRating, career } from '../../engine/stats';
 import type { KeeperAttrs, League, OutfieldAttrs, Player } from '../../engine/types';
 import { fullName } from '../../engine/util';
 import { Button, Card, cx, Meter, Pill, SectionTitle, Segmented } from '../components/kit';
-import { Icon, Screen, Sheet } from '../components/shell';
+import { Icon, Screen, Sheet, useDesktop } from '../components/shell';
 import { TeamBadge } from '../components/media';
 import { PlayerCard } from '../components/PlayerCard';
 import { Sparkline } from '../components/charts';
@@ -27,6 +27,7 @@ export function PlayerScreen({ params }: { params: Record<string, unknown> }) {
   const act = useGame((s) => s.act);
   const p = L.players[Number(params.id)];
   const [tab, setTab] = useState<Tab>('info');
+  const desktop = useDesktop();
   if (!p) return <Screen title="Игрок"><div className="text-muted mt-6">Игрок не найден.</div></Screen>;
   const t = p.team ? L.teams[p.team] : null;
   const shortlisted = L.scouting.shortlist.includes(p.id);
@@ -44,16 +45,22 @@ export function PlayerScreen({ params }: { params: Record<string, unknown> }) {
         </button>
       }
     >
-      <div className="pt-2 pb-4">
-        <PlayerCard p={p} L={L} width={Math.min(300, window.innerWidth - 80)} />
+      <div className="lg:grid lg:grid-cols-[340px_minmax(0,1fr)] lg:gap-10 lg:items-start">
+        <div className="lg:sticky lg:top-2">
+          <div className="pt-2 pb-4">
+            <PlayerCard p={p} L={L} width={desktop ? 320 : Math.min(300, window.innerWidth - 80)} />
+          </div>
+          <Badges L={L} p={p} />
+        </div>
+        <div className="min-w-0 lg:pt-2">
+          <Facts L={L} p={p} />
+          <Actions L={L} p={p} />
+          <Segmented className="mt-5" value={tab} onChange={setTab} options={[{ v: 'info', label: 'Обзор' }, { v: 'stats', label: 'Статистика' }, { v: 'contract', label: 'Контракт' }]} />
+          {tab === 'info' && <Info p={p} />}
+          {tab === 'stats' && <Stats L={L} p={p} />}
+          {tab === 'contract' && <ContractTab L={L} p={p} team={t} />}
+        </div>
       </div>
-      <Badges L={L} p={p} />
-      <Facts L={L} p={p} />
-      <Actions L={L} p={p} />
-      <Segmented className="mt-5" value={tab} onChange={setTab} options={[{ v: 'info', label: 'Обзор' }, { v: 'stats', label: 'Статистика' }, { v: 'contract', label: 'Контракт' }]} />
-      {tab === 'info' && <Info p={p} />}
-      {tab === 'stats' && <Stats L={L} p={p} />}
-      {tab === 'contract' && <ContractTab L={L} p={p} team={t} />}
     </Screen>
   );
 }

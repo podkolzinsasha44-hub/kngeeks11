@@ -96,16 +96,17 @@ function NewCareer({ onBack }: { onBack: () => void }) {
   const sel: WorldTeam | undefined = teams.find((t) => t.id === team);
   return (
     <div className="absolute inset-0 flex flex-col z-10">
-      <header className="pt-safe px-2 shrink-0">
-        <div className="flex items-center h-12">
+      <header className="pt-safe px-2 shrink-0 lg:px-8">
+        <div className="flex items-center h-12 lg:h-16 lg:max-w-[1180px] lg:mx-auto">
           <button onClick={onBack} className="press w-11 h-11 flex items-center justify-center" aria-label="Назад"><Icon name="back" /></button>
           <div className="font-display uppercase tracking-wide text-[18px]">Новая карьера</div>
         </div>
       </header>
-      <div className="scroll flex-1 px-4">
+      <div className="scroll flex-1 px-4 lg:px-8">
+        <div className="lg:max-w-[1180px] lg:mx-auto">
         <div className="text-muted text-[14px] mb-3">Выберите лигу и клуб. Вы — спортивный директор: состав, трансферы, контракты и расстановка на матч — ваши решения.</div>
         <Chips value={lg} onChange={(v) => { setLg(v); setTeam(null); }} options={LEAGUE_IDS.map((id) => ({ v: id, label: LEAGUES[id].short }))} />
-        <div className="flex flex-col gap-2 mt-3">
+        <div className="flex flex-col gap-2 mt-3 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-3">
           {teams.map((t, i) => {
             const inf = info.get(t.id);
             const active = t.id === team;
@@ -125,6 +126,7 @@ function NewCareer({ onBack }: { onBack: () => void }) {
           })}
         </div>
         <div className="h-64" />
+        </div>
       </div>
       {sel && (
         <motion.div initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="absolute inset-x-0 bottom-0 glass-strong rounded-t-[28px] px-4 pt-4 pb-safe border-b-0">
