@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useGame, useL } from '../../store/game';
 import { transferAdvice, type Chance, type Pick } from '../../engine/advice';
-import { offerView } from '../../engine/sale';
+import { offerView, sellAdvice, type SellPick } from '../../engine/sale';
 import { useNav } from '../../store/nav';
 import { LEAGUES, LEAGUE_IDS, windowOpen } from '../../engine/leagues';
 import { foreignLeft, respondOffer } from '../../engine/transfers';
@@ -26,7 +26,7 @@ export function Market({ params }: { params: Record<string, unknown> }) {
     <Screen
       title="Рынок"
       subtitle={`${windowOpen(L) ? 'Окно открыто' : 'Окно закрыто'} · бюджет ${money(me.budget)}${fl != null ? ` · мест для легионеров: ${Math.max(0, fl)}` : ''}`}
-      headerExtra={<div className="px-4 pb-2"><Segmented value={tab} onChange={setTab} options={[{ v: 'search', label: 'Поиск' }, { v: 'advice', label: 'Советы' }, { v: 'free', label: 'Агенты' }, { v: 'offers', label: `Сделки${incoming.length ? ` · ${incoming.length}` : ''}` }, { v: 'list', label: '★' }, { v: 'log', label: 'Лента' }]} /></div>}
+      headerExtra={<div className="px-4 pb-2"><Segmented value={tab} onChange={setTab} options={[{ v: 'search', label: 'Поиск' }, { v: 'advice', label: 'Советы' }, { v: 'free', label: 'Без клуба' }, { v: 'offers', label: `Сделки${incoming.length ? ` · ${incoming.length}` : ''}` }, { v: 'list', label: '★' }, { v: 'log', label: 'Лента' }]} /></div>}
     >
       {tab === 'search' && <Search L={L} free={false} />}
       {tab === 'advice' && <AdviceTab L={L} />}
@@ -78,7 +78,9 @@ function Search({ L, free }: { L: League; free: boolean }) {
         <Card pad={false} className="mt-3 overflow-hidden">
           {list.slice(0, 80).map((p) => <PlayerRow key={p.id} p={p} showClub right={<span className="num text-[13px] text-muted mr-1">{money(p.val)}</span>} />)}
         </Card>
-      ) : <Empty title="Никого не нашлось" text="Измените фильтры." />}
+      ) : free && !Object.values(L.players).some((p) => p.st === 'FA')
+        ? <Empty icon="🧳" title="Свободных агентов сейчас нет" text="Здесь игроки без клуба — их можно подписать без платы за трансфер. Клубы разобрали всех летом; новые появятся 20 июня, когда истекут контракты. Продать своих игроков — во вкладке «Советы» (раздел «Кого выгодно продать») или кнопкой «На трансфер» в профиле." />
+        : <Empty title="Никого не нашлось" text="Измените фильтры." />}
       {list.length > 80 && <div className="text-center text-[12.5px] text-muted mt-3">Показаны первые 80. Уточните фильтры, чтобы увидеть остальных.</div>}
     </>
   );
@@ -191,6 +193,7 @@ const CHANCE: Record<Chance, [string, string]> = { high: ['охотно пере
 function AdviceTab({ L }: { L: League }) {
   const ver = useGame((s) => s.ver);
   const adv = useMemo(() => transferAdvice(L), [L, ver]);
+  const sell = useMemo(() => sellAdvice(L), [L, ver]);
   const me = L.teams[L.user];
   const weak = adv.weak;
   const weakP = weak?.player != null ? L.players[weak.player] : null;
@@ -214,6 +217,11 @@ function AdviceTab({ L }: { L: League }) {
           </div>
         </div>
       </Card>
+      <SectionTitle>Кого выгодно продать</SectionTitle>
+      <div className="text-[12px] text-muted -mt-1.5 mb-2 px-1">Уходящие бесплатно, лишние на позиции и возрастные из запаса. «До» — сколько готов заплатить самый щедрый из клубов, которым игрок интересен.</div>
+      {sell.length ? (
+        <Card pad={false} className="overflow-hidden">{sell.map((x) => <SellRow key={x.p.id} x={x} />)}</Card>
+      ) : <div className="text-[13px] text-muted px-1">Продавать некого: все игроки нужны составу.</div>}
       {sections.map(([title, hint, list, kind]) => (
         <div key={title}>
           <SectionTitle>{title}</SectionTitle>
@@ -271,3 +279,29 @@ const OFFER_VERDICT: Record<'accept' | 'counter' | 'reject' | 'keep', [string, s
   reject: ['дёшево', '#ff5a5f'],
   keep: ['не продавать', '#ff5a5f'],
 };
+
+function SellRow({ x }: { x: SellPick }) {
+  const act = useGame((s) => s.act);
+  const toast = useGame((s) => s.toast);
+  const sub = (
+    <>
+      <span className="block truncate">{x.reason}</span>
+      <span className="block truncate">мин. <span className="text-ink/90 font-medium">{money(x.view.min)}</span> · экономия {money(x.wage)}/год</span>
+    </>
+  );
+  return (
+    <PlayerRow
+      p={x.p}
+      sub={sub}
+      right={
+        <div className="text-right mr-1 shrink-0 leading-tight flex flex-col items-end gap-1" onClick={(e) => e.stopPropagation()}>
+          <div className="num text-[14px] text-good">{x.best ? `до ${money(x.best)}` : '—'}</div>
+          <div className={cx('text-[11px]', x.buyers ? 'text-muted' : 'text-warn')}>{x.buyers ? `${x.buyers} ${x.buyers % 10 === 1 && x.buyers % 100 !== 11 ? 'клуб' : x.buyers % 10 >= 2 && x.buyers % 10 <= 4 && (x.buyers % 100 < 12 || x.buyers % 100 > 14) ? 'клуба' : 'клубов'}` : 'нет покупателей'}</div>
+          {x.p.listed
+            ? <span className="text-[11px] text-ice">на трансфере</span>
+            : <button className="press text-[12px] font-semibold accent-text" onClick={() => { act(() => { x.p.listed = true; }); toast(`${dispName(x.p)} выставлен на трансфер — клубы будут присылать предложения`, 'good'); }}>На трансфер</button>}
+        </div>
+      }
+    />
+  );
+}

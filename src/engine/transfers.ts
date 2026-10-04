@@ -121,7 +121,8 @@ export function negotiate(L: League, pid: number, wage: number, years: number): 
 
 // ----- AI clubs buy from the user --------------------------------------------------------------
 
-function wouldStart(L: League, t: Team, p: Player) {
+/** The player would be among the regulars of this club (only such clubs bid for the user's players). */
+export function wouldStart(L: League, t: Team, p: Player) {
   const sq = squad(L, t.id).filter((x) => x.pos === p.pos).sort((a, b) => b.ovr - a.ovr);
   const n = p.pos === 'G' ? 1 : p.pos === 'D' ? 4 : p.pos === 'M' ? 4 : 3;
   return sq.filter((x) => x.ovr >= p.ovr).length < n + 1;

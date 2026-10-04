@@ -18,6 +18,8 @@ import { Ring } from '../components/charts';
 import { dateLong, dateShort, dowRu, money, phaseLabel, recordStr, ROLE_RU, seasonLabel } from '../format';
 import { SimDock } from './SimOverlay';
 import { transferAdvice } from '../../engine/advice';
+import { aiLineup } from '../../engine/ai';
+import { squad } from '../../engine/lineup';
 import { keepFor } from '../keep';
 import { surname } from '../components/PlayerCard';
 import { PlayerPhoto } from '../components/media';
@@ -107,6 +109,7 @@ export function Office() {
         </div>
       )}
 
+      <BestLineupButton />
       <AdviceCard />
 
       {recent.length > 0 && (
@@ -221,5 +224,24 @@ function AdviceCard() {
         </div>
       </div>
     </Card>
+  );
+}
+
+/** One tap: the staff puts out the strongest available eleven and bench in the current formation. */
+function BestLineupButton() {
+  const L = useL();
+  const act = useGame((s) => s.act);
+  const toast = useGame((s) => s.toast);
+  const t = L.teams[L.user];
+  const best = () => {
+    const before = teamPower(L, t);
+    act(() => { const keep = t.lineup.auto; aiLineup(L, t, squad(L, t.id), true); t.lineup.auto = keep; });
+    const after = teamPower(L, t);
+    toast(after > before + 0.05 ? `Лучший состав: сила ${before.toFixed(1)} → ${after.toFixed(1)}` : `Уже стоит лучший состав (сила ${after.toFixed(1)})`, 'good');
+  };
+  return (
+    <Button full className="mt-3" onClick={best} icon={<Icon name="roster" size={17} />}>
+      Лучший состав · сила {teamPower(L, t).toFixed(1)}
+    </Button>
   );
 }

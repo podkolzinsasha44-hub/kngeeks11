@@ -32,7 +32,7 @@ export interface RenewalCase {
 }
 
 /** Players a squad needs in each line, counting those with a contract for next season. */
-const NEED: Record<Pos, number> = { G: 2, D: 6, M: 6, F: 4 };
+export const NEED: Record<Pos, number> = { G: 2, D: 6, M: 6, F: 4 };
 
 /** Power lost if the player left: his slot in the eleven goes to the best player outside it. */
 export function lossWithout(L: League, p: Player): number {

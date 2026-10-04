@@ -11,8 +11,8 @@ import { negotiate, userBid } from '../src/engine/transfers';
 import { canRegister, interest, startTalks } from '../src/engine/contracts';
 import { transferAdvice } from '../src/engine/advice';
 import { autoRenew, renewalCases } from '../src/engine/renewals';
-import { offerView, saleView } from '../src/engine/sale';
-import { respondOffer } from '../src/engine/transfers';
+import { offerView, saleView, sellAdvice } from '../src/engine/sale';
+import { buyerCeiling, respondOffer } from '../src/engine/transfers';
 import { wageBill, wageFor } from '../src/engine/contracts';
 import type { League } from '../src/engine/types';
 import { newCareer, type WorldJson } from '../src/engine/world';
@@ -331,6 +331,20 @@ describe('sale advice', () => {
     respondOffer(L, o.id, 'counter', v.ask!);
     expect(p.team).toBe('LIV');
     expect(L.transfers[0].fee).toBe(v.ask);
+  });
+  it('suggests selling only players the team can spare, with a price the market can pay', () => {
+    for (const team of ['ZEN', 'ROS', 'PSG']) {
+      const L = career(team);
+      const list = sellAdvice(L);
+      expect(list.length).toBeGreaterThan(0);
+      for (const x of list) {
+        expect(x.p.team).toBe(team);
+        expect(x.view.keep).toBe(false);
+        expect(x.view.loss).toBeLessThan(0.35);
+        const max = Object.values(L.teams).filter((t) => t.id !== team).reduce((m, t) => Math.max(m, buyerCeiling(L, t, x.p)), 0);
+        expect(x.best).toBeLessThanOrEqual(max);
+      }
+    }
   });
   it('a player who wants to leave or is out of contract may go for less', () => {
     const L = career('ZEN');

@@ -6,8 +6,8 @@
 // No randomness: the same state gives the same advice.
 import { askingWage, interest, wageBill } from './contracts';
 import { FORMATIONS, slotRating, squad } from './lineup';
-import { lossWithout, renewalCases } from './renewals';
-import { askingPrice, buyerCeiling } from './transfers';
+import { lossWithout, NEED, renewalCases } from './renewals';
+import { askingPrice, buyerCeiling, wouldStart } from './transfers';
 import type { League, Player, Role, TransferOffer } from './types';
 import { ageOn, dispName, money } from './util';
 
@@ -33,6 +33,8 @@ export interface OfferView extends SaleView {
 }
 
 const round = (v: number) => (v >= 1e6 ? Math.round(v / 1e5) * 1e5 : Math.round(v / 25_000) * 25_000);
+/** Rounded down, so a sum derived from a club's ceiling never ends up above it. */
+const floorTo = (v: number) => (v >= 1e6 ? Math.floor(v / 1e5) * 1e5 : Math.floor(v / 25_000) * 25_000);
 
 /** Cheapest market player who would take his place at the same level, with the money of the sale in hand. */
 function replacementFor(L: League, p: Player, role: Role, money: number) {
@@ -109,7 +111,7 @@ export function offerView(L: League, o: TransferOffer): OfferView {
   const p = L.players[o.player];
   const buyer = L.teams[o.from];
   const v = saleView(L, p, o.fee);
-  const ceiling = round(Math.floor(buyerCeiling(L, buyer, p) * 0.98));
+  const ceiling = floorTo(buyerCeiling(L, buyer, p) * 0.98);
   let verdict: OfferView['verdict'], ask: number | null = null, text: string;
   if (o.fee >= v.good) {
     verdict = 'accept';
@@ -126,4 +128,44 @@ export function offerView(L: League, o: TransferOffer): OfferView {
     text = v.keep ? 'Не продавать: равноценной замены сейчас нет.' : reach ? `Дёшево. Продавать не дешевле ${money(v.min)} — попросите ${money(ask!)}.` : `Дёшево, а больше ${money(ceiling)} «${buyer.ru}» не даст. Продавать не дешевле ${money(v.min)}.`;
   }
   return { ...v, verdict, ask, ceiling, text };
+}
+
+export interface SellPick {
+  p: Player;
+  view: SaleView;
+  /** Why selling him makes sense now. */
+  reason: string;
+  /** Clubs that would bid (he would start there and they can afford him) and the most one of them pays. */
+  buyers: number;
+  best: number;
+  /** Yearly wage the club saves. */
+  wage: number;
+}
+
+/** Players of the user's club worth selling now, with the price to ask and what the market can pay. */
+export function sellAdvice(L: League, limit = 8): SellPick[] {
+  const me = L.teams[L.user];
+  const sq = squad(L, me.id);
+  const clubs = Object.values(L.teams).filter((t) => t.id !== me.id);
+  const out: SellPick[] = [];
+  for (const p of sq) {
+    if (p.loan) continue;
+    const v = saleView(L, p);
+    if (v.keep || v.loss >= 0.35) continue;
+    const age = ageOn(p.bd, L.date);
+    const starter = me.lineup.xi.includes(p.id) || me.lineup.bench.includes(p.id);
+    const samePos = sq.filter((x) => x.pos === p.pos).length;
+    const leaving = v.min <= Math.max(p.val, 25_000) * 0.55;
+    const surplus = !me.lineup.xi.includes(p.id) && samePos > NEED[p.pos] + 1 && !v.label.startsWith('талант');
+    const fading = age >= 30 && !me.lineup.xi.includes(p.id);
+    if (!leaving && !surplus && !fading) continue;
+    // Who would actually bid: the same test AI clubs use before making an offer to the user.
+    const bidders = clubs.filter((t) => t.budget >= p.val * 0.8 && wouldStart(L, t, p) && interest(L, p, t) >= 0.4);
+    const best = bidders.reduce((m, t) => Math.max(m, buyerCeiling(L, t, p)), 0);
+    const reason = leaving ? v.label : fading ? `${age} лет и не в основе — цена будет падать` : `лишний: на позиции ${samePos} при нужных ${NEED[p.pos]}${starter ? ', сидит в запасе' : ', вне заявки на матч'}`;
+    out.push({ p, view: v, reason, buyers: bidders.length, best: floorTo(best * 0.98), wage: p.c?.wage ?? 0 });
+  }
+  // Players who would otherwise leave for free first, then those who bring the most money.
+  const rank = (x: SellPick) => (x.view.min <= Math.max(x.p.val, 25_000) * 0.55 ? 0 : 1);
+  return out.sort((a, b) => rank(a) - rank(b) || Math.max(b.best, b.view.min) - Math.max(a.best, a.view.min)).slice(0, limit);
 }
