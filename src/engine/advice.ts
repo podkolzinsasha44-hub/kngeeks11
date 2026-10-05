@@ -12,6 +12,27 @@ import { ageOn, clamp } from './util';
 
 export type Chance = 'high' | 'mid' | 'low';
 
+/** A deal the club can close right now: the fee the owner club asks (0 for a free agent) and the wage he asks. */
+export interface Deal { fee: number; wage: number }
+
+/**
+ * Can this player join the club now, for money it has? The same checks the deal itself makes: the player
+ * talks to the club (interest), the window is open for a transfer, the asking price fits the budget, and
+ * the wage he will ask fits the wage budget and the squad rules (foreign-player limit).
+ */
+export function dealFor(L: League, p: Player, t: Team): Deal | null {
+  if (p.team === t.id || p.loan || (p.st !== 'ACT' && p.st !== 'FA')) return null;
+  if (p.talksBlockedUntil && p.talksBlockedUntil > L.date) return null;
+  const free = p.st === 'FA';
+  if (!free && !windowOpen(L)) return null;
+  if (interest(L, p, t) < 0.35) return null;
+  const fee = free ? 0 : askingPrice(L, p, t);
+  if (fee > t.budget) return null;
+  const wage = askingWage(L, p, t, free ? 'free' : 'transfer');
+  if (canRegister(L, t, p, wage, !free)) return null;
+  return { fee, wage };
+}
+
 export interface Pick {
   p: Player;
   /** Transfer fee the club asks (0 for a free agent). */

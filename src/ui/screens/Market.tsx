@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useGame, useL } from '../../store/game';
-import { transferAdvice, type Chance, type Pick } from '../../engine/advice';
+import { dealFor, transferAdvice, type Chance, type Deal, type Pick } from '../../engine/advice';
 import { offerView, sellAdvice, type SellPick } from '../../engine/sale';
 import { useNav } from '../../store/nav';
 import { LEAGUES, LEAGUE_IDS, windowOpen } from '../../engine/leagues';
 import { foreignLeft, purchaseOf, respondOffer } from '../../engine/transfers';
+import { wageBill } from '../../engine/contracts';
 import { FORMATIONS, teamPower } from '../../engine/lineup';
 import type { League, Player, Pos, TransferOffer } from '../../engine/types';
 import { Button, Card, Chips, cx, Empty, Pill, SectionTitle, Segmented } from '../components/kit';
@@ -46,8 +47,12 @@ function Search({ L, free }: { L: League; free: boolean }) {
   const [q, setQ] = useKeep('market.q', '');
   const [afford, setAfford] = useKeep('market.afford', false);
   const [u23, setU23] = useKeep('market.u23', false);
-  const list = useMemo(() => {
+  // On by default: only players who would join the club now, for the money it has.
+  const [can, setCan] = useKeep('market.can', true);
+  const ver = useGame((st) => st.ver);
+  const { list, deals } = useMemo(() => {
     const out: Player[] = [];
+    const deals = new Map<number, Deal>();
     const s = q.trim().toLowerCase();
     for (const id in L.players) {
       const p = L.players[id];
@@ -58,11 +63,16 @@ function Search({ L, free }: { L: League; free: boolean }) {
       if (afford && p.val > me.budget) continue;
       if (u23 && playerAge(L, p) > 23) continue;
       if (s && !`${p.fn} ${p.ln} ${p.ru ?? ''}`.toLowerCase().includes(s)) continue;
+      if (can) {
+        const d = dealFor(L, p, me);
+        if (!d) continue;
+        deals.set(p.id, d);
+      }
       out.push(p);
     }
     const by = { ovr: (p: Player) => -p.ovr, pot: (p: Player) => -p.pot, val: (p: Player) => -p.val, age: (p: Player) => playerAge(L, p) }[sort];
-    return out.sort((a, b) => by(a) - by(b) || b.ovr - a.ovr);
-  }, [L, L.date, pos, lg, sort, q, afford, u23, free, me.budget]); // eslint-disable-line react-hooks/exhaustive-deps
+    return { list: out.sort((a, b) => by(a) - by(b) || b.ovr - a.ovr), deals };
+  }, [L, L.date, ver, pos, lg, sort, q, afford, u23, free, me.budget, can]); // eslint-disable-line react-hooks/exhaustive-deps
   // Only the search and the position stay on screen: the rest of the filters live in a sheet, so the
   // list starts in the upper half of the phone.
   const [sheet, setSheet] = useState(false);
@@ -73,6 +83,7 @@ function Search({ L, free }: { L: League; free: boolean }) {
     sort !== 'ovr' && { label: `↓ ${SORTS.find((x) => x.v === sort)!.label}`, off: () => setSort('ovr') },
     !free && afford && { label: 'По карману', off: () => setAfford(false) },
     u23 && { label: 'До 23 лет', off: () => setU23(false) },
+    can && { label: 'Можно подписать', off: () => setCan(false) },
   ].filter(Boolean) as { label: string; off: () => void }[];
   const toggle = (on: boolean, set: (v: boolean) => void, label: string) => (
     <button onClick={() => set(!on)} className={cx('press h-11 px-4 rounded-full text-[14.5px] font-medium border', on ? 'bg-white text-[#05070d] border-white' : 'glass')}>{label}</button>
@@ -105,9 +116,11 @@ function Search({ L, free }: { L: League; free: boolean }) {
         <Segmented value={sort} onChange={setSort} options={SORTS} />
         <div className="text-[12px] uppercase tracking-wider text-muted mt-5 mb-2">Ещё</div>
         <div className="flex flex-wrap gap-2">
+          {toggle(can, setCan, 'Можно подписать сейчас')}
           {!free && toggle(afford, setAfford, `По карману (до ${money(me.budget)})`)}
           {toggle(u23, setU23, 'До 23 лет')}
         </div>
+        <div className="text-[12px] text-muted mt-2 leading-snug">«Можно подписать» — игрок готов к разговору с клубом{free ? '' : ', окно открыто, цена клуба в пределах бюджета'}, а его зарплата помещается в зарплатный бюджет и лимит легионеров. Справа — {free ? 'зарплата, которую он попросит' : 'цена клуба и зарплата'}.</div>
         <div className="flex gap-2 mt-6">
           {active.length > 0 && <Button onClick={() => active.forEach((a) => a.off())}>Сбросить</Button>}
           <Button variant="primary" size="lg" full onClick={() => setSheet(false)}>Показать {list.length}</Button>
@@ -115,11 +128,18 @@ function Search({ L, free }: { L: League; free: boolean }) {
       </Sheet>
       {list.length ? (
         <Card pad={false} className="mt-3 overflow-hidden">
-          {list.slice(0, 80).map((p) => <PlayerRow key={p.id} p={p} showClub right={<span className="num text-[13px] text-muted mr-1">{money(p.val)}</span>} />)}
+          {list.slice(0, 80).map((p) => {
+            const d = can ? deals.get(p.id) : undefined;
+            return <PlayerRow key={p.id} p={p} showClub right={d
+              ? <span className="flex flex-col items-end mr-1 leading-tight"><span className="num text-[13px]">{d.fee ? money(d.fee) : 'бесплатно'}</span><span className="text-[11.5px] text-muted">{money(d.wage)}/год</span></span>
+              : <span className="num text-[13px] text-muted mr-1">{money(p.val)}</span>} />;
+          })}
         </Card>
       ) : free && !Object.values(L.players).some((p) => p.st === 'FA')
         ? <Empty icon="🧳" title="Свободных агентов сейчас нет" text="Здесь игроки без клуба — их можно подписать без платы за трансфер. Клубы разобрали всех летом; новые появятся 20 июня, когда истекут контракты. Продать своих игроков — во вкладке «Советы» (раздел «Кого выгодно продать») или кнопкой «На трансфер» в профиле." />
-        : <Empty title="Никого не нашлось" text="Измените фильтры." />}
+        : can
+          ? <Empty icon="🔒" title="Сейчас подписать некого" text={`${!free && !windowOpen(L) ? 'Трансферное окно закрыто — переходы за деньги откроются 20 июня или 20 января. ' : ''}Бюджет на трансферы ${money(me.budget)}, свободно в зарплатном бюджете ${money(Math.max(0, me.wageBudget * 1.02 - wageBill(L, me.id)))} в год. Продайте кого-то или выключите фильтр «Можно подписать», чтобы увидеть всех.`} />
+          : <Empty title="Никого не нашлось" text="Измените фильтры." />}
       {list.length > 80 && <div className="text-center text-[12.5px] text-muted mt-3">Показаны первые 80. Уточните фильтры, чтобы увидеть остальных.</div>}
     </>
   );

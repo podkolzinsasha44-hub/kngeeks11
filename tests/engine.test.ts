@@ -9,7 +9,7 @@ import { seedState, useState_ } from '../src/engine/rng';
 import { advanceDay, lastUserBox, nextUserGame } from '../src/engine/season';
 import { negotiate, userBid } from '../src/engine/transfers';
 import { canRegister, interest, startTalks } from '../src/engine/contracts';
-import { transferAdvice } from '../src/engine/advice';
+import { dealFor, transferAdvice } from '../src/engine/advice';
 import { aiLineup, foreignOnPitch } from '../src/engine/ai';
 import { lineupOptions } from '../src/engine/bestxi';
 import { autoRenew, renewalCases } from '../src/engine/renewals';
@@ -286,6 +286,39 @@ describe('best line-up', () => {
         // The power shown is what the engine plays with.
         expect(teamPower(L, t)).toBeCloseTo(o.power, 9);
       }
+    }
+  });
+});
+
+describe('who can join now', () => {
+  it('every player the market lists for the club really signs for the price and the wage shown', () => {
+    for (const kind of ['ACT', 'FA'] as const) {
+      const L = career('ORL');
+      L.date = `${L.season}-08-01`;
+      const me = L.teams.ORL;
+      // There are no free agents at the start: release a few players of the level of the division.
+      if (kind === 'FA') {
+        for (const p of Object.values(L.players).filter((x) => x.team && L.teams[x.team].lg === 'L2A' && x.ovr >= 56 && x.ovr <= 60).slice(0, 8)) {
+          p.team = null; p.st = 'FA'; p.c = null;
+        }
+        touchSquads();
+      }
+      const ok = Object.values(L.players).map((p) => ({ p, d: dealFor(L, p, me) })).filter((x) => x.d);
+      expect(ok.length).toBeGreaterThan(20);
+      // No foreigners in the Second League, nothing above the budgets.
+      for (const { p, d } of ok) {
+        expect(isForeign(p, 'RUS')).toBe(false);
+        expect(d!.fee).toBeLessThanOrEqual(me.budget);
+        expect(wageBill(L, me.id) + d!.wage).toBeLessThanOrEqual(me.wageBudget * 1.02);
+      }
+      const best = ok.filter((x) => x.p.st === kind).sort((a, b) => b.p.ovr - a.p.ovr)[0];
+      expect(best, kind).toBeTruthy();
+      if (kind === 'ACT') expect(userBid(L, best.p.id, best.d!.fee).status).toBe('accepted');
+      else startTalks(L, best.p, me.id, 'free');
+      const n = L.negotiations[best.p.id];
+      expect(n.ask.wage).toBe(best.d!.wage);
+      expect(negotiate(L, best.p.id, n.ask.wage, n.ask.years).status).toBe('signed');
+      expect(best.p.team).toBe('ORL');
     }
   });
 });
