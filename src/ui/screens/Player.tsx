@@ -148,7 +148,7 @@ function Actions({ L, p }: { L: League; p: Player }) {
   return (
     <>
       {bar ? (
-        <div className="fixed inset-x-4 z-30 p-1.5 rounded-[22px] glass-strong shadow-[0_12px_36px_-10px_rgba(0,0,0,.9)] flex gap-1.5 [&>*]:flex-1 [&>*:not(:first-child)]:flex-none [&>*]:min-w-0 [&>*]:overflow-hidden" style={{ bottom: 'calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 10px - var(--vh-gap))' }}>
+        <div className="fixed inset-x-4 z-30 p-1.5 rounded-[22px] glass-strong shadow-[0_12px_36px_-10px_rgba(0,0,0,.9)] flex gap-1.5 [&>*]:flex-1 [&>*:not(:first-child)]:flex-none [&>*]:min-w-0 [&>*]:overflow-hidden" style={{ bottom: 'calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 10px)' }}>
           {btns}
         </div>
       ) : btns.length > 0 && <div className="flex flex-wrap gap-2 mt-3">{btns}</div>}

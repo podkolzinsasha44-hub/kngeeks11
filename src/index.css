@@ -51,9 +51,10 @@ body,
 #root {
   height: 100%;
 }
-/* Anchored to the real bottom edge of the screen, below the short layout viewport of iOS home-screen apps. */
+/* Anchored to the bottom edge. Fixed elements follow the (extended) page height on iOS by themselves:
+   moving them by --vh-gap as well pushed the tab bar below the screen. */
 .bottom-edge {
-  bottom: calc(0px - var(--vh-gap));
+  bottom: 0;
 }
 body {
   font-family: var(--font-sans);
@@ -203,7 +204,6 @@ button {
 .arena {
   position: fixed;
   inset: 0;
-  bottom: calc(0px - var(--vh-gap));
   z-index: 0;
   pointer-events: none;
   background:

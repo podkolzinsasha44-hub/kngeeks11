@@ -9,34 +9,36 @@ import { registerSW } from 'virtual:pwa-register';
 registerSW({ immediate: true });
 
 /**
- * iOS home-screen apps (viewport-fit=cover, translucent status bar) sometimes lay fixed elements out in a
- * viewport shorter than the screen by the height of the status bar, while the page is still painted down to
- * the bottom edge: the app ends early and a dark band remains below it. Other launches (and other iOS
- * versions) give the full height. So nothing is assumed: a fixed probe measures where `bottom: 0` really is,
- * and only a real shortfall moves the page, the tab bar, the buttons and the sheets down (--vh-gap).
+ * iOS home-screen apps (viewport-fit=cover, translucent status bar) sometimes report a layout viewport
+ * shorter than the screen by the height of the status bar: the page ends early and a dark band remains
+ * below it. Only the page height is extended by the shortfall (--vh-gap); fixed elements (tab bar,
+ * buttons, sheets) follow the page down by themselves and are not moved.
+ *
+ * The measurement (clientHeight) does not depend on the page height, so applying the gap never changes
+ * the next measurement. As a safety net the value cannot flip back and forth: a change that undoes the
+ * previous one within two seconds is ignored.
  * In a browser tab or on a computer the gap is 0.
  */
-const probe = document.createElement('div');
-probe.style.cssText = 'position:fixed;top:0;bottom:0;left:0;width:0;visibility:hidden;pointer-events:none';
-document.documentElement.appendChild(probe);
+let applied = 0, prev = 0, changedAt = 0;
 function fitStandalone() {
   const standalone = (navigator as Navigator & { standalone?: boolean }).standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+  const layout = document.documentElement.clientHeight;
   const portrait = window.innerWidth <= window.innerHeight;
   const full = portrait ? Math.max(screen.height, screen.width) : Math.min(screen.height, screen.width);
-  const fixed = probe.getBoundingClientRect().height;
-  // A gap the size of a status bar (20–62 pt) is the iOS bug; anything else is a real window size.
-  const short = full - fixed;
+  const short = full - layout;
+  // A shortfall the size of a status bar is the iOS bug; anything else is a real window size.
   const gap = standalone && short >= 18 && short <= 70 ? short : 0;
+  if (gap === applied) return;
+  const now = performance.now();
+  if (gap === prev && now - changedAt < 2000) return;
+  prev = applied; applied = gap; changedAt = now;
   document.documentElement.style.setProperty('--vh-gap', `${gap}px`);
 }
 fitStandalone();
 window.addEventListener('resize', fitStandalone);
-window.visualViewport?.addEventListener('resize', fitStandalone);
 window.addEventListener('orientationchange', () => setTimeout(fitStandalone, 300));
-window.addEventListener('pageshow', fitStandalone);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(fitStandalone, 100); });
-// iOS sometimes settles the viewport only after the first frames.
-for (const ms of [250, 1000, 2500]) setTimeout(fitStandalone, ms);
+setTimeout(fitStandalone, 500);
 
 // Debug hooks (used by automated UI checks)
 import { useGame } from './store/game';
