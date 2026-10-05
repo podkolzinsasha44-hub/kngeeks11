@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { foreignLimit, isForeign, LEAGUES } from '../src/engine/leagues';
 import { FORMATIONS, lineupValid, squad, teamPower, touchSquads } from '../src/engine/lineup';
 import { simulateMatch } from '../src/engine/match';
@@ -18,6 +18,9 @@ import { wageBill, wageFor } from '../src/engine/contracts';
 import type { League } from '../src/engine/types';
 import { newCareer, upgradeSave, type WorldJson } from '../src/engine/world';
 import { club, drawLeague, makePots, matchdays, rosterOf, uclOrder, UCL } from '../src/engine/ucl';
+
+// These tests play real days of the season: a slower runner must not fail them on the default 5 s.
+vi.setConfig({ testTimeout: 30_000 });
 
 let world: WorldJson;
 beforeAll(() => {
