@@ -174,7 +174,7 @@ export function respondOffer(L: League, id: number, action: 'accept' | 'reject' 
     return 'Предложение отклонено.';
   }
   if (action === 'counter' && amount) {
-    if (amount <= buyerCeiling(L, buyer, p)) off.fee = round(amount);
+    if (amount <= buyerCeiling(L, buyer, p)) off.fee = Math.round(amount);
     else {
       off.status = 'rejected';
       L.offers = L.offers.filter((o) => o !== off);

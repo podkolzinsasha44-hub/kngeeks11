@@ -6,11 +6,11 @@ import { useNav } from '../../store/nav';
 import { LEAGUES, LEAGUE_IDS, windowOpen } from '../../engine/leagues';
 import { foreignLeft, respondOffer } from '../../engine/transfers';
 import { teamPower } from '../../engine/lineup';
-import type { League, Player, Pos } from '../../engine/types';
+import type { League, Player, Pos, TransferOffer } from '../../engine/types';
 import { Button, Card, Chips, cx, Empty, Pill, SectionTitle, Segmented } from '../components/kit';
 import { Icon, Screen, Sheet } from '../components/shell';
 import { PlayerRow, TeamBadge } from '../components/media';
-import { dateShort, dispName, money, playerAge, POS_RU, ROLE_RU } from '../format';
+import { dateShort, dispName, money, moneyStep, playerAge, POS_RU, ROLE_RU } from '../format';
 import { surname } from '../components/PlayerCard';
 import { useKeep } from '../keep';
 
@@ -132,6 +132,7 @@ function Offers({ L }: { L: League }) {
   const incoming = L.offers.filter((o) => o.to === L.user && o.status === 'pending');
   const talks = Object.values(L.negotiations).filter((n) => n.team === L.user && n.status === 'open');
   const mine = L.offers.filter((o) => o.from === L.user && o.status === 'countered');
+  const [asking, setAsking] = useState<TransferOffer | null>(null);
   if (!incoming.length && !talks.length && !mine.length) return <Empty icon="📭" title="Сделок нет" text="Здесь появятся предложения клубов по вашим игрокам и ваши переговоры. Выставьте игрока на трансфер, чтобы предложений стало больше." />;
   return (
     <>
@@ -158,14 +159,15 @@ function Offers({ L }: { L: League }) {
               <div className="text-[13.5px] mt-1 leading-snug">{v.text}</div>
               <div className="text-[12px] text-muted mt-1 leading-snug">{v.keep ? 'Замены нет' : <>Не дешевле <span className="num text-ink">{money(v.min)}</span> · хорошая цена <span className="num text-ink">{money(v.good)}</span></>} · {v.why.slice(0, 2).join('; ')}</div>
             </div>
-            <div className="flex gap-2 mt-3">
+            <div className="grid grid-cols-2 gap-2 mt-3">
               <Button full variant={v.verdict === 'accept' ? 'good' : 'glass'} size="sm" onClick={() => toast(act(() => respondOffer(L, o.id, 'accept')), 'good')}>Принять</Button>
-              {v.ask != null && <Button full variant={v.verdict === 'accept' ? 'glass' : 'primary'} size="sm" onClick={() => toast(act(() => respondOffer(L, o.id, 'counter', v.ask!)))}>Просить {money(v.ask)}</Button>}
               <Button full variant="danger" size="sm" onClick={() => toast(act(() => respondOffer(L, o.id, 'reject')))}>Отказать</Button>
+              <Button full variant={v.verdict === 'accept' || v.ask == null ? 'glass' : 'primary'} size="sm" className="col-span-2" onClick={() => setAsking(o)}>{v.ask != null ? `Просить больше · совет ${money(v.ask)}` : 'Просить больше'}</Button>
             </div>
           </Card>
         );
       })}
+      {asking && <CounterSheet L={L} o={asking} onClose={() => setAsking(null)} />}
       {talks.length > 0 && <SectionTitle>Переговоры о контракте</SectionTitle>}
       {talks.map((n) => {
         const p = L.players[n.player];
@@ -192,6 +194,37 @@ function Offers({ L }: { L: League }) {
         );
       })}
     </>
+  );
+}
+
+/** The user names the fee for an incoming bid: up to what the buyer can pay the deal is done, above it the club walks away. */
+function CounterSheet({ L, o, onClose }: { L: League; o: TransferOffer; onClose: () => void }) {
+  const act = useGame((s) => s.act);
+  const toast = useGame((s) => s.toast);
+  const p = L.players[o.player], from = L.teams[o.from];
+  const v = offerView(L, o);
+  const step = moneyStep(Math.max(p.val, o.fee), 1000);
+  const min = Math.floor(o.fee / step) * step + step;
+  const max = Math.ceil(Math.max(v.good * 1.5, o.fee * 3, v.ceiling * 1.5) / step) * step;
+  const [fee, setFee] = useState(() => Math.max(min, v.ask ?? Math.floor(v.ceiling / step) * step));
+  const risky = fee > v.ceiling;
+  const send = () => { const text = act(() => respondOffer(L, o.id, 'counter', fee)); toast(text, text.includes('переходит') ? 'good' : 'bad'); onClose(); };
+  return (
+    <Sheet open onClose={onClose} title={`Встречная цена: ${dispName(p)}`}>
+      <div className="text-[13.5px] text-muted mb-3 leading-snug">
+        «{from.ru}» предлагает {money(o.fee)}. По оценке штаба клуб заплатит до {money(v.ceiling)}; продавать не дешевле {money(v.min)}, хорошая цена — {money(v.good)}.
+      </div>
+      <div className="glass rounded-2xl p-4">
+        <div className="text-center num text-[34px] leading-none" style={{ color: risky ? '#ff5a5f' : undefined }}>{money(fee)}</div>
+        <div className="text-center text-[12px] text-muted mt-1">{risky ? 'выше, чем клуб, скорее всего, готов платить' : 'клуб, скорее всего, согласится'}</div>
+        <input type="range" min={min} max={max} step={step} value={fee} onChange={(e) => setFee(Number(e.target.value))} className="w-full mt-4 accent-[var(--accent)]" />
+        <div className="flex gap-2 mt-3">
+          {[-1, 1].map((d) => <Button key={d} full size="sm" onClick={() => setFee(Math.min(max, Math.max(min, fee + d * step)))}>{d < 0 ? '−' : '+'} {money(step)}</Button>)}
+        </div>
+      </div>
+      <div className="text-[12.5px] text-muted mt-3 leading-snug">Если «{from.ru}» согласен на сумму, сделка закрывается сразу. Если нет — клуб выходит из переговоров.</div>
+      <Button variant="primary" size="lg" full className="mt-4" onClick={send}>Просить {money(fee)}</Button>
+    </Sheet>
   );
 }
 
