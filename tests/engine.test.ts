@@ -10,7 +10,8 @@ import { advanceDay, lastUserBox, nextUserGame } from '../src/engine/season';
 import { negotiate, userBid } from '../src/engine/transfers';
 import { canRegister, interest, startTalks } from '../src/engine/contracts';
 import { transferAdvice } from '../src/engine/advice';
-import { aiLineup } from '../src/engine/ai';
+import { aiLineup, foreignOnPitch } from '../src/engine/ai';
+import { lineupOptions } from '../src/engine/bestxi';
 import { autoRenew, renewalCases } from '../src/engine/renewals';
 import { offerView, saleView, sellAdvice } from '../src/engine/sale';
 import { buyerCeiling, respondOffer } from '../src/engine/transfers';
@@ -256,6 +257,32 @@ describe('transfer advice', () => {
     const before = teamPower(L, me);
     me.lineup.xi[top.slot] = top.p.id;
     expect(teamPower(L, me) - before).toBeCloseTo(top.gain, 6);
+  });
+});
+
+describe('best line-up', () => {
+  it('tries every formation, beats the staff pick and keeps the rules', () => {
+    for (const id of ['AKH', 'ZEN']) {
+      const L = career(id);
+      const t = L.teams[id];
+      aiLineup(L, t, undefined, false);
+      const auto = teamPower(L, t);
+      const { options, current } = lineupOptions(L, t);
+      expect(current).toBeCloseTo(auto, 9);
+      expect(new Set(options.map((o) => o.form)).size).toBe(Object.keys(FORMATIONS).length);
+      expect(options[0].power).toBeGreaterThanOrEqual(auto - 1e-9);
+      for (let i = 1; i < options.length; i++) expect(options[i - 1].power).toBeGreaterThanOrEqual(options[i].power);
+      for (const o of options) {
+        const roles = FORMATIONS[o.form];
+        expect(new Set(o.lineup.xi).size).toBe(11);
+        o.lineup.xi.forEach((pid, i) => expect(L.players[pid].pos === 'G').toBe(roles[i] === 'GK'));
+        t.lineup = o.lineup;
+        expect(lineupValid(L, t)).toBe(true);
+        expect(foreignOnPitch(L, t)).toBeLessThanOrEqual(foreignLimit(t.lg, L.season)![1]);
+        // The power shown is what the engine plays with.
+        expect(teamPower(L, t)).toBeCloseTo(o.power, 9);
+      }
+    }
   });
 });
 

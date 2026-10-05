@@ -144,7 +144,7 @@ export function pickBench(players: Player[], xi: Player[], size = BENCH_SIZE): P
   return bench.slice(0, size);
 }
 
-const bestTaker = (xi: Player[]) =>
+export const bestTaker = (xi: Player[]) =>
   [...xi].filter((p) => p.pos !== 'G').sort((a, b) => (b.r as OutfieldAttrs).sho - (a.r as OutfieldAttrs).sho)[0]?.id;
 
 /** Picks formation (unless fixed), XI and bench from the available squad. Mutates team.lineup. */
@@ -248,10 +248,14 @@ export function strengthOf(on: OnPitch[]): Strength {
       continue;
     }
     out++;
-    if (o.p.pos === 'G') continue;
+    const [wa, wm, wd] = PHASE[o.slot];
+    // A goalkeeper in an outfield slot fills it, but at the level of slotRating (30) in every phase.
+    if (o.p.pos === 'G') {
+      a += wa * 30; aw += wa; m += wm * 30; mw += wm; d += wd * 30; dw += wd;
+      continue;
+    }
     const at = o.p.r as OutfieldAttrs;
     const f = familiarity(o.p, o.slot) * o.cond;
-    const [wa, wm, wd] = PHASE[o.slot];
     a += wa * offQ(at) * f; aw += wa;
     m += wm * midQ(at) * f; mw += wm;
     d += wd * defQ(at) * f; dw += wd;

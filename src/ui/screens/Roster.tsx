@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useGame, useL } from '../../store/game';
 import { useNav } from '../../store/nav';
 import { aiLineup, foreignOnPitch } from '../../engine/ai';
+import { lineupOptions, type ShapeOption } from '../../engine/bestxi';
 import { wageBill } from '../../engine/contracts';
 import { foreignLimit, isForeign } from '../../engine/leagues';
 import { BENCH_SIZE, FORMATIONS, FORMATION_IDS, available, lineupValid, slotRating, squad, teamPower, teamStrength } from '../../engine/lineup';
@@ -157,7 +158,7 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
     t.lineup.xi = xi;
     setSel(null);
   });
-  const best = () => act(() => { const keep = t.lineup.auto; aiLineup(L, t, sq, true); t.lineup.auto = keep; setSel(null); });
+  const [bestOpen, setBestOpen] = useState(false);
   const candidates = useMemo(() => (pick == null ? [] : [...sq].sort((a, b) => slotRating(b, roles[pick]) - slotRating(a, roles[pick]))), [pick, sq, roles]);
   const selP = sel?.id != null ? L.players[sel.id] : null;
   const isSel = (zone: Zone, i: number) => sel?.zone === zone && sel.i === i;
@@ -224,7 +225,7 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
       ) : <div className="text-muted text-[13.5px] px-1">Все игроки в заявке на матч.</div>}
 
       <div className="flex gap-2 mt-4">
-        <Button full onClick={best}>Лучший состав</Button>
+        <Button full onClick={() => { setSel(null); setBestOpen(true); }}>Лучший состав</Button>
         <Button full variant="primary" disabled={!valid} onClick={() => toast('Состав сохранён — в матче сыграют эти одиннадцать', 'good')}>Готово</Button>
       </div>
 
@@ -269,6 +270,7 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
         </div>
       )}
 
+      {bestOpen && <BestSheet L={L} t={t} onClose={() => setBestOpen(false)} />}
       <Sheet open={pick != null} onClose={() => setPick(null)} title={pick != null ? `Позиция: ${ROLE_RU[roles[pick]]}` : ''} full>
         {pick != null && (
           <div className="flex flex-col">
@@ -291,5 +293,74 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
         )}
       </Sheet>
     </>
+  );
+}
+
+/** The staff try every formation with the strongest available players and rank them by the engine's power. */
+function BestSheet({ L, t, onClose }: { L: League; t: Team; onClose: () => void }) {
+  const act = useGame((s) => s.act);
+  const toast = useGame((s) => s.toast);
+  const { options, current } = useMemo(() => lineupOptions(L, t), [L, t]);
+  const [open, setOpen] = useState(0);
+  const apply = (o: ShapeOption) => {
+    act(() => { t.lineup = { ...o.lineup, auto: t.lineup.auto }; });
+    toast(`Схема ${o.form}: сила ${o.power.toFixed(1)}`, 'good');
+    onClose();
+  };
+  const top = options[0];
+  return (
+    <Sheet open onClose={onClose} title="Лучший состав" full>
+      <div className="text-[13.5px] text-muted leading-snug mb-3">
+        Штаб перебрал все {options.length} схем и в каждой расставил сильнейших доступных игроков — по той же силе, с которой играет матч: атрибуты под роль, знание позиции, форма и готовность.
+        {top && (top.power > current + 0.05 ? <> Лучшая — <span className="text-ink font-medium">{top.form}</span>, сильнее текущего состава на <span className="text-good num">{(top.power - current).toFixed(1)}</span>.</> : ' Ваш состав уже не слабее лучшего варианта.')}
+      </div>
+      <div className="flex flex-col gap-2.5">
+        {options.map((o, k) => {
+          const d = o.power - current;
+          const xi = new Set(o.lineup.xi), now = new Set(t.lineup.xi);
+          const ins = o.lineup.xi.filter((id) => !now.has(id)).map((id) => L.players[id]);
+          const outs = t.lineup.xi.filter((id) => !xi.has(id) && L.players[id]).map((id) => L.players[id]);
+          const roles = FORMATIONS[o.form];
+          return (
+            <Card key={o.form} className={cx('!p-3.5', k === 0 && 'ring-1 ring-[var(--accent)]')}>
+              <div className="press flex items-center gap-2" onClick={() => setOpen(open === k ? -1 : k)}>
+                <span className="num text-[22px] leading-none">{o.form}</span>
+                {k === 0 && <Pill color="var(--accent)">лучшая</Pill>}
+                {o.form === t.lineup.form && <Pill>сейчас</Pill>}
+                <span className="flex-1" />
+                <span className="num text-[18px]">{o.power.toFixed(1)}</span>
+                <span className={cx('num text-[13px] w-10 text-right', d > 0.05 ? 'text-good' : d < -0.05 ? 'text-bad' : 'text-muted')}>{d > 0 ? '+' : ''}{d.toFixed(1)}</span>
+              </div>
+              <div className="text-[12px] text-muted mt-1">АТК {o.s.att.toFixed(0)} · ЦЕН {o.s.mid.toFixed(0)} · ОБР {o.s.def.toFixed(0)} · ВР {o.s.gk.toFixed(0)}</div>
+              <div className="text-[12.5px] mt-1.5 leading-snug">
+                {o.off.length ? <span className="text-warn">Не на своей позиции: {o.off.map((x) => `${dispShort(x.p)} (${ROLE_RU[x.p.role]}→${ROLE_RU[x.slot]}, ${Math.round(x.fam * 100)}%)`).join(', ')}</span> : <span className="text-good">Все на своих позициях</span>}
+              </div>
+              {o.out.length > 0 && <div className="text-[12px] text-muted mt-1 leading-snug">Не в старте: {o.out.map((p) => `${dispShort(p)} ${p.ovr}`).join(', ')} — в этой схеме другие полезнее</div>}
+              {open === k && (
+                <div className="mt-2.5">
+                  {(ins.length > 0 || outs.length > 0) && (
+                    <div className="text-[12.5px] leading-snug mb-2">
+                      {ins.length > 0 && <div><span className="text-good">В старт:</span> {ins.map(dispShort).join(', ')}</div>}
+                      {outs.length > 0 && <div><span className="text-bad">Из старта:</span> {outs.map(dispShort).join(', ')}</div>}
+                    </div>
+                  )}
+                  {o.lineup.xi.map((id, i) => {
+                    const p = L.players[id];
+                    return (
+                      <div key={id} className="flex items-center gap-2.5 py-1.5 border-b border-white/5 text-[13.5px]">
+                        <span className="w-9 text-muted text-[12px]">{ROLE_RU[roles[i]]}</span>
+                        <span className="flex-1 truncate">{dispName(p)}</span>
+                        <Ovr v={Math.round(slotRating(p, roles[i]))} size={30} />
+                      </div>
+                    );
+                  })}
+                  <Button variant="primary" full className="mt-3" onClick={() => apply(o)}>Поставить {o.form}</Button>
+                </div>
+              )}
+            </Card>
+          );
+        })}
+      </div>
+    </Sheet>
   );
 }
