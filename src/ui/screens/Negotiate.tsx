@@ -6,7 +6,7 @@ import { negotiate } from '../../engine/transfers';
 import { Button, Card, cx, Meter, SectionTitle } from '../components/kit';
 import { Screen } from '../components/shell';
 import { PlayerPhoto } from '../components/media';
-import { dispName, money, playerAge, ROLE_RU } from '../format';
+import { dispName, money, moneyStep, playerAge, ROLE_RU } from '../format';
 import { useKeep } from '../keep';
 
 export function NegotiateScreen({ params }: { params: Record<string, unknown> }) {
@@ -17,7 +17,7 @@ export function NegotiateScreen({ params }: { params: Record<string, unknown> })
   const p = L.players[Number(params.id)];
   const n = p ? L.negotiations[p.id] : undefined;
   const me = L.teams[L.user];
-  const [wage, setWage] = useKeep('talks.wage', () => (n ? Math.round((n.ask.wage * 0.9) / 5000) * 5000 : 0));
+  const [wage, setWage] = useKeep('talks.wage', () => (n ? Math.round((n.ask.wage * 0.9) / moneyStep(n.ask.wage)) * moneyStep(n.ask.wage) : 0));
   const [years, setYears] = useKeep('talks.years', () => n?.ask.years ?? 3);
   const [done, setDone] = useState<string | null>(null);
   const [msg, setMsg] = useKeep<string | null>('talks.msg', null);
@@ -25,7 +25,7 @@ export function NegotiateScreen({ params }: { params: Record<string, unknown> })
   const market = wageFor(p.ovr, me.lg);
   const bill = wageBill(L, me.id);
   const kind = n?.kind === 'extend' ? 'Продление контракта' : n?.kind === 'transfer' ? `Переход за ${money(n.fee ?? 0)}` : 'Свободный агент';
-  const step = market >= 2e6 ? 50_000 : market >= 4e5 ? 10_000 : 5000;
+  const step = moneyStep(market);
   const max = Math.max(market * 2.2, (n?.ask.wage ?? market) * 1.4);
   const send = () => {
     const r = act(() => negotiate(L, p.id, wage, years));
@@ -61,7 +61,7 @@ export function NegotiateScreen({ params }: { params: Record<string, unknown> })
           <SectionTitle>Ваше предложение</SectionTitle>
           <Card>
             <div className="text-center num text-[32px] leading-none">{money(wage)}<span className="text-[15px] text-muted"> / год</span></div>
-            <input type="range" min={Math.round(market * 0.3)} max={max} step={step} value={wage} onChange={(e) => setWage(Number(e.target.value))} className="w-full mt-4 accent-[var(--accent)]" />
+            <input type="range" min={Math.round((market * 0.3) / step) * step} max={max} step={step} value={wage} onChange={(e) => setWage(Number(e.target.value))} className="w-full mt-4 accent-[var(--accent)]" />
             <div className="flex gap-2 mt-2">
               <Button full size="sm" onClick={() => setWage(Math.max(0, wage - step))}>− {money(step)}</Button>
               <Button full size="sm" onClick={() => setWage(wage + step)}>+ {money(step)}</Button>

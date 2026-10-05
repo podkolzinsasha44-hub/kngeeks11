@@ -10,6 +10,14 @@ import { flag as emojiFlag } from '../engine/intl';
 const HAS_FLAGS = typeof navigator === 'undefined' || !/Windows/i.test(navigator.userAgent);
 export const flag = (c: string) => (HAS_FLAGS ? emojiFlag(c) : c);
 
+/** Money step for sliders and ± buttons: about 1/25 of the amount, rounded down to 1, 2 or 5 × 10ⁿ. */
+export function moneyStep(amount: number, min = 500) {
+  const raw = Math.max(min, amount / 25);
+  const pow = 10 ** Math.floor(Math.log10(raw));
+  const m = raw / pow;
+  return (m >= 5 ? 5 : m >= 2 ? 2 : 1) * pow;
+}
+
 export const POS_RU: Record<Pos, string> = { G: 'Вр', D: 'Защ', M: 'ПЗ', F: 'Нап' };
 export const POS_FULL: Record<Pos, string> = { G: 'Вратари', D: 'Защитники', M: 'Полузащитники', F: 'Нападающие' };
 export const ROLE_RU: Record<Role, string> = { GK: 'ВР', CB: 'ЦЗ', LB: 'ЛЗ', RB: 'ПЗ', DM: 'ОП', CM: 'ЦП', AM: 'АП', LM: 'ЛП', RM: 'ПП', LW: 'ЛВ', RW: 'ПВ', ST: 'НАП' };
