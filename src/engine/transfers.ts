@@ -45,6 +45,15 @@ function record(L: League, p: Player, from: string | null, to: string, fee: numb
   if (L.transfers.length > 300) L.transfers.length = 300;
 }
 
+/** What the user's club paid for its player, or null if he was there when the career began. */
+export function purchaseOf(L: League, p: Player): { fee: number; date: string; from: string | null } | null {
+  if (p.team !== L.user) return null;
+  if (p.bought) return p.bought;
+  // Saves from before the field: the transfer log (it keeps the latest 300 deals).
+  const r = L.transfers.find((x) => x.player === p.id && x.to === L.user && !x.loan);
+  return r ? { fee: r.fee, date: r.date, from: r.from ? L.teams[r.from]?.ru ?? null : null } : null;
+}
+
 /** Moves the player and the money. The contract is signed separately (signContract). */
 export function completeTransfer(L: League, p: Player, to: Team, fee: number, wage: number, years: number) {
   const from = p.team && !p.loan ? L.teams[p.team] : null;
@@ -54,6 +63,8 @@ export function completeTransfer(L: League, p: Player, to: Team, fee: number, wa
   if (from?.id === L.user) { L.seasonLog.sold++; L.seasonLog.earned += fee; }
   if (to.id === L.user) L.seasonLog.spent += fee;
   record(L, p, from?.id ?? null, to.id, fee);
+  if (to.id === L.user) p.bought = { fee, date: L.date, from: from?.ru ?? (p.team ? null : p.ext ?? null) };
+  else delete p.bought;
   const oldTeam = from;
   signContract(L, p, to, wage, years);
   const big = fee >= 8e6 || p.ovr >= 82;

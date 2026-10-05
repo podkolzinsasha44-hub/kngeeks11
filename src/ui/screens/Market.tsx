@@ -4,13 +4,13 @@ import { transferAdvice, type Chance, type Pick } from '../../engine/advice';
 import { offerView, sellAdvice, type SellPick } from '../../engine/sale';
 import { useNav } from '../../store/nav';
 import { LEAGUES, LEAGUE_IDS, windowOpen } from '../../engine/leagues';
-import { foreignLeft, respondOffer } from '../../engine/transfers';
-import { teamPower } from '../../engine/lineup';
+import { foreignLeft, purchaseOf, respondOffer } from '../../engine/transfers';
+import { FORMATIONS, teamPower } from '../../engine/lineup';
 import type { League, Player, Pos, TransferOffer } from '../../engine/types';
 import { Button, Card, Chips, cx, Empty, Pill, SectionTitle, Segmented } from '../components/kit';
 import { Icon, Screen, Sheet } from '../components/shell';
 import { PlayerRow, TeamBadge } from '../components/media';
-import { dateShort, dispName, money, moneyStep, playerAge, POS_RU, ROLE_RU } from '../format';
+import { dateLong, dateShort, dispName, money, moneyStep, playerAge, POS_RU, ROLE_RU } from '../format';
 import { surname } from '../components/PlayerCard';
 import { useKeep } from '../keep';
 
@@ -151,6 +151,7 @@ function Offers({ L }: { L: League }) {
               </div>
               <div className="num text-[20px]" style={{ color }}>{money(o.fee)}</div>
             </div>
+            <OwnedLine L={L} p={p} fee={o.fee} />
             <div className="mt-3 rounded-2xl px-3 py-2.5" style={{ background: `color-mix(in oklab, ${color} 10%, transparent)`, boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${color} 30%, transparent)` }}>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[13px] font-semibold" style={{ color }}>🧭 {title}</span>
@@ -194,6 +195,30 @@ function Offers({ L }: { L: League }) {
         );
       })}
     </>
+  );
+}
+
+/** For a player of the user's club: what was paid for him and where he is in the team now. */
+function OwnedLine({ L, p, fee }: { L: League; p: Player; fee: number }) {
+  const t = L.teams[L.user];
+  const buy = purchaseOf(L, p);
+  const i = t.lineup.xi.indexOf(p.id);
+  const place = i >= 0 ? `в основе · ${ROLE_RU[FORMATIONS[t.lineup.form][i]]}` : t.lineup.bench.includes(p.id) ? 'в запасе' : 'вне заявки на матч';
+  const absent = p.inj ? `травма: ${p.inj.type}, ещё ${p.inj.days} дн.` : p.susp ? `дисквалификация: ${p.susp} ${p.susp === 1 ? 'матч' : p.susp < 5 ? 'матча' : 'матчей'}` : null;
+  const diff = buy ? fee - buy.fee : 0;
+  return (
+    <div className="mt-2 flex flex-col gap-1 text-[12.5px] leading-snug">
+      <div className="text-muted">
+        {buy ? (
+          <>{buy.fee ? <>Куплен за <span className="num text-ink">{money(buy.fee)}</span></> : 'Подписан бесплатно'}{buy.from ? ` у «${buy.from}»` : buy.fee ? '' : ' (свободный агент)'} · {dateLong(buy.date)}
+            {buy.fee > 0 && <> · <span className={diff >= 0 ? 'text-good' : 'text-bad'}>{diff >= 0 ? '+' : '−'}{money(Math.abs(diff))} к цене покупки</span></>}</>
+        ) : p.yth ? 'Выпускник академии клуба' : 'В клубе с начала карьеры — покупки не было'}
+      </div>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <Pill color={i >= 0 ? '#3ddc97' : undefined}>{place}</Pill>
+        {absent && <Pill color="#ff5a5f">{i >= 0 ? `но ${absent}` : absent}</Pill>}
+      </div>
+    </div>
   );
 }
 

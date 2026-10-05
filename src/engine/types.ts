@@ -127,6 +127,8 @@ export interface Player {
   talksBlockedUntil?: string;
   /** Season the player joined the current club. */
   joined?: number;
+  /** How the user's club got him: fee (0 = free agent), date and the club he came from (display name). */
+  bought?: { fee: number; date: string; from: string | null };
   /** Academy graduate still unknown to scouts: displayed potential is a range. */
   yth?: boolean;
   /** A player of a youth team: a placeholder or typed in by the user (not real data of the game). */

@@ -14,7 +14,7 @@ import { aiLineup, foreignOnPitch } from '../src/engine/ai';
 import { lineupOptions } from '../src/engine/bestxi';
 import { autoRenew, renewalCases } from '../src/engine/renewals';
 import { offerView, saleView, sellAdvice } from '../src/engine/sale';
-import { buyerCeiling, respondOffer } from '../src/engine/transfers';
+import { buyerCeiling, purchaseOf, respondOffer } from '../src/engine/transfers';
 import { wageBill, wageFor } from '../src/engine/contracts';
 import type { League } from '../src/engine/types';
 import { newCareer, upgradeSave, type WorldJson } from '../src/engine/world';
@@ -254,6 +254,7 @@ describe('transfer advice', () => {
     expect(n.ask.wage).toBe(top.wage);
     expect(negotiate(L, top.p.id, n.ask.wage, n.ask.years).status).toBe('signed');
     expect(top.p.team).toBe('ROS');
+    expect(purchaseOf(L, top.p)).toMatchObject({ fee: top.fee, date: L.date });
     const before = teamPower(L, me);
     me.lineup.xi[top.slot] = top.p.id;
     expect(teamPower(L, me) - before).toBeCloseTo(top.gain, 6);
