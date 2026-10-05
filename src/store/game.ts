@@ -6,6 +6,7 @@ import { advanceDay, lastUserBox } from '../engine/season';
 import { setNations } from '../engine/intl';
 import { saveLeague, loadLeague, requestPersistence } from '../persistence/db';
 import { useNav } from './nav';
+import { afterSave, pullIfNewer, pushNow } from './cloud';
 
 export type SimMode = 'day' | 'game' | 'week' | 'event' | 'window' | 'season' | 'date';
 
@@ -38,7 +39,8 @@ interface GameState {
   loadWorld: () => Promise<WorldJson>;
   start: (opts: NewCareerOpts) => Promise<void>;
   open: (id: string) => Promise<boolean>;
-  setLeague: (L: League, id?: string) => void;
+  /** `keepCloud`: the career came from its room, so it is not an unsynced change of this device. */
+  setLeague: (L: League, id?: string, opts?: { keepCloud?: boolean }) => void;
   simulate: (mode: SimMode, target?: string, opts?: { watch?: boolean }) => Promise<void>;
   stopSim: () => void;
   act: <T>(fn: (L: League) => T) => T;
@@ -114,15 +116,18 @@ export const useGame = create<GameState>((set, get) => ({
     applyTheme(L);
     useNav.getState().reset();
     set({ L, saveId: id, loading: false, ver: get().ver + 1 });
+    pullIfNewer();
     return true;
   },
-  setLeague: (L, id) => {
+  setLeague: (L, id, opts) => {
     const w = get().world;
     if (w) upgradeSave(L, w);
     applyTheme(L);
     useNav.getState().reset();
-    set({ L, saveId: id ?? `career-${Date.now()}`, ver: get().ver + 1 });
-    get().save();
+    const saveId = id ?? `career-${Date.now()}`;
+    set({ L, saveId, ver: get().ver + 1 });
+    if (opts?.keepCloud) saveLeague(saveId, L).catch((e) => console.warn('save failed', e));
+    else get().save();
   },
   simulate: async (mode, target, opts) => {
     const L = get().L;
@@ -183,6 +188,7 @@ export const useGame = create<GameState>((set, get) => ({
     if (!L || !saveId) return;
     try {
       await saveLeague(saveId, L);
+      afterSave(saveId);
     } catch (e) {
       console.warn('save failed', e);
     }
@@ -193,7 +199,9 @@ export const useGame = create<GameState>((set, get) => ({
     setTimeout(() => set({ toasts: get().toasts.filter((t) => t.id !== id) }), 3400);
   },
   quit: () => {
-    get().save();
+    const { L, saveId } = get();
+    // Closing changes nothing in the career: upload only what is still waiting from the last minutes of play.
+    if (L && saveId) saveLeague(saveId, L).catch((e) => console.warn('save failed', e)).then(() => pushNow(false, { L, saveId }));
     applyTheme(null);
     set({ L: null, saveId: null });
   },

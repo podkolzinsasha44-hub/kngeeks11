@@ -8,6 +8,7 @@ import type { WorldTeam } from '../../engine/world';
 import { Button, Card, Chips, cx, Segmented, Spinner } from '../components/kit';
 import { Icon, Sheet } from '../components/shell';
 import { TeamBadge } from '../components/media';
+import { JoinRoomSheet } from '../components/Rooms';
 import { dateLong, money, seasonLabel } from '../format';
 
 export function Menu() {
@@ -15,6 +16,7 @@ export function Menu() {
   const [saves, setSaves] = useState<SaveMeta[]>([]);
   const [mode, setMode] = useState<'menu' | 'new'>('menu');
   const [showSaves, setShowSaves] = useState(false);
+  const [showJoin, setShowJoin] = useState(false);
   const file = useRef<HTMLInputElement>(null);
   const refresh = () => listSaves().then(setSaves).catch(() => setSaves([]));
   useEffect(() => { refresh(); loadWorld().catch(() => toast('Не удалось загрузить базу игроков', 'bad')); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -41,6 +43,7 @@ export function Menu() {
           <Button full onClick={() => setShowSaves(true)} disabled={!saves.length}>Сохранения</Button>
           <Button full onClick={() => file.current?.click()}>Импорт файла</Button>
         </div>
+        <Button full onClick={() => setShowJoin(true)}>Играть по коду комнаты</Button>
         <input ref={file} type="file" accept="application/json,.json" className="hidden" onChange={async (e) => {
           const f = e.target.files?.[0];
           if (!f) return;
@@ -50,6 +53,7 @@ export function Menu() {
           Фан-проект, не связан с РПЛ, РФС, FIFA, UEFA и клубами. Некоммерческий. Составы — сентябрь 2026 (Википедия), оценки игроков — открытые данные; зарплаты — модель.
         </p>
       </div>
+      <JoinRoomSheet open={showJoin} onClose={() => setShowJoin(false)} />
       <Sheet open={showSaves} onClose={() => setShowSaves(false)} title="Сохранения">
         <div className="flex flex-col gap-2">
           {saves.map((s) => (

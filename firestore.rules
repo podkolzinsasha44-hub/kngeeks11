@@ -1,0 +1,22 @@
+rules_version = '2';
+// Rooms: one career shared between the devices of whoever knows the room code (9 characters, see
+// src/persistence/cloud.ts). A room is read and written by its code; rooms are never listed.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function validCode(room) {
+      return room.matches('^[2-9A-HJKMNP-Z]{9}$');
+    }
+    match /rooms/{room} {
+      allow get: if validCode(room);
+      allow create, update: if validCode(room) && request.resource.data.size() <= 8
+        && request.resource.data.rev is int && request.resource.data.chunks is int && request.resource.data.chunks <= 40;
+      allow list, delete: if false;
+      match /chunks/{chunk} {
+        allow get, delete: if validCode(room);
+        allow create, update: if validCode(room) && chunk.matches('^[0-9]+-[0-9]+$')
+          && request.resource.data.keys().hasOnly(['data']) && request.resource.data.data is bytes;
+        allow list: if false;
+      }
+    }
+  }
+}

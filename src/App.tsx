@@ -9,6 +9,7 @@ import { nextUserGame } from './engine/season';
 import { Menu } from './ui/screens/Menu';
 import { ROUTES, MODALS } from './ui/routes';
 import { SimOverlay } from './ui/screens/SimOverlay';
+import { ConflictDialog } from './ui/components/Rooms';
 import { unreadCount } from './engine/news';
 
 export default function App() {
@@ -64,6 +65,7 @@ function GameShell() {
       <TabBar badges={badges} />
       <Sidebar badges={badges} />
       <SimOverlay />
+      <ConflictDialog />
       <AnimatePresence>
         {ModalComp && (
           desktop ? (

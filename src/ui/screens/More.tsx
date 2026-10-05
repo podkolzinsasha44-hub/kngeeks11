@@ -14,6 +14,7 @@ import { ownerGoalFor } from '../../engine/owner';
 import type { IntlGame, League, Message, Tournament } from '../../engine/types';
 import { Button, Card, cx, Divider, Empty, Meter, Pill, Row, SectionTitle, Segmented } from '../components/kit';
 import { Screen, Sheet } from '../components/shell';
+import { RoomSettings } from '../components/Rooms';
 import { Flag, PlayerRow, TeamBadge } from '../components/media';
 import { dateLong, dateShort, dispName, money, nationName, seasonLabel } from '../format';
 import { useKeep } from '../keep';
@@ -25,7 +26,7 @@ const TILES: { route: string; icon: string; title: string; sub: (L: League) => s
   { route: 'intl', icon: '🌍', title: 'Сборные', sub: (L) => L.intl.current?.name ?? 'ЧМ и Евро' },
   { route: 'career', icon: '👔', title: 'Карьера', sub: (L) => `Доверие ${L.owner.trust}/100` },
   { route: 'history', icon: '📜', title: 'История', sub: (L) => `${L.history.length} сез.` },
-  { route: 'settings', icon: '⚙️', title: 'Настройки', sub: () => 'Сохранения, звук, режимы' },
+  { route: 'settings', icon: '⚙️', title: 'Настройки', sub: () => 'Сохранения, код комнаты, звук, режимы' },
 ];
 
 export function MoreScreen() {
@@ -269,6 +270,7 @@ export function SettingsScreen() {
         <Button full onClick={() => exportFile(L)}>Экспорт в файл</Button>
       </div>
       <div className="text-[12px] text-muted mt-2 px-1">Игра сохраняется автоматически в памяти устройства. Экспорт в файл — страховка на случай очистки данных браузера.</div>
+      <RoomSettings />
     </Screen>
   );
 }

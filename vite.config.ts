@@ -20,7 +20,8 @@ export default defineConfig({
         start_url: './',
         scope: './',
         display: 'standalone',
-        orientation: 'portrait',
+        // Phones are played in portrait; tablets and PCs in any orientation (from 1024 px the PC layout).
+        orientation: 'any',
         background_color: '#05070d',
         theme_color: '#05070d',
         icons: [{ src: 'icons/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }],

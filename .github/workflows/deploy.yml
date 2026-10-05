@@ -65,4 +65,8 @@ jobs:
           PROJECT_ID=$(node -p "require(process.env.GOOGLE_APPLICATION_CREDENTIALS).project_id")
           npx --yes firebase-tools@latest deploy --only hosting --project "$PROJECT_ID" --non-interactive
           echo "::notice::Игра выложена: https://$PROJECT_ID.web.app"
+          # Rules of the room sync (play one career on several devices). Needs Firestore created in the project and the
+          # "Firebase Rules Admin" role for the key; without them the game still deploys, rooms just stay off.
+          npx --yes firebase-tools@latest deploy --only firestore:rules --project "$PROJECT_ID" --non-interactive \
+            || echo "::warning::Правила Firestore не выложены: создайте базу Firestore и выдайте ключу роль Firebase Rules Admin, либо вставьте firestore.rules в консоли (см. README)"
           rm -f "$GOOGLE_APPLICATION_CREDENTIALS"

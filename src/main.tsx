@@ -5,8 +5,10 @@ import '@fontsource-variable/oswald';
 import './index.css';
 import App from './App';
 import { registerSW } from 'virtual:pwa-register';
+import { installCloudSync } from './store/cloud';
 
 registerSW({ immediate: true });
+installCloudSync();
 
 // Debug hooks (used by automated UI checks)
 import { useGame } from './store/game';

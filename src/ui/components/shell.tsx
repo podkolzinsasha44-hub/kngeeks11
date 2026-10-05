@@ -85,7 +85,7 @@ export function Screen({
       }}
     >
       <header className={cx('pt-safe z-20 shrink-0 transition-colors duration-300', scrolled ? 'glass-strong border-x-0 border-t-0' : 'border-b border-transparent')}>
-        <div className="flex items-center gap-2 h-12 px-2 lg:h-16 lg:px-6 w-full lg:max-w-[1240px] lg:mx-auto">
+        <div className="flex items-center gap-2 h-12 px-2 lg:h-16 lg:px-6 w-full md:max-w-[736px] md:mx-auto lg:max-w-[1240px]">
           {showBack ? (
             <button onClick={onBack ?? pop} className="press w-11 h-11 -ml-0.5 flex items-center justify-center rounded-full text-ink" aria-label="Назад">
               <Icon name="back" />
@@ -102,7 +102,7 @@ export function Screen({
         {headerExtra && <div className="lg:max-w-[1240px] lg:mx-auto lg:px-4 w-full">{headerExtra}</div>}
       </header>
       <main ref={mainRef} className={cx('scroll flex-1', !noPad && 'px-4 lg:px-10', className)} onScroll={(e) => { const y = e.currentTarget.scrollTop; setScrolled(y > 6); if (routeKey) saveScroll(routeKey, y); }}>
-        <div className="lg:max-w-[1180px] lg:mx-auto">
+        <div className="md:max-w-[720px] md:mx-auto lg:max-w-[1180px]">
         {large && (
           <div className="pt-1 pb-3">
             <div className="font-display uppercase text-[30px] lg:text-[40px] leading-none tracking-wide">{title}</div>
