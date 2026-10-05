@@ -22,8 +22,6 @@
   --tabbar-h: 56px;
   /* Width of the desktop sidebar; 0 on phones. */
   --side-w: 0px;
-  /* Part of the screen below the layout viewport in iOS home-screen apps (set in main.tsx). */
-  --vh-gap: 0px;
   color-scheme: dark;
 }
 
@@ -44,15 +42,18 @@ body {
   -webkit-text-size-adjust: 100%;
   touch-action: manipulation;
 }
+/* The page itself never scrolls (only the screens inside it do), so nothing can move the layout.
+   iOS home-screen apps sometimes leave a strip below the page: the root background, which paints the
+   whole screen, has the colour of the tab bar, so the strip reads as part of the bar instead of a dark band. */
 html {
-  height: calc(100% + var(--vh-gap));
+  height: 100%;
+  overflow: hidden;
+  background: #0b0f1a;
 }
 body,
 #root {
   height: 100%;
 }
-/* Anchored to the bottom edge. Fixed elements follow the (extended) page height on iOS by themselves:
-   moving them by --vh-gap as well pushed the tab bar below the screen. */
 .bottom-edge {
   bottom: 0;
 }
