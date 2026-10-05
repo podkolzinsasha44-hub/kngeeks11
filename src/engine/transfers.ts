@@ -7,9 +7,9 @@ import { pushMsg, pushNews, social } from './news';
 import { int, next, pick, shuffle } from './rng';
 import type { League, Player, Team, TransferOffer } from './types';
 import { isYouth, onMarket, youthBoy, youthPlayer } from './youth';
-import { addDays, ageOn, clamp, dispName, money } from './util';
+import { addDays, ageOn, clamp, dispName, MIN_VALUE, money, roundMoney } from './util';
 
-const round = (v: number) => (v >= 1e6 ? Math.round(v / 1e5) * 1e5 : Math.round(v / 25_000) * 25_000);
+const round = roundMoney;
 
 /** Rank of the player inside his squad by rating (0 = the best). */
 export function squadRank(L: League, p: Player) {
@@ -39,7 +39,7 @@ export function askingPrice(L: League, p: Player, buyer: Team): number {
 
 function record(L: League, p: Player, from: string | null, to: string, fee: number) {
   const user = to === L.user || from === L.user;
-  const ratio = fee / Math.max(25_000, p.val);
+  const ratio = fee / Math.max(MIN_VALUE, p.val);
   const grade = to === L.user ? (ratio < 0.8 ? 'A' : ratio < 1.1 ? 'B' : ratio < 1.5 ? 'C' : 'D') : from === L.user ? (ratio > 1.4 ? 'A' : ratio > 1.05 ? 'B' : ratio > 0.8 ? 'C' : 'D') : undefined;
   L.transfers.unshift({ id: L.nextMsgId++, date: L.date, season: L.season, player: p.id, name: dispName(p), from, to, fee, user, grade });
   if (L.transfers.length > 300) L.transfers.length = 300;
@@ -322,7 +322,7 @@ export function returnLoans(L: League) {
 export function releasePlayer(L: League, p: Player) {
   const t = L.teams[L.user];
   const left = p.c ? Math.max(0, p.c.until - (L.season + 1)) + 0.5 : 0;
-  const cost = Math.round(((p.c?.wage ?? 0) * left * 0.5) / 5000) * 5000;
+  const cost = roundMoney((p.c?.wage ?? 0) * left * 0.5);
   t.budget -= cost;
   p.team = null; p.c = null; p.st = 'FA'; p.listed = false; p.wantsOut = false;
   touchSquads();

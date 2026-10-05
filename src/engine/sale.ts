@@ -9,7 +9,7 @@ import { FORMATIONS, planned, slotRating, squad } from './lineup';
 import { lossWithout, NEED, renewalCases } from './renewals';
 import { askingPrice, buyerCeiling, wouldStart } from './transfers';
 import type { League, Player, Role, TransferOffer } from './types';
-import { ageOn, dispName, money } from './util';
+import { ageOn, dispName, floorMoney, MIN_VALUE, money, roundMoney } from './util';
 
 export interface SaleView {
   /** Not for sale at any price a club would realistically pay. */
@@ -32,9 +32,8 @@ export interface OfferView extends SaleView {
   text: string;
 }
 
-const round = (v: number) => (v >= 1e6 ? Math.round(v / 1e5) * 1e5 : Math.round(v / 25_000) * 25_000);
-/** Rounded down, so a sum derived from a club's ceiling never ends up above it. */
-const floorTo = (v: number) => (v >= 1e6 ? Math.floor(v / 1e5) * 1e5 : Math.floor(v / 25_000) * 25_000);
+const round = roundMoney;
+const floorTo = floorMoney;
 
 /** Cheapest market player who would take his place at the same level, with the money of the sale in hand. */
 function replacementFor(L: League, p: Player, role: Role, money: number) {
@@ -59,7 +58,7 @@ export function saleView(L: League, p: Player, offerFee = 0): SaleView {
   // Selling looks months ahead: every injured player comes back.
   const me = planned(L, L.teams[L.user], Infinity);
   const age = ageOn(p.bd, L.date);
-  const val = Math.max(p.val, 25_000);
+  const val = Math.max(p.val, MIN_VALUE);
   const i = me.lineup.xi.indexOf(p.id);
   const role: Role = i >= 0 ? FORMATIONS[me.lineup.form][i] : p.role;
   const loss = lossWithout(L, p);
@@ -156,7 +155,7 @@ export function sellAdvice(L: League, limit = 8): SellPick[] {
     const age = ageOn(p.bd, L.date);
     const starter = me.lineup.xi.includes(p.id) || me.lineup.bench.includes(p.id);
     const samePos = sq.filter((x) => x.pos === p.pos).length;
-    const leaving = v.min <= Math.max(p.val, 25_000) * 0.55;
+    const leaving = v.min <= Math.max(p.val, MIN_VALUE) * 0.55;
     const surplus = !me.lineup.xi.includes(p.id) && samePos > NEED[p.pos] + 1 && !v.label.startsWith('талант');
     const fading = age >= 30 && !me.lineup.xi.includes(p.id);
     if (!leaving && !surplus && !fading) continue;
@@ -167,6 +166,6 @@ export function sellAdvice(L: League, limit = 8): SellPick[] {
     out.push({ p, view: v, reason, buyers: bidders.length, best: floorTo(best * 0.98), wage: p.c?.wage ?? 0 });
   }
   // Players who would otherwise leave for free first, then those who bring the most money.
-  const rank = (x: SellPick) => (x.view.min <= Math.max(x.p.val, 25_000) * 0.55 ? 0 : 1);
+  const rank = (x: SellPick) => (x.view.min <= Math.max(x.p.val, MIN_VALUE) * 0.55 ? 0 : 1);
   return out.sort((a, b) => rank(a) - rank(b) || Math.max(b.best, b.view.min) - Math.max(a.best, a.view.min)).slice(0, limit);
 }

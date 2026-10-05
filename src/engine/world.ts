@@ -1,5 +1,6 @@
 // Builds a new career from the data snapshot (public/data/world.json).
 import { aiLineup, updateStrategies } from './ai';
+import { modelValue } from './contracts';
 import { initCup } from './cup';
 import { initIntl, setNations } from './intl';
 import { LEAGUES, LEAGUE_IDS, leagueDates, transferWindows } from './leagues';
@@ -67,6 +68,13 @@ export function upgradeSave(L: League, world: WorldJson) {
   attachPhotos(L, world);
   attachLeagues(L, world);
   attachUcl(L, world);
+  if (L.v < 2) { modelledValues(L); L.v = 2; }
+}
+
+/** Second league B has no market values in the sources: there the value is the model (rating, age, potential,
+ *  contract), so players of the same rating still differ in price. */
+function modelledValues(L: League) {
+  for (const p of Object.values(L.players)) if (p.team && L.teams[p.team]?.lg === 'L2B') p.val = modelValue(p, L.date);
 }
 
 /** Saves made before the Champions League: the guest clubs and their squads join the world; the real
@@ -149,7 +157,7 @@ export function newCareer(world: WorldJson, o: NewCareerOpts): League {
   setNations(world.nations);
   const season = Number(world.start.slice(0, 4));
   const L: League = {
-    v: 1, seed, rng: getState(), season, date: `${season}-07-13`, phase: 'preseason', user: o.team,
+    v: 2, seed, rng: getState(), season, date: `${season}-07-13`, phase: 'preseason', user: o.team,
     gm: { name: o.gmName || 'Спортивный директор', rep: 50, seasons: 0, titles: 0, hiredSeason: season, history: [], fired: false },
     owner: { name: PRESIDENT, trust: 60, goal: 'mid', goalText: '', patience: 2, warnings: 0 },
     settings: { ...DEFAULT_SETTINGS, ...o.settings },
@@ -170,6 +178,7 @@ export function newCareer(world: WorldJson, o: NewCareerOpts): League {
     L.comps[lg] = { id: lg, name: LEAGUES[lg].name, country: LEAGUES[lg].country, tier: LEAGUES[lg].tier, phase: 'preseason', seasonStart: '', seasonEnd: '', champion: L.teams[champ] ? champ : '', history: [] };
   }
   touchSquads();
+  modelledValues(L);
   fillYouth(L);
   for (const t of Object.values(L.teams)) aiLineup(L, t);
   L.teams[o.team].lineup.auto = false;

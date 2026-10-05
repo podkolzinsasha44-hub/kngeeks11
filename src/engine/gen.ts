@@ -3,7 +3,7 @@
 import { YOUTH } from './names';
 import { int, next, normal, pick, weighted } from './rng';
 import type { KeeperAttrs, League, OutfieldAttrs, Personality, Player, Role, Team } from './types';
-import { W_ROLE, calcOvr, clamp, posOfRole } from './util';
+import { MIN_VALUE, W_ROLE, calcOvr, clamp, posOfRole, roundMoney } from './util';
 import { wageFor } from './contracts';
 import { touchSquads } from './lineup';
 
@@ -60,13 +60,13 @@ export function genPlayer(L: League, o: GenOpts = {}): Player {
     bd: `${y}-${String(int(1, 12)).padStart(2, '0')}-${String(int(1, 28)).padStart(2, '0')}`,
     ctry: country, ht: role === 'GK' ? int(184, 198) : role === 'CB' ? int(180, 196) : int(168, 190), num: null, img: null, real: false,
     team: o.team?.id ?? null, st: o.team ? 'ACT' : 'FA', ovr, pot, r: attrsFor(role, ovr), tr: [], val: 0,
-    c: o.team ? { wage: Math.max(15_000, Math.round(wageFor(ovr, o.team.lg) * 0.6 / 5000) * 5000), until: L.season + 3, signed: L.season } : null,
+    c: o.team ? { wage: Math.max(15_000, roundMoney(wageFor(ovr, o.team.lg) * 0.6)), until: L.season + 3, signed: L.season } : null,
     morale: 70, form: 0, fit: 100, inj: null, pers: personality(), dev: devType(), stats: {}, hist: [], awards: [], teams: o.team ? [o.team.id] : [],
     caps: 0, ig: 0, joined: L.season, yth: true,
   };
   p.ovr = calcOvr(p);
   p.pot = Math.max(p.pot, p.ovr);
-  p.val = Math.max(25_000, Math.round((1e5 * Math.pow(10, (p.ovr + 0.3 * (p.pot - p.ovr) + 4 - 58) / 10)) / 25_000) * 25_000);
+  p.val = Math.max(MIN_VALUE, roundMoney(1e5 * Math.pow(10, (p.ovr + 0.3 * (p.pot - p.ovr) + 4 - 58) / 10)));
   L.players[p.id] = p;
   touchSquads();
   return p;

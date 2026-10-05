@@ -4,12 +4,12 @@ import { squad, touchSquads } from './lineup';
 import { pushNews } from './news';
 import { next } from './rng';
 import type { League, LeagueId, Negotiation, Player, Team } from './types';
-import { ageOn, clamp, dispName, money } from './util';
+import { ageOn, clamp, dispName, MIN_VALUE, money, roundMoney } from './util';
 
 /** Yearly wage a player of this level earns in a league (model: real wages are not public). */
 export function wageFor(ovr: number, lg: LeagueId | null) {
   const mul = lg ? LEAGUES[lg].wageMul : 0.7;
-  return Math.round((20_000 * Math.exp((ovr - 55) * 0.185) * mul) / 5000) * 5000;
+  return Math.max(1000, roundMoney(20_000 * Math.exp((ovr - 55) * 0.185) * mul));
 }
 
 const ageAdj = (a: number) => (a < 23 ? -0.9 * Math.min(5, 23 - a) : a > 28 ? Math.min(7, a - 28) : 0);
@@ -25,7 +25,7 @@ export function modelValue(p: Player, date: string) {
     const left = p.c.until - Number(date.slice(0, 4)) - (date.slice(5) > '06-30' ? 1 : 0);
     if (left <= 0) v *= 0.55; else if (left === 1) v *= 0.8;
   }
-  return Math.max(25_000, Math.round(v / 25_000) * 25_000);
+  return Math.max(MIN_VALUE, roundMoney(v));
 }
 
 /** Monthly drift of the market value towards what the player is worth now. */
@@ -34,7 +34,7 @@ export function updateValues(L: League) {
     const p = L.players[id];
     if (p.st === 'RET') continue;
     const m = modelValue(p, L.date);
-    p.val = Math.max(25_000, Math.round((p.val + (m - p.val) * 0.18) / 25_000) * 25_000);
+    p.val = Math.max(MIN_VALUE, roundMoney(p.val + (m - p.val) * 0.18));
   }
 }
 
@@ -97,7 +97,7 @@ export function askingWage(L: League, p: Player, t: Team, kind: Negotiation['kin
   let ask = Math.max(base, cur * (kind === 'extend' ? 1.05 : 1.15)) * (1 + (p.pers.greed - 10) * 0.015) * (1 + clamp(0.75 - i, -0.1, 0.5));
   if (a <= 23) ask *= 1 + clamp((p.pot - p.ovr) * 0.02, 0, 0.3);
   const diff = L.settings.difficulty === 'rookie' ? 0.92 : L.settings.difficulty === 'hard' ? 1.08 : 1;
-  return Math.round((ask * diff) / 5000) * 5000;
+  return roundMoney(ask * diff);
 }
 
 export function startTalks(L: League, p: Player, teamId: string, kind: Negotiation['kind'], fee?: number): Negotiation {
@@ -107,7 +107,7 @@ export function startTalks(L: League, p: Player, teamId: string, kind: Negotiati
   const ask = askingWage(L, p, t, kind);
   const years = talkYears(a);
   const n: Negotiation = {
-    player: p.id, team: teamId, ask: { wage: ask, years }, floor: Math.round((ask * (0.84 + (p.pers.loy - 10) * (kind === 'extend' ? -0.006 : 0))) / 5000) * 5000,
+    player: p.id, team: teamId, ask: { wage: ask, years }, floor: roundMoney(ask * (0.84 + (p.pers.loy - 10) * (kind === 'extend' ? -0.006 : 0))),
     patience: clamp(Math.round(55 + (p.pers.prof - 10) * 2 + (i - 0.5) * 40), 20, 100), rounds: 0, history: [], status: 'open', kind, fee,
   };
   L.negotiations[p.id] = n;
@@ -148,7 +148,7 @@ export function offerContract(L: League, n: Negotiation, wage: number, years: nu
     }
   } else n.patience -= 6;
   // Counter: the ask comes down a little every round.
-  n.ask.wage = Math.max(n.floor, Math.round((n.ask.wage - (n.ask.wage - n.floor) * 0.22) / 5000) * 5000);
+  n.ask.wage = Math.max(n.floor, roundMoney(n.ask.wage - (n.ask.wage - n.floor) * 0.22));
   n.history.push({ wage, years, result: `Встречное: ${money(n.ask.wage)} × ${n.ask.years}` });
   return { status: 'counter', text: `Агент: «Мы рассчитываем на ${money(n.ask.wage)} в год на ${n.ask.years} ${n.ask.years === 1 ? 'год' : n.ask.years < 5 ? 'года' : 'лет'}».` };
 }

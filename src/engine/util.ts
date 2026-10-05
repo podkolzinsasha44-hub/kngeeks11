@@ -75,6 +75,14 @@ export function seasonLabel(season: number) {
 }
 
 /** Money in euros: "€12,5 млн", "€350 тыс". */
+/** Money rounded to about two significant figures: €1 тыс steps below €100 тыс, €5 тыс below €1 млн, €50 тыс below €10 млн, €100 тыс above. */
+const moneyUnit = (v: number) => (v < 1e5 ? 1000 : v < 1e6 ? 5000 : v < 1e7 ? 50_000 : 1e5);
+export const roundMoney = (v: number) => Math.round(v / moneyUnit(v)) * moneyUnit(v);
+/** Rounded down, so a sum derived from a ceiling never ends up above it. */
+export const floorMoney = (v: number) => Math.floor(v / moneyUnit(v)) * moneyUnit(v);
+/** The lowest market value a player can have. */
+export const MIN_VALUE = 5000;
+
 export function money(n: number, digits = 1) {
   const a = Math.abs(n);
   if (a >= 1_000_000) return `€${(n / 1_000_000).toFixed(a >= 100_000_000 ? 0 : digits).replace('.', ',')} млн`;
