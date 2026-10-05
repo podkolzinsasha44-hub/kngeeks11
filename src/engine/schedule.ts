@@ -5,6 +5,16 @@ import { shuffle } from './rng';
 import type { Game, League, LeagueId } from './types';
 import { addDays, dow } from './util';
 
+const busy = (L: League, id: string, d: string) => L.games.some((g) => g.day === d && (g.h === id || g.a === id));
+/** A day for a match of two clubs: the planned one unless either club plays the day before, on it or after. */
+export function freeDay(L: League, h: string, a: string, day: string) {
+  for (const k of [0, 1, -1, 2]) {
+    const d = addDays(day, k);
+    if (![h, a].some((id) => busy(L, id, addDays(d, -1)) || busy(L, id, d) || busy(L, id, addDays(d, 1)))) return d;
+  }
+  return day;
+}
+
 /** Circle method: n-1 rounds, every pair meets once; home/away alternates. */
 export function roundRobin(ids: string[]): [string, string][][] {
   const t = [...ids];

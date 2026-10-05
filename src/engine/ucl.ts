@@ -13,6 +13,7 @@ import { LEAGUES, statKey } from './leagues';
 import { emptyLineup, squad } from './lineup';
 import { pushMsg, pushNews } from './news';
 import { next, shuffle } from './rng';
+import { freeDay } from './schedule';
 import { emptyRecord } from './standings';
 import { leaders } from './stats';
 import type { Cup, CupTie, Game, League, LeagueId, Player, Team, UclRow } from './types';
@@ -78,15 +79,6 @@ function shift(ref: string, season: number) {
 }
 export const uclCalendar = (season: number) => ({ md: REF.md.map((d) => shift(d, season)), ko: REF.ko.map((d) => shift(d, season)), final: shift(REF.final, season) });
 
-const busy = (L: League, id: string, d: string) => L.games.some((g) => g.day === d && (g.h === id || g.a === id));
-/** A day for a match of two clubs: the planned one unless either club plays the day before, on it or after. */
-function freeDay(L: League, h: string, a: string, day: string) {
-  for (const k of [0, 1, -1, 2]) {
-    const d = addDays(day, k);
-    if (![h, a].some((id) => busy(L, id, addDays(d, -1)) || busy(L, id, d) || busy(L, id, addDays(d, 1)))) return d;
-  }
-  return day;
-}
 
 // ----- the season -------------------------------------------------------------------------------
 

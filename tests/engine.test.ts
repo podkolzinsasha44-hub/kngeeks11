@@ -554,6 +554,37 @@ describe('Second League A and the way up', () => {
   });
 });
 
+describe('Russian Cup', () => {
+  it('the lower divisions start in August, the RPL joins in the last 32, the lower club plays at home', () => {
+    const L = career('ORL');
+    const cup = L.cups.CUP!;
+    const r1 = cup.ties.filter((t) => t.round === 0);
+    expect(r1).toHaveLength(19);
+    expect(r1.some((t) => t.h === 'ORL' || t.a === 'ORL')).toBe(true);
+    const tier = (id: string) => LEAGUES[L.teams[id].lg].tier;
+    for (const t of r1) {
+      expect(tier(t.h)).toBeGreaterThanOrEqual(tier(t.a));
+      expect(L.teams[t.h].lg).not.toBe('RPL');
+      expect(L.teams[t.a].lg).not.toBe('RPL');
+    }
+    // No club plays a cup match on a day next to one of its league games.
+    const g0 = L.games.filter((g) => g.comp === 'CUP');
+    for (const g of g0) for (const id of [g.h, g.a]) {
+      const near = L.games.filter((x) => x !== g && (x.h === id || x.a === id) && Math.abs(Date.parse(x.day) - Date.parse(g.day)) <= 86_400_000);
+      expect(near, `${id} ${g.day}`).toHaveLength(0);
+    }
+    for (let i = 0; i < 70 && !cup.ties.some((t) => t.round === 2); i++) { advanceDay(L); L.stops.length = 0; }
+    const r2 = cup.ties.filter((t) => t.round === 1), last32 = cup.ties.filter((t) => t.round === 2);
+    expect(r2).toHaveLength(16);
+    expect(last32).toHaveLength(16);
+    // Every tie of the last 32: one RPL club, away at a club of a lower division.
+    for (const t of last32) {
+      expect(L.teams[t.a].lg).toBe('RPL');
+      expect(L.teams[t.h].lg).not.toBe('RPL');
+    }
+  });
+});
+
 describe('youth league 2009', () => {
   it('starts with editable placeholders and stays out of the transfer market', () => {
     const L = career('RUS09', 3);

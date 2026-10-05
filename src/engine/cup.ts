@@ -1,20 +1,33 @@
-// Knock-out competitions: the Russian Cup (simplified to a 32-club single-match bracket) and the
-// promotion / relegation play-offs between the Premier League and the First League (two legs).
+// Knock-out competitions: the Russian Cup (single matches, the lower divisions start in August) and the
+// promotion / relegation play-offs between neighbouring divisions (two legs).
 import { LEAGUES, LEAGUE_IDS, leagueTeams } from './leagues';
 import { pushNews } from './news';
 import { shuffle } from './rng';
+import { freeDay } from './schedule';
 import { sortedTeams } from './standings';
 import type { Cup, CupTie, Game, League, Team } from './types';
 import { addDays, dow } from './util';
 
-const wed = (d: string) => { while (dow(d) !== 3) d = addDays(d, 1); return d; };
+const onDow = (n: number) => (d: string) => { while (dow(d) !== n) d = addDays(d, 1); return d; };
+const tue = onDow(2), wed = onDow(3);
+const tierOf = (L: League, id: string) => (L.teams[id] ? LEAGUES[L.teams[id].lg].tier : 0);
+/** The Premier League joins the cup in the last 32. */
+const RPL_ROUND = 2;
 
+/**
+ * Russian Cup. The clubs of the Second League (divisions A and B) and the weakest of the First League start in
+ * August, the rest of the First League joins in the second round, the Premier League in the last 32 — so that
+ * 16 clubs of the lower divisions meet the 16 of the RPL there. Single matches at the club of the lower division.
+ * A model of the real format (the "regions path" of the lower leagues and the RPL path).
+ */
 export function initCup(L: League, season: number) {
   const rpl = leagueTeams(L, 'RPL').map((t) => t.id);
-  const fnl = leagueTeams(L, 'FNL').sort((a, b) => b.rep - a.rep).slice(0, 16).map((t) => t.id);
+  const fnl = leagueTeams(L, 'FNL').sort((a, b) => b.rep - a.rep).map((t) => t.id);
+  const lower = (['L2A', 'L2B'] as const).flatMap((lg) => leagueTeams(L, lg).map((t) => t.id));
   const cup: Cup = {
     id: 'CUP', name: 'Кубок России', season,
     rounds: [
+      { name: '1-й раунд', day: tue(`${season}-08-11`) }, { name: '2-й раунд', day: tue(`${season}-08-25`) },
       { name: '1/16 финала', day: wed(`${season}-09-22`) }, { name: '1/8 финала', day: wed(`${season}-10-27`) },
       { name: '1/4 финала', day: wed(`${season + 1}-03-09`) }, { name: '1/2 финала', day: wed(`${season + 1}-04-20`) },
       { name: 'Финал', day: `${season + 1}-06-09` },
@@ -22,9 +35,32 @@ export function initCup(L: League, season: number) {
     round: 0, ties: [],
   };
   L.cups.CUP = cup;
-  // First round: Premier League clubs travel to First League clubs.
-  const a = shuffle([...rpl]), b = shuffle([...fnl]);
-  a.forEach((id, i) => addTie(L, cup, 0, b[i], id));
+  // Round 2 has 32 places: the winners of round 1 and the First League clubs that start there.
+  // With k First League clubs in round 1: (lower + k) / 2 + (fnl - k) = 32.
+  const k = lower.length + 2 * fnl.length - 64;
+  if (lower.length && k >= 0 && k <= fnl.length && (lower.length + k) % 2 === 0) {
+    cup.enter = { 1: fnl.slice(0, fnl.length - k), [RPL_ROUND]: rpl };
+    drawRound(L, cup, 0, [...lower, ...fnl.slice(fnl.length - k)]);
+    return;
+  }
+  // Without the lower divisions: the RPL against the 16 best-known clubs of the First League.
+  cup.round = RPL_ROUND;
+  cup.enter = { [RPL_ROUND]: rpl };
+  drawRound(L, cup, RPL_ROUND, fnl.slice(0, rpl.length));
+}
+
+/** Draw of a round: the clubs joining now meet the winners of the previous round, the rest are paired among
+ *  themselves. The club of the lower division plays at home. */
+function drawRound(L: League, cup: Cup, round: number, winners: string[]) {
+  const ent = shuffle([...(cup.enter?.[round] ?? [])]), won = shuffle([...winners]);
+  const pairs: [string, string][] = [];
+  while (ent.length && won.length) pairs.push([ent.pop()!, won.pop()!]);
+  const rest = shuffle([...ent, ...won]);
+  for (let i = 0; i + 1 < rest.length; i += 2) pairs.push([rest[i], rest[i + 1]]);
+  for (const [a, b] of pairs) {
+    const [h, aw] = tierOf(L, a) > tierOf(L, b) ? [a, b] : [b, a];
+    addTie(L, cup, round, h, aw);
+  }
 }
 
 function addTie(L: League, cup: Cup, round: number, h: string, a: string, legs = 1) {
@@ -32,7 +68,8 @@ function addTie(L: League, cup: Cup, round: number, h: string, a: string, legs =
   const day = cup.rounds[round].day;
   const final = cup.id === 'CUP' && round === cup.rounds.length - 1;
   for (let leg = 0; leg < legs; leg++) {
-    const g: Game = { id: L.nextGameId++, comp: cup.id, day: addDays(day, leg * 4), h: leg ? a : h, a: leg ? h : a, rd: cup.rounds[round].name, tie: tie.id, ...(final ? { neutral: true } : {}) };
+    // A single cup match moves a day if one of the clubs has a league game around it.
+    const g: Game = { id: L.nextGameId++, comp: cup.id, day: legs === 1 && !final ? freeDay(L, h, a, day) : addDays(day, leg * 4), h: leg ? a : h, a: leg ? h : a, rd: cup.rounds[round].name, tie: tie.id, ...(final ? { neutral: true } : {}) };
     L.games.push(g);
     tie.games.push(g.id);
   }
@@ -84,8 +121,7 @@ export function onCupGame(L: League, g: Game): 'final' | 'tie' | null {
   }
   // Draw of the next round
   cup.round = tie.round + 1;
-  const winners = shuffle(cup.ties.filter((t) => t.round === tie.round).map((t) => t.winner!));
-  for (let i = 0; i + 1 < winners.length; i += 2) addTie(L, cup, cup.round, winners[i], winners[i + 1]);
+  drawRound(L, cup, cup.round, cup.ties.filter((t) => t.round === tie.round).map((t) => t.winner!));
   if (cup.id === 'CUP') pushNews(L, { kind: 'league', title: `Кубок России: жеребьёвка стадии «${cup.rounds[cup.round].name}» состоялась` });
   return 'tie';
 }

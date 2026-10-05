@@ -165,11 +165,11 @@ function CupView({ L }: { L: League }) {
       })}
       {po && (
         <>
-          <SectionTitle>Переходные матчи (РПЛ — Первая лига)</SectionTitle>
+          <SectionTitle>Переходные матчи</SectionTitle>
           <Card pad={false} className="overflow-hidden">{po.ties.flatMap((t) => t.games).map((id) => { const g = games.get(id); return g ? <GameRow key={id} L={L} g={g} /> : null; })}</Card>
         </>
       )}
-      <div className="text-[11.5px] text-faint mt-2 px-1">Формат упрощён: 16 клубов РПЛ и 16 клубов Первой лиги, один матч на выбывание в каждом раунде.</div>
+      <div className="text-[11.5px] text-faint mt-2 px-1">Формат — модель настоящего: клубы Второй лиги и слабейшие клубы Первой лиги начинают в августе, остальные клубы Первой лиги вступают во 2-м раунде, клубы РПЛ — в 1/16 финала. Один матч на выбывание, дома играет клуб из лиги ниже.</div>
     </>
   );
 }

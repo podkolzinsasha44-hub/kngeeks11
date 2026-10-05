@@ -245,6 +245,8 @@ export interface Cup {
   rounds: { name: string; day: string }[];
   round: number;
   ties: CupTie[];
+  /** Clubs that join the draw at a round (keyed by round index), on top of the winners of the previous one. */
+  enter?: Record<number, string[]>;
   champion?: string;
   finalist?: string;
 }
