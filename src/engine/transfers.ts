@@ -6,6 +6,7 @@ import { FORMATIONS, autoLineup, available, slotRating, squad, touchSquads } fro
 import { pushMsg, pushNews, social } from './news';
 import { int, next, pick, shuffle } from './rng';
 import type { League, Player, Team, TransferOffer } from './types';
+import { isYouth, onMarket, youthBoy, youthPlayer } from './youth';
 import { addDays, ageOn, clamp, dispName, money } from './util';
 
 const round = (v: number) => (v >= 1e6 ? Math.round(v / 1e5) * 1e5 : Math.round(v / 25_000) * 25_000);
@@ -72,6 +73,7 @@ export function userBid(L: League, pid: number, fee: number): BidResult {
   const p = L.players[pid];
   const me = L.teams[L.user];
   const seller = p.team ? L.teams[p.team] : null;
+  if (youthPlayer(L, p) || isYouth(me)) return { status: 'rejected', text: 'Юношеские команды в трансферах не участвуют.' };
   if (!windowOpen(L)) return { status: 'rejected', text: 'Трансферное окно закрыто. Вне окна можно подписывать только свободных агентов.' };
   if (fee > me.budget) return { status: 'rejected', text: `На трансферы осталось ${money(me.budget)}.` };
   if (p.loan) return { status: 'rejected', text: 'Игрок в аренде — переговоры возможны после её окончания.' };
@@ -130,8 +132,8 @@ export function wouldStart(L: League, t: Team, p: Player) {
 
 function offersToUser(L: League) {
   const mine = squad(L, L.user).filter((p) => !p.loan);
-  if (!mine.length) return;
-  const clubs = shuffle(Object.values(L.teams).filter((t) => t.id !== L.user));
+  if (!mine.length || isYouth(L.teams[L.user])) return;
+  const clubs = shuffle(Object.values(L.teams).filter((t) => t.id !== L.user && onMarket(t)));
   let made = 0;
   for (const p of shuffle(mine)) {
     if (made >= (p.listed ? 2 : 1)) break;
@@ -209,7 +211,7 @@ function weakestSlot(L: League, t: Team) {
 }
 
 function aiDeals(L: League, pool: Player[]) {
-  const clubs = shuffle(Object.values(L.teams).filter((t) => t.id !== L.user)).slice(0, 14);
+  const clubs = shuffle(Object.values(L.teams).filter((t) => t.id !== L.user && onMarket(t))).slice(0, 14);
   const bought = new Map<string, number>();
   for (const x of L.transfers) if (x.season === L.season) bought.set(x.to, (bought.get(x.to) ?? 0) + 1);
   for (const t of clubs) {
@@ -219,7 +221,7 @@ function aiDeals(L: League, pool: Player[]) {
     let best: Player | null = null, bv = need.rating + 1.5, price = 0;
     for (let i = 0; i < 260; i++) {
       const p = pool[int(0, pool.length - 1)];
-      if (!p || p.team === t.id || p.team === L.user || p.loan || p.st !== 'ACT' || p.joined === L.season) continue;
+      if (!p || p.team === t.id || p.team === L.user || p.loan || p.st !== 'ACT' || p.joined === L.season || youthPlayer(L, p)) continue;
       const v = slotRating(p, need.role);
       if (v <= bv) continue;
       const ask = askingPrice(L, p, t);
@@ -240,7 +242,7 @@ function aiFreeAgents(L: League) {
   for (const id in L.players) if (L.players[id].st === 'FA') fa.push(L.players[id]);
   if (!fa.length) return;
   fa.sort((a, b) => b.ovr - a.ovr);
-  const clubs = shuffle(Object.values(L.teams).filter((t) => t.id !== L.user));
+  const clubs = shuffle(Object.values(L.teams).filter((t) => t.id !== L.user && onMarket(t)));
   for (const p of fa.slice(0, 40)) {
     if (L.negotiations[p.id]) continue;
     if (next() > 0.35) continue;
@@ -266,6 +268,7 @@ export function ensureSquads(L: League, genYouth: (t: Team, pos: Player['pos']) 
     for (const [pos, n] of need) {
       let have = sq.filter((p) => p.pos === pos).length;
       while (have < n) {
+        if (isYouth(t)) { youthBoy(L, t, pos === 'G' ? 'GK' : pos === 'D' ? 'CB' : pos === 'M' ? 'CM' : 'ST'); have++; continue; }
         if (mine) { called.push(dispName(genYouth(t, pos))); have++; continue; }
         let best: Player | null = null;
         for (const id in L.players) {

@@ -33,6 +33,8 @@ export const LEAGUES: Record<LeagueId, LeagueCfg> = {
   // Group 3 of division B of the Second League (Oryol, Kursk, Tula, Penza…). Played on the calendar of the game
   // (July–May) instead of the real March–October; no promotion or relegation is modelled for it.
   L2B: { id: 'L2B', name: 'Вторая лига Б, группа 3', short: 'Вторая лига', country: 'RUS', tier: 4, start: [7, 25], end: [5, 30], pause: [[11, 29], [3, 6]], style: { shot: 1.0, fin: 1.0 }, relegate: 0, playoff: 0, top: 3, wageMul: 0.2, income: 0.4e6 },
+  // Youth league of players born in 2009 (Oryol and neighbouring regions): squads typed in by the user.
+  U17: { id: 'U17', name: 'Юношеская лига 2009 г. р.', short: 'Юноши 2009', country: 'RUS', tier: 9, start: [8, 29], end: [5, 23], pause: [[11, 15], [3, 20]], style: { shot: 1.0, fin: 1.0 }, relegate: 0, playoff: 0, top: 3, wageMul: 0, income: 0 },
   EPL: { id: 'EPL', name: 'Премьер-лига', short: 'АПЛ', country: 'ENG', tier: 1, start: [8, 15], end: [5, 23], style: { shot: 1.0, fin: 1.01 }, relegate: 0, playoff: 0, top: 4, wageMul: 1.35, income: 150e6 },
   ESP: { id: 'ESP', name: 'Ла Лига', short: 'Ла Лига', country: 'ESP', tier: 1, start: [8, 15], end: [5, 23], style: { shot: 0.95, fin: 0.99 }, relegate: 0, playoff: 0, top: 4, wageMul: 1, income: 70e6 },
   ITA: { id: 'ITA', name: 'Серия A', short: 'Серия A', country: 'ITA', tier: 1, start: [8, 22], end: [5, 23], style: { shot: 0.97, fin: 0.97 }, relegate: 0, playoff: 0, top: 4, wageMul: 0.95, income: 60e6 },

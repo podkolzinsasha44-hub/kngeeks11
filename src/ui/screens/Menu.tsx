@@ -115,7 +115,7 @@ function NewCareer({ onBack }: { onBack: () => void }) {
                 <TeamBadge team={t} size={44} />
                 <div className="flex-1 min-w-0">
                   <div className="font-display uppercase tracking-wide text-[17px] truncate">{t.ru}</div>
-                  <div className="text-[12.5px] text-muted truncate">сила состава {inf ? inf.power.toFixed(0) : '—'} · {inf?.n ?? 0} игроков · бюджет {money(t.budget)}</div>
+                  <div className="text-[12.5px] text-muted truncate">{t.lg === 'U17' ? `${t.stadium.split(', ').pop()} · состав вписываете сами` : `сила состава ${inf ? inf.power.toFixed(0) : '—'} · ${inf?.n ?? 0} игроков · бюджет ${money(t.budget)}`}</div>
                 </div>
                 <div className="text-right shrink-0">
                   <div className="num text-[13px] text-muted">#{i + 1}</div>

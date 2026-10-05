@@ -11,6 +11,7 @@ import { getState, hash01, seedState, useState_ } from './rng';
 import { scheduleLeague } from './schedule';
 import { emptyRecord } from './standings';
 import { initUclFromWorld, makeExt, type UclWorld } from './ucl';
+import { fillYouth } from './youth';
 import type { KeeperAttrs, League, LeagueId, OutfieldAttrs, Player, Role, Settings, Team } from './types';
 import { addDays, ageOn, money, posOfRole, seasonLabel } from './util';
 
@@ -118,6 +119,7 @@ function attachLeagues(L: League, world: WorldJson) {
     for (const w of world.players) if (w.t && ids.has(w.t) && !L.players[w.id]) L.players[w.id] = expandPlayer(w, L.season);
     L.comps[lg] = { id: lg, name: LEAGUES[lg].name, country: LEAGUES[lg].country, tier: LEAGUES[lg].tier, phase: 'done', seasonStart: '', seasonEnd: '', champion: '', history: [] };
     touchSquads();
+    fillYouth(L);
     for (const id of ids) if (L.teams[id]) aiLineup(L, L.teams[id]);
     const { end } = leagueDates(lg, L.season);
     if (L.date <= addDays(end, -150)) scheduleLeague(L, lg, L.season, addDays(L.date, 2));
@@ -168,6 +170,7 @@ export function newCareer(world: WorldJson, o: NewCareerOpts): League {
     L.comps[lg] = { id: lg, name: LEAGUES[lg].name, country: LEAGUES[lg].country, tier: LEAGUES[lg].tier, phase: 'preseason', seasonStart: '', seasonEnd: '', champion: L.teams[champ] ? champ : '', history: [] };
   }
   touchSquads();
+  fillYouth(L);
   for (const t of Object.values(L.teams)) aiLineup(L, t);
   L.teams[o.team].lineup.auto = false;
   for (const lg of LEAGUE_IDS) scheduleLeague(L, lg, season);

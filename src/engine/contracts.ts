@@ -59,6 +59,8 @@ export function canRegister(L: League, t: Team, p: Player, wage: number, transfe
 
 /** How much a player wants to join a club: 0..1+. Below ~0.35 he refuses to talk. */
 export function interest(L: League, p: Player, to: Team) {
+  // Youth teams are outside the market: adults do not join them and their boys are not for sale.
+  if (to.lg === 'U17' || (p.team && L.teams[p.team]?.lg === 'U17')) return 0;
   const cur = p.team ? L.teams[p.team] : null;
   // Without a club the level of the player himself sets his standards: a free agent of 78 does not go
   // to the fourth division, one of 58 is glad to.

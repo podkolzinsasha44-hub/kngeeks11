@@ -11,7 +11,7 @@
     "test": "vitest run",
     "calibrate": "tsx scripts/calibrate.ts",
     "data:fetch": "node scripts/fetch-data.mjs",
-    "data:build": "node scripts/build-world.mjs && node scripts/build-ucl.mjs && node scripts/build-l2b.mjs",
+    "data:build": "node scripts/build-world.mjs && node scripts/build-ucl.mjs && node scripts/build-l2b.mjs && node scripts/build-youth.mjs",
     "smoke": "tsx scripts/smoke.ts"
   },
   "dependencies": {

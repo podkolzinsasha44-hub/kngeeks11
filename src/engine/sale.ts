@@ -147,7 +147,7 @@ export interface SellPick {
 export function sellAdvice(L: League, limit = 8): SellPick[] {
   const me = planned(L, L.teams[L.user], Infinity);
   const sq = squad(L, me.id);
-  const clubs = Object.values(L.teams).filter((t) => t.id !== me.id);
+  const clubs = Object.values(L.teams).filter((t) => t.id !== me.id && t.lg !== 'U17');
   const out: SellPick[] = [];
   for (const p of sq) {
     if (p.loan) continue;

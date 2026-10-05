@@ -66,8 +66,8 @@ export function fire(L: League) {
   pushNews(L, { kind: 'owner', title: `«${L.teams[L.user].ru}» увольняет спортивного директора ${L.gm.name}`, important: true, team: L.user });
   // Clubs of the same country call first; a well-known manager also gets an offer from abroad.
   const me = L.teams[L.user];
-  const same = shuffle(Object.values(L.teams).filter((t) => t.id !== L.user && t.country === me.country && t.strategy !== 'contend' && t.rep <= me.rep + 5));
-  const abroad = shuffle(Object.values(L.teams).filter((t) => t.country !== me.country && t.strategy === 'rebuild'));
+  const same = shuffle(Object.values(L.teams).filter((t) => t.id !== L.user && t.lg !== 'U17' && t.country === me.country && t.strategy !== 'contend' && t.rep <= me.rep + 5));
+  const abroad = shuffle(Object.values(L.teams).filter((t) => t.lg !== 'U17' && t.country !== me.country && t.strategy === 'rebuild'));
   const n = L.gm.rep >= 45 ? 3 : L.gm.rep >= 25 ? 2 : 1;
   L.gm.offers = [...same.slice(0, n), ...(L.gm.rep >= 60 ? abroad.slice(0, 1) : [])].map((t) => t.id);
 }

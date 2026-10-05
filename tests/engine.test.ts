@@ -17,6 +17,7 @@ import { buyerCeiling, respondOffer } from '../src/engine/transfers';
 import { wageBill, wageFor } from '../src/engine/contracts';
 import type { League } from '../src/engine/types';
 import { newCareer, upgradeSave, type WorldJson } from '../src/engine/world';
+import { editYouthPlayer } from '../src/engine/youth';
 import { club, drawLeague, makePots, matchdays, rosterOf, uclOrder, UCL } from '../src/engine/ucl';
 
 // These tests play real days of the season: a slower runner must not fail them on the default 5 s.
@@ -45,7 +46,10 @@ describe('data', () => {
       expect(p.bd).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
     const L = career();
-    expect(Object.values(L.players).every((p) => p.real)).toBe(true);
+    // The youth league ships no players (they are minors): its placeholders are marked and editable.
+    expect(Object.values(L.players).every((p) => p.real || (p.custom && L.teams[p.team!]?.lg === 'U17'))).toBe(true);
+    const youth = new Set(world.leagues.U17.teams);
+    expect(world.players.some((p) => p.t && youth.has(p.t))).toBe(false);
   });
   it('has the sixteen clubs of the 2026-27 Premier League, each with a playable squad', () => {
     expect(world.leagues.RPL.teams).toHaveLength(16);
@@ -426,6 +430,27 @@ describe('Second League B, group 3', () => {
     // A strong free agent does not go down to the fourth division.
     const star = Object.values(L.players).find((p) => p.ovr >= 78 && p.ctry === 'RUS')!;
     expect(interest(L, { ...star, team: null, st: 'FA', c: null }, L.teams.ORL)).toBeLessThan(0.45);
+  });
+});
+
+describe('youth league 2009', () => {
+  it('starts with editable placeholders and stays out of the transfer market', () => {
+    const L = career('RUS09', 3);
+    const sq = squad(L, 'RUS09');
+    expect(sq.length).toBe(20);
+    expect(sq.every((p) => p.custom && !p.real && p.bd.startsWith('2009'))).toBe(true);
+    const p = sq[0];
+    editYouthPlayer(L, p.id, { fn: 'Иван', ln: 'Петров', role: 'ST', num: 9, year: 2009, ovr: 60 });
+    expect(L.players[p.id].ru).toBe('Иван Петров');
+    expect(L.players[p.id].pos).toBe('F');
+    expect(Math.abs(L.players[p.id].ovr - 60)).toBeLessThanOrEqual(2);
+    // Adults do not join a youth team, and its boys are not for sale.
+    const adult = Object.values(L.players).find((x) => x.team === 'ORL')!;
+    expect(interest(L, adult, L.teams.RUS09)).toBe(0);
+    expect(interest(L, L.players[p.id], L.teams.ORL)).toBe(0);
+    for (let i = 0; i < 60; i++) { advanceDay(L); L.stops.length = 0; }
+    expect(squad(L, 'RUS09').every((x) => x.custom)).toBe(true);
+    expect(L.games.filter((g) => g.comp === 'U17')).toHaveLength(56);
   });
 });
 

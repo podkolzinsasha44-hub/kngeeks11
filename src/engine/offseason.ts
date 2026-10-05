@@ -68,7 +68,7 @@ function movers(L: League): [Team, Team][] {
 
 function income(t: Team, place: number, n: number) {
   const factor = 1.6 - (1.1 * (place - 1)) / Math.max(1, n - 1);
-  const base = { RPL: 12e6, FNL: 2.5e6, L2B: 0.35e6, EPL: 42e6, ESP: 27e6, ITA: 23e6, GER: 23e6, FRA: 17e6 }[t.lg];
+  const base = { RPL: 12e6, FNL: 2.5e6, L2B: 0.35e6, U17: 0, EPL: 42e6, ESP: 27e6, ITA: 23e6, GER: 23e6, FRA: 17e6 }[t.lg];
   return Math.round((base * factor * Math.pow(t.rep / 60, 2)) / 1e5) * 1e5;
 }
 
@@ -166,6 +166,7 @@ export function rollover(L: League) {
   // --- academy graduates (the only fictional players: they did not exist when the career began)
   const intake: number[] = [];
   for (const t of Object.values(L.teams)) {
+    if (t.lg === 'U17') continue; // the sports school promotes its own boys when the squad runs short
     const n = int(1, 2) + (t.staff.academy >= 3 ? 1 : 0);
     for (let i = 0; i < n; i++) {
       const lvl = 44 + t.rep * 0.14 + t.staff.academy * 1.5;

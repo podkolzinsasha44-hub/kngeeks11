@@ -21,8 +21,11 @@ export function Roster({ params }: { params: Record<string, unknown> }) {
   const [tab, setTab] = useKeep<TabId>('roster.tab', params.tab === 'squad' || params.tab === 'list' ? 'list' : 'pitch');
   const t = L.teams[L.user];
   const sq = squad(L, t.id);
+  const push = useNav((s) => s.push);
+  // A youth team: the user types in the real squad himself.
+  const edit = t.lg === 'U17' ? <button onClick={() => push('youth', { id: t.id })} className="press h-11 px-3 rounded-full glass text-[14px] font-medium">Изменить состав</button> : undefined;
   return (
-    <Screen title="Состав" subtitle={`${sq.length} игроков · зарплаты ${money(wageBill(L, t.id))} в год`} headerExtra={<div className="px-4 pb-2"><Segmented value={tab} onChange={setTab} options={[{ v: 'pitch', label: 'Поле' }, { v: 'list', label: 'Список и контракты' }]} /></div>}>
+    <Screen title="Состав" right={edit} subtitle={t.lg === 'U17' ? `${sq.length} игроков` : `${sq.length} игроков · зарплаты ${money(wageBill(L, t.id))} в год`} headerExtra={<div className="px-4 pb-2"><Segmented value={tab} onChange={setTab} options={[{ v: 'pitch', label: 'Поле' }, { v: 'list', label: 'Список и контракты' }]} /></div>}>
       {tab === 'list' ? <SquadList L={L} t={t} sq={sq} /> : <PitchEditor L={L} t={t} sq={sq} />}
     </Screen>
   );

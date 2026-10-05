@@ -9,7 +9,7 @@ import { avgRating, leaders } from '../../engine/stats';
 import type { Game, League, LeagueId } from '../../engine/types';
 import { club, rosterOf, UCL } from '../../engine/ucl';
 import { UCL_TABS, UclView, uclDefaultTab, type UclTab } from './Ucl';
-import { Card, Chips, cx, Empty, Pill, SectionTitle, Segmented } from '../components/kit';
+import { Button, Card, Chips, cx, Empty, Pill, SectionTitle, Segmented } from '../components/kit';
 import { Screen } from '../components/shell';
 import { PlayerRow, TeamBadge } from '../components/media';
 import { clubLabel, dateShort, dispName, dowRu, money, ROLE_RU, seasonLabel } from '../format';
@@ -173,6 +173,7 @@ function CupView({ L }: { L: League }) {
 
 export function TeamScreen({ params }: { params: Record<string, unknown> }) {
   const L = useL();
+  const push = useNav((s) => s.push);
   const t = club(L, String(params.id));
   if (!t) return <Screen title="Клуб"><div /></Screen>;
   const sq = rosterOf(L, t.id).sort((a, b) => b.ovr - a.ovr);
@@ -195,6 +196,7 @@ export function TeamScreen({ params }: { params: Record<string, unknown> }) {
           <Mini l="Сила" v={teamPower(L, t).toFixed(0)} /><Mini l="Схема" v={t.lineup.form} />{t.ext ? <Mini l="Состав" v={`${sq.length}`} /> : <Mini l="Бюджет" v={money(t.budget, 0)} />}<Mini l="Титулы" v={`${t.titles}🏆 ${t.cups}🥇`} />
         </div>
       </Card>
+      {t.lg === 'U17' && <Button variant="primary" full className="mt-3" onClick={() => push('youth', { id: t.id })}>Редактировать состав и название</Button>}
       {t.trophies.length > 0 && <div className="flex gap-1.5 flex-wrap mt-2">{t.trophies.slice(-6).map((x, i) => <Pill key={i} color="#e8c26a">{x}</Pill>)}</div>}
       <SectionTitle>Стартовый состав ({t.lineup.form})</SectionTitle>
       <Card pad={false} className="overflow-hidden">

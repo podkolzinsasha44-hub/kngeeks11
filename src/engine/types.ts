@@ -4,7 +4,7 @@ export type Role = 'GK' | 'CB' | 'LB' | 'RB' | 'DM' | 'CM' | 'AM' | 'LM' | 'RM' 
 export type Status = 'ACT' | 'FA' | 'RET';
 export type Difficulty = 'rookie' | 'real' | 'hard';
 /** Club leagues simulated by the engine. */
-export type LeagueId = 'RPL' | 'FNL' | 'L2B' | 'EPL' | 'ESP' | 'ITA' | 'GER' | 'FRA';
+export type LeagueId = 'RPL' | 'FNL' | 'L2B' | 'U17' | 'EPL' | 'ESP' | 'ITA' | 'GER' | 'FRA';
 export type Strategy = 'contend' | 'bubble' | 'rebuild';
 export type FormationId = '4-4-2' | '4-3-3' | '4-2-3-1' | '3-5-2' | '5-3-2' | '4-1-4-1' | '3-4-3';
 export type Tactic = 'attack' | 'balanced' | 'defense';
@@ -129,6 +129,8 @@ export interface Player {
   joined?: number;
   /** Academy graduate still unknown to scouts: displayed potential is a range. */
   yth?: boolean;
+  /** A player of a youth team: a placeholder or typed in by the user (not real data of the game). */
+  custom?: boolean;
 }
 
 export interface Lineup {
