@@ -30,6 +30,12 @@ export interface LeagueCfg {
   wageMul: number;
   /** Typical money: prize pool per place and base TV income, EUR. */
   income: number;
+  /**
+   * What the market pays for a player of a club of this league, against a player of the same level in the leagues
+   * with real Transfermarkt values (1: their ratings come from those values). Nobody scouts the Second League and its
+   * clubs cannot hold out for a price, so a strong player there is worth several times less until he moves up.
+   */
+  market?: number;
 }
 
 export const LEAGUES: Record<LeagueId, LeagueCfg> = {
@@ -39,10 +45,10 @@ export const LEAGUES: Record<LeagueId, LeagueCfg> = {
   // Division A of the Second League, 2026-27: the 17 clubs of both groups of the first stage in one table (in reality
   // two groups, "gold" and "silver", with a second stage in spring). 1-2 up, 3rd to the play-offs with 16th of the First
   // League; the last one goes down to group 3 of division B (the only group of division B in the game).
-  L2A: { id: 'L2A', name: 'Вторая лига А', short: 'Вторая лига А', into: 'во Вторую лигу А', country: 'RUS', tier: 3, start: [7, 11], end: [5, 23], pause: [[11, 30], [3, 6]], style: { shot: 0.9, fin: 0.94 }, up: 'FNL', down: 'L2B', promote: 2, promotePO: 1, relegate: 1, playoff: 0, top: 2, wageMul: 0.3, income: 0.9e6 },
+  L2A: { id: 'L2A', name: 'Вторая лига А', short: 'Вторая лига А', into: 'во Вторую лигу А', country: 'RUS', tier: 3, start: [7, 11], end: [5, 23], pause: [[11, 30], [3, 6]], style: { shot: 0.9, fin: 0.94 }, up: 'FNL', down: 'L2B', promote: 2, promotePO: 1, relegate: 1, playoff: 0, top: 2, wageMul: 0.3, income: 0.9e6, market: 0.4 },
   // Group 3 of division B of the Second League (Oryol, Kursk, Tula, Penza…). Played on the calendar of the game
   // (July–May) instead of the real March–October. The winner goes up to division A.
-  L2B: { id: 'L2B', name: 'Вторая лига Б, группа 3', short: 'Вторая лига Б', into: 'во Вторую лигу Б', country: 'RUS', tier: 4, start: [7, 25], end: [5, 30], pause: [[11, 29], [3, 6]], style: { shot: 1.0, fin: 1.0 }, up: 'L2A', promote: 1, promotePO: 0, relegate: 0, playoff: 0, top: 1, wageMul: 0.2, income: 0.4e6 },
+  L2B: { id: 'L2B', name: 'Вторая лига Б, группа 3', short: 'Вторая лига Б', into: 'во Вторую лигу Б', country: 'RUS', tier: 4, start: [7, 25], end: [5, 30], pause: [[11, 29], [3, 6]], style: { shot: 1.0, fin: 1.0 }, up: 'L2A', promote: 1, promotePO: 0, relegate: 0, playoff: 0, top: 1, wageMul: 0.2, income: 0.4e6, market: 0.25 },
   // Youth league of players born in 2009 (Oryol and neighbouring regions): squads typed in by the user.
   U17: { id: 'U17', name: 'Юношеская лига 2009 г. р.', short: 'Юноши 2009', country: 'RUS', tier: 9, start: [8, 29], end: [5, 23], pause: [[11, 15], [3, 20]], style: { shot: 1.0, fin: 1.0 }, relegate: 0, playoff: 0, top: 3, wageMul: 0, income: 0 },
   EPL: { id: 'EPL', name: 'Премьер-лига', short: 'АПЛ', country: 'ENG', tier: 1, start: [8, 15], end: [5, 23], style: { shot: 1.0, fin: 1.01 }, relegate: 0, playoff: 0, top: 4, wageMul: 1.35, income: 150e6 },

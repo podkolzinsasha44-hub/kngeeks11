@@ -14,8 +14,9 @@ export function wageFor(ovr: number, lg: LeagueId | null) {
 
 const ageAdj = (a: number) => (a < 23 ? -0.9 * Math.min(5, 23 - a) : a > 28 ? Math.min(7, a - 28) : 0);
 
-/** Market value implied by rating, age, potential and contract length (same curve the data build inverts). */
-export function modelValue(p: Player, date: string) {
+/** Market value implied by rating, age, potential, contract length (same curve the data build inverts) and the
+ *  league of his club (`market`: the Second League pays several times less for the same level). */
+export function modelValue(p: Player, date: string, lg?: LeagueId | null) {
   const a = ageOn(p.bd, date);
   let lvl = p.ovr - ageAdj(a) - (p.pos === 'G' ? 2 : 0);
   if (a <= 24) lvl += 0.3 * Math.max(0, p.pot - p.ovr);
@@ -25,6 +26,7 @@ export function modelValue(p: Player, date: string) {
     const left = p.c.until - Number(date.slice(0, 4)) - (date.slice(5) > '06-30' ? 1 : 0);
     if (left <= 0) v *= 0.55; else if (left === 1) v *= 0.8;
   }
+  v *= (lg && LEAGUES[lg].market) ?? 1;
   return Math.max(MIN_VALUE, roundMoney(v));
 }
 
@@ -33,7 +35,7 @@ export function updateValues(L: League) {
   for (const id in L.players) {
     const p = L.players[id];
     if (p.st === 'RET') continue;
-    const m = modelValue(p, L.date);
+    const m = modelValue(p, L.date, p.team ? L.teams[p.team]?.lg : null);
     p.val = Math.max(MIN_VALUE, roundMoney(p.val + (m - p.val) * 0.18));
   }
 }

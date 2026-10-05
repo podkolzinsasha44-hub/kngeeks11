@@ -15,7 +15,7 @@ import { lineupOptions } from '../src/engine/bestxi';
 import { autoRenew, renewalCases } from '../src/engine/renewals';
 import { offerView, saleView, sellAdvice } from '../src/engine/sale';
 import { buyerCeiling, purchaseOf, respondOffer } from '../src/engine/transfers';
-import { wageBill, wageFor } from '../src/engine/contracts';
+import { modelValue, wageBill, wageFor } from '../src/engine/contracts';
 import type { League } from '../src/engine/types';
 import { newCareer, upgradeSave, type WorldJson } from '../src/engine/world';
 import { editYouthPlayer } from '../src/engine/youth';
@@ -551,6 +551,25 @@ describe('Second League A and the way up', () => {
     }
     // Every division of the new season has its calendar.
     for (const lg of ['RPL', 'FNL', 'L2A', 'L2B']) expect(L.games.some((g) => g.comp === lg), lg).toBe(true);
+  });
+});
+
+describe('market values', () => {
+  it('the same player is worth several times less at a club of the Second League, and an old save is revalued', () => {
+    const L = career('ORL');
+    const p = { ...L.players[20030151], ovr: 70, pot: 72 };
+    const at = (lg: 'RPL' | 'FNL' | 'L2A' | 'L2B') => modelValue(p, '2029-10-01', lg);
+    expect(at('L2B')).toBeLessThan(at('L2A'));
+    expect(at('L2A')).toBeLessThan(at('FNL'));
+    expect(at('FNL')).toBe(at('RPL'));
+    expect(at('L2B')).toBeLessThan(500_000);
+    // A save made before the league factor: values of the Second League come back to the model.
+    const old = L.players[20030151];
+    old.val = 2_500_000;
+    L.v = 2;
+    upgradeSave(L, world);
+    expect(L.v).toBe(3);
+    expect(old.val).toBe(modelValue(old, L.date, 'L2B'));
   });
 });
 
