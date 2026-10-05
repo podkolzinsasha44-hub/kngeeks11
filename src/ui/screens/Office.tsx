@@ -144,7 +144,7 @@ export function Office() {
         </>
       )}
 
-      {L.ucl?.table[L.user] && <UclCard />}
+      {L.ucl?.table[L.user] ? <UclCard /> : L.ext && <UclWatch />}
 
       </div>
       <div className="min-w-0 lg:pt-1">
@@ -209,6 +209,39 @@ function UclCard() {
         <div className="flex-1 min-w-0">
           <div className="text-[15px] font-medium truncate">{!r.gp ? 'Общий этап: 8 матчей' : u.phase === 'league' ? `${place}-е место · ${r.pts} очк. за ${r.gp} матч.` : stage?.round === -1 ? `Общий этап: ${place}-е место` : stage?.text ?? ''}</div>
           <div className="text-[12.5px] text-muted truncate">{next && opp ? `${next.h === L.user ? 'Дома' : 'В гостях'}: «${opp.ru}» · ${dateShort(next.day)}` : u.phase === 'league' ? 'Все матчи общего этапа сыграны' : u.champion ? `Победитель — «${club(L, u.champion).ru}»` : 'Турнир для клуба окончен'}</div>
+        </div>
+        <Chevron />
+      </Card>
+    </>
+  );
+}
+
+/** The Champions League for a club that does not play in it: where it stands and why the club is not there. */
+function UclWatch() {
+  const L = useL();
+  const u = L.ucl;
+  const order = useMemo(() => (u ? uclOrder(L) : []), [L.date]); // eslint-disable-line react-hooks/exhaustive-deps
+  const me = L.teams[L.user];
+  const played = u ? L.games.some((g) => g.comp === UCL && g.played) : false;
+  const first = u ? L.games.filter((g) => g.comp === UCL).reduce((m, g) => (g.day < m ? g.day : m), '9999') : '';
+  const cup = L.cups[UCL];
+  const lead = u && order[0] ? club(L, order[0]) : null;
+  const status = !u ? 'Стартует в следующем сезоне'
+    : u.champion ? `Победитель — «${club(L, u.champion).ru}»`
+    : u.phase === 'ko' && cup ? `Идёт плей-офф: ${cup.rounds[cup.round].name}`
+    : played && lead ? `Лидер общего этапа — «${lead.ru}», ${u.table[lead.id].pts} очк.`
+    : `Старт ${dateShort(first)} · 36 клубов, жеребьёвка состоялась`;
+  const why = me.lg === 'RPL' || me.lg === 'FNL'
+    ? (L.settings.intlRussia ? 'Чемпион РПЛ сыграет в следующем сезоне' : 'Российские клубы отстранены UEFA — можно вернуть в настройках')
+    : 'Ваш клуб не попал в число участников';
+  return (
+    <>
+      <SectionTitle>Лига чемпионов</SectionTitle>
+      <Card onClick={() => openUcl()} className="flex items-center gap-3">
+        <div className="w-12 h-12 rounded-2xl grid place-items-center bg-white/8 shrink-0">{lead && played ? <TeamBadge team={lead} size={32} /> : <span className="text-[22px]">⭐</span>}</div>
+        <div className="flex-1 min-w-0">
+          <div className="text-[15px] font-medium truncate">{status}</div>
+          <div className="text-[12.5px] text-muted truncate">{why}</div>
         </div>
         <Chevron />
       </Card>
