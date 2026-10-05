@@ -14,7 +14,7 @@ import { aiLineup, foreignOnPitch } from '../src/engine/ai';
 import { lineupOptions } from '../src/engine/bestxi';
 import { autoRenew, renewalCases } from '../src/engine/renewals';
 import { offerView, saleView, sellAdvice } from '../src/engine/sale';
-import { buyerCeiling, purchaseOf, respondOffer } from '../src/engine/transfers';
+import { buyerCeiling, purchaseOf, releasePlayer, respondOffer, saleBlock, setListed } from '../src/engine/transfers';
 import { modelValue, wageBill, wageFor } from '../src/engine/contracts';
 import type { League } from '../src/engine/types';
 import { newCareer, upgradeSave, type WorldJson } from '../src/engine/world';
@@ -455,6 +455,45 @@ describe('injuries in the advice', () => {
     expect(transferAdvice(L).away.find((a) => a.p.id === p.id)?.long).toBe(true);
     expect(saleView(L, p).loss).toBeCloseTo(healthy.loss, 6);
     expect(sellAdvice(L).some((x) => x.p.id === p.id)).toBe(false);
+  });
+});
+
+describe('injured and suspended players stay', () => {
+  it('cannot be sold, put on the transfer list or released until they are back, and draw no offers', () => {
+    const L = career('ZEN');
+    const [hurt, banned] = squad(L, 'ZEN').sort((a, b) => b.ovr - a.ovr);
+    hurt.inj = { type: 'Растяжение мышцы бедра', days: 20, total: 20 };
+    banned.susp = 2;
+    for (const p of [hurt, banned]) {
+      expect(saleBlock(p)).not.toBeNull();
+      setListed(p, true);
+      expect(p.listed).toBeFalsy();
+      expect(releasePlayer(L, p)).toBeNull();
+      expect(p.team).toBe('ZEN');
+      const o = { id: L.nextMsgId++, date: L.date, player: p.id, from: 'LIV', to: L.user, fee: p.val * 3, status: 'pending' as const, expires: L.date };
+      L.offers.push(o);
+      respondOffer(L, o.id, 'accept');
+      expect(p.team).toBe('ZEN');
+      expect(o.status).toBe('pending');
+      respondOffer(L, o.id, 'reject');
+      expect(o.status).toBe('rejected');
+      expect(sellAdvice(L).some((x) => x.p.id === p.id)).toBe(false);
+    }
+    // A listed player who gets hurt keeps his place on the list but draws no bids until he is back.
+    L.offers.length = 0;
+    hurt.listed = true;
+    hurt.inj = { type: 'Травма колена', days: 90, total: 90 };
+    // (Healthy and listed, the same player draws bids on about half of these days.)
+    for (let i = 0; i < 40; i++) {
+      advanceDay(L);
+      expect(L.offers.some((o) => o.player === hurt.id)).toBe(false);
+    }
+    expect(hurt.inj).not.toBeNull();
+    expect(hurt.listed).toBe(true);
+    hurt.inj = null;
+    banned.susp = 0;
+    expect(setListed(banned, true)).toContain('выставлен');
+    expect(banned.listed).toBe(true);
   });
 });
 

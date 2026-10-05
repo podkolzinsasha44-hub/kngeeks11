@@ -4,7 +4,7 @@ import { dealFor, transferAdvice, type Chance, type Deal, type Pick } from '../.
 import { offerView, sellAdvice, type SellPick } from '../../engine/sale';
 import { useNav } from '../../store/nav';
 import { LEAGUES, LEAGUE_IDS, windowOpen } from '../../engine/leagues';
-import { foreignLeft, purchaseOf, respondOffer } from '../../engine/transfers';
+import { foreignLeft, purchaseOf, respondOffer, saleBlock, setListed } from '../../engine/transfers';
 import { wageBill } from '../../engine/contracts';
 import { FORMATIONS, teamPower } from '../../engine/lineup';
 import type { League, Player, Pos, TransferOffer } from '../../engine/types';
@@ -164,6 +164,7 @@ function Offers({ L }: { L: League }) {
       {incoming.map((o) => {
         const p = L.players[o.player], from = L.teams[o.from];
         const v = offerView(L, o);
+        const block = saleBlock(p);
         const [title, color] = OFFER_VERDICT[v.verdict === 'reject' && v.keep ? 'keep' : v.verdict];
         return (
           <Card key={o.id} className="mb-2.5">
@@ -184,11 +185,18 @@ function Offers({ L }: { L: League }) {
               <div className="text-[13.5px] mt-1 leading-snug">{v.text}</div>
               <div className="text-[12px] text-muted mt-1 leading-snug">{v.keep ? 'Замены нет' : <>Не дешевле <span className="num text-ink">{money(v.min)}</span> · хорошая цена <span className="num text-ink">{money(v.good)}</span></>} · {v.why.slice(0, 2).join('; ')}</div>
             </div>
-            <div className="grid grid-cols-2 gap-2 mt-3">
-              <Button full variant={v.verdict === 'accept' ? 'good' : 'glass'} size="sm" onClick={() => toast(act(() => respondOffer(L, o.id, 'accept')), 'good')}>Принять</Button>
-              <Button full variant="danger" size="sm" onClick={() => toast(act(() => respondOffer(L, o.id, 'reject')))}>Отказать</Button>
-              <Button full variant={v.verdict === 'accept' || v.ask == null ? 'glass' : 'primary'} size="sm" className="col-span-2" onClick={() => setAsking(o)}>{v.ask != null ? `Просить больше · совет ${money(v.ask)}` : 'Просить больше'}</Button>
-            </div>
+            {block ? (
+              <>
+                <div className="mt-3 text-[13px] text-warn leading-snug">⛔ {block}. Предложение ждёт до {dateShort(o.expires)}.</div>
+                <Button full variant="danger" size="sm" className="mt-2" onClick={() => toast(act(() => respondOffer(L, o.id, 'reject')))}>Отказать</Button>
+              </>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 mt-3">
+                <Button full variant={v.verdict === 'accept' ? 'good' : 'glass'} size="sm" onClick={() => toast(act(() => respondOffer(L, o.id, 'accept')), 'good')}>Принять</Button>
+                <Button full variant="danger" size="sm" onClick={() => toast(act(() => respondOffer(L, o.id, 'reject')))}>Отказать</Button>
+                <Button full variant={v.verdict === 'accept' || v.ask == null ? 'glass' : 'primary'} size="sm" className="col-span-2" onClick={() => setAsking(o)}>{v.ask != null ? `Просить больше · совет ${money(v.ask)}` : 'Просить больше'}</Button>
+              </div>
+            )}
           </Card>
         );
       })}
@@ -430,7 +438,7 @@ function SellRow({ x }: { x: SellPick }) {
           <div className={cx('text-[11px]', x.buyers ? 'text-muted' : 'text-warn')}>{x.buyers ? `${x.buyers} ${x.buyers % 10 === 1 && x.buyers % 100 !== 11 ? 'клуб' : x.buyers % 10 >= 2 && x.buyers % 10 <= 4 && (x.buyers % 100 < 12 || x.buyers % 100 > 14) ? 'клуба' : 'клубов'}` : 'нет покупателей'}</div>
           {x.p.listed
             ? <span className="text-[11px] text-ice">на трансфере</span>
-            : <button className="press text-[12px] font-semibold accent-text" onClick={() => { act(() => { x.p.listed = true; }); toast(`${dispName(x.p)} выставлен на трансфер — клубы будут присылать предложения`, 'good'); }}>На трансфер</button>}
+            : <button className="press text-[12px] font-semibold accent-text" onClick={() => { const b = saleBlock(x.p); toast(act(() => setListed(x.p, true)), b ? 'bad' : 'good'); }}>На трансфер</button>}
         </div>
       }
     />

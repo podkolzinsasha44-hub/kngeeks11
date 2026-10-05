@@ -7,7 +7,7 @@ import { playerClub } from '../../engine/ucl';
 import { useNav } from '../../store/nav';
 import { interest, startTalks, yearsLeft } from '../../engine/contracts';
 import { isLeague, LEAGUES, windowOpen } from '../../engine/leagues';
-import { askingPrice, releasePlayer, squadRank, userBid } from '../../engine/transfers';
+import { askingPrice, releasePlayer, saleBlock, setListed, squadRank, userBid } from '../../engine/transfers';
 import { avgRating, career } from '../../engine/stats';
 import type { KeeperAttrs, League, OutfieldAttrs, Player } from '../../engine/types';
 import { fullName } from '../../engine/util';
@@ -121,12 +121,12 @@ function Actions({ L, p }: { L: League; p: Player }) {
       <Button key="ext" variant="primary" disabled={!!blocked} onClick={() => { act(() => startTalks(L, p, L.user, 'extend')); push('negotiate', { id: p.id }); }}>
         {blocked ? 'Агент не готов' : yearsLeft(L, p) === 0 ? 'Продлить — истекает' : 'Продлить'}
       </Button>,
-      <Button key="list" onClick={() => act(() => { p.listed = !p.listed; toast(p.listed ? 'Игрок выставлен на трансфер: клубы будут присылать предложения' : 'Игрок снят с трансфера'); })} icon={<Icon name="swap" size={16} />}>
+      <Button key="list" onClick={() => { const off = !p.listed && !!saleBlock(p); toast(act(() => setListed(p, !p.listed)), off ? 'bad' : 'info'); }} icon={<Icon name="swap" size={16} />}>
         {p.listed ? 'Снять с трансфера' : 'На трансфер'}
       </Button>,
     );
     // A destructive action stays out of the thumb zone.
-    extra.push(<Button key="rel" variant="danger" onClick={() => setConfirm(true)}>Расторгнуть</Button>);
+    extra.push(<Button key="rel" variant="danger" onClick={() => { const b = saleBlock(p); if (b) toast(b, 'bad'); else setConfirm(true); }}>Расторгнуть</Button>);
   }
   if (!mine && p.st === 'FA') {
     btns.push(
@@ -156,7 +156,7 @@ function Actions({ L, p }: { L: League; p: Player }) {
       <BidSheet open={bid} onClose={() => setBid(false)} L={L} p={p} />
       <Sheet open={confirm} onClose={() => setConfirm(false)} title="Расторгнуть контракт?">
         <div className="text-[14.5px] text-muted mb-4">{dispName(p)} станет свободным агентом. Клуб выплатит половину оставшейся зарплаты из трансферного бюджета.</div>
-        <Button variant="danger" size="lg" full onClick={() => { const cost = act(() => releasePlayer(L, p)); setConfirm(false); toast(`Контракт расторгнут. Компенсация: ${money(cost)}`); }}>Расторгнуть</Button>
+        <Button variant="danger" size="lg" full onClick={() => { const cost = act(() => releasePlayer(L, p)); setConfirm(false); toast(cost == null ? saleBlock(p) ?? 'Контракт расторгнуть нельзя' : `Контракт расторгнут. Компенсация: ${money(cost)}`, cost == null ? 'bad' : 'info'); }}>Расторгнуть</Button>
       </Sheet>
     </>
   );

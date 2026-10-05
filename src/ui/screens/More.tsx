@@ -4,6 +4,7 @@ import { motion } from 'motion/react';
 import { useGame, useL, applyTheme } from '../../store/game';
 import { useNav } from '../../store/nav';
 import { exportFile } from '../../persistence/db';
+import { saleBlock, setListed } from '../../engine/transfers';
 import { aiLineup } from '../../engine/ai';
 import { startTalks, wageBill } from '../../engine/contracts';
 import { renewalCases, renewNow, VERDICT_RU, type RenewalCase, type Verdict } from '../../engine/renewals';
@@ -443,8 +444,9 @@ export function RenewalSheet({ L, c, onClose }: { L: League; c: RenewalCase | nu
             {c.verdict !== 'sell' && !c.p.wantsOut && (
               <Button full onClick={() => { act(() => startTalks(L, c.p, L.user, 'extend')); onClose(); push('negotiate', { id: c.p.id }); }}>Переговоры — попробовать дешевле</Button>
             )}
-            {(c.verdict === 'sell' || c.verdict === 'release') && !c.p.listed && (
-              <Button full onClick={() => { act(() => { c.p.listed = true; }); toast('Игрок выставлен на трансфер: клубы будут присылать предложения'); onClose(); }}>Выставить на трансфер</Button>
+            {(c.verdict === 'sell' || c.verdict === 'release') && !c.p.listed && (saleBlock(c.p)
+              ? <div className="text-[13px] text-warn leading-snug px-1">⛔ {saleBlock(c.p)}</div>
+              : <Button full onClick={() => { toast(act(() => setListed(c.p, true)), 'good'); onClose(); }}>Выставить на трансфер</Button>
             )}
             <Button full variant="ghost" onClick={() => { onClose(); push('player', { id: c.p.id }); }}>Профиль игрока</Button>
           </div>

@@ -11,6 +11,27 @@ import { addDays, ageOn, clamp, dispName, MIN_VALUE, money, roundMoney } from '.
 
 const round = roundMoney;
 
+/**
+ * Why the user's player cannot be sold, put on the transfer list or released right now, or null. An injured or
+ * suspended player is only out for a while: he keeps his place in the plans and no club signs him until he is back.
+ */
+export function saleBlock(p: Player): string | null {
+  if (p.inj) return `${dispName(p)} травмирован (${p.inj.type.toLowerCase()}, ещё ${p.inj.days} дн.) — продать, выставить на трансфер или отпустить можно после выздоровления`;
+  const n = p.susp ?? 0;
+  if (n > 0) return `${dispName(p)} дисквалифицирован (${n} ${n === 1 ? 'матч' : n < 5 ? 'матча' : 'матчей'}) — продать, выставить на трансфер или отпустить можно после дисквалификации`;
+  return null;
+}
+
+/** The user puts a player on the transfer list or takes him off it; returns the text for the user. */
+export function setListed(p: Player, on: boolean): string {
+  if (on) {
+    const block = saleBlock(p);
+    if (block) return block;
+  }
+  p.listed = on;
+  return on ? `${dispName(p)} выставлен на трансфер — клубы будут присылать предложения` : `${dispName(p)} снят с трансфера`;
+}
+
 /** Rank of the player inside his squad by rating (0 = the best). */
 export function squadRank(L: League, p: Player) {
   if (!p.team) return 99;
@@ -149,6 +170,8 @@ function offersToUser(L: League) {
   for (const p of shuffle(mine)) {
     if (made >= (p.listed ? 2 : 1)) break;
     if (L.offers.some((o) => o.player === p.id && o.to === L.user && o.status === 'pending')) continue;
+    // Nobody bids for a player who is injured or suspended; a listed one gets offers again once he is back.
+    if (saleBlock(p)) continue;
     // Unsolicited bids are rare; listing a player is what brings the buyers.
     const pr = p.listed ? 0.5 : p.wantsOut ? 0.3 : 0.01 + (p.ovr >= 76 ? 0.008 : 0);
     if (next() > pr) continue;
@@ -184,6 +207,8 @@ export function respondOffer(L: League, id: number, action: 'accept' | 'reject' 
     if (p.wantsOut) p.morale = clamp(p.morale - 6, 0, 100);
     return 'Предложение отклонено.';
   }
+  const block = saleBlock(p);
+  if (block) return `${block}. Предложение «${buyer.ru}» действует до ${off.expires.slice(8)}.${off.expires.slice(5, 7)}.`;
   if (action === 'counter' && amount) {
     if (amount <= buyerCeiling(L, buyer, p)) off.fee = Math.round(amount);
     else {
@@ -332,6 +357,7 @@ export function returnLoans(L: League) {
 /** The user releases a player: half of the remaining wages is paid from the budget. */
 export function releasePlayer(L: League, p: Player) {
   const t = L.teams[L.user];
+  if (saleBlock(p)) return null;
   const left = p.c ? Math.max(0, p.c.until - (L.season + 1)) + 0.5 : 0;
   const cost = roundMoney((p.c?.wage ?? 0) * left * 0.5);
   t.budget -= cost;

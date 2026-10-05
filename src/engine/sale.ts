@@ -7,7 +7,7 @@
 import { askingWage, interest, wageBill } from './contracts';
 import { FORMATIONS, planned, slotRating, squad } from './lineup';
 import { lossWithout, NEED, renewalCases } from './renewals';
-import { askingPrice, buyerCeiling, wouldStart } from './transfers';
+import { askingPrice, buyerCeiling, saleBlock, wouldStart } from './transfers';
 import type { League, Player, Role, TransferOffer } from './types';
 import { ageOn, dispName, floorMoney, MIN_VALUE, money, roundMoney } from './util';
 
@@ -149,7 +149,8 @@ export function sellAdvice(L: League, limit = 8): SellPick[] {
   const clubs = Object.values(L.teams).filter((t) => t.id !== me.id && t.lg !== 'U17');
   const out: SellPick[] = [];
   for (const p of sq) {
-    if (p.loan) continue;
+    // Injured or suspended players are only out for a while and cannot be sold now.
+    if (p.loan || saleBlock(p)) continue;
     const v = saleView(L, p);
     if (v.keep || v.loss >= 0.35) continue;
     const age = ageOn(p.bd, L.date);
