@@ -231,7 +231,7 @@ function UclWatch() {
     : u.phase === 'ko' && cup ? `Идёт плей-офф: ${cup.rounds[cup.round].name}`
     : played && lead ? `Лидер общего этапа — «${lead.ru}», ${u.table[lead.id].pts} очк.`
     : `Старт ${dateShort(first)} · 36 клубов, жеребьёвка состоялась`;
-  const why = me.lg === 'RPL' || me.lg === 'FNL'
+  const why = me.country === 'RUS'
     ? (L.settings.intlRussia ? 'Чемпион РПЛ сыграет в следующем сезоне' : 'Российские клубы отстранены UEFA — можно вернуть в настройках')
     : 'Ваш клуб не попал в число участников';
   return (

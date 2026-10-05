@@ -19,6 +19,9 @@ import { wageBill, wageFor } from '../src/engine/contracts';
 import type { League } from '../src/engine/types';
 import { newCareer, upgradeSave, type WorldJson } from '../src/engine/world';
 import { editYouthPlayer } from '../src/engine/youth';
+import { initPlayoffs } from '../src/engine/cup';
+import { rollover } from '../src/engine/offseason';
+import { sortedTeams } from '../src/engine/standings';
 import { club, drawLeague, makePots, matchdays, rosterOf, uclOrder, UCL } from '../src/engine/ucl';
 
 // These tests play real days of the season: a slower runner must not fail them on the default 5 s.
@@ -458,6 +461,63 @@ describe('Second League B, group 3', () => {
     // A strong free agent does not go down to the fourth division.
     const star = Object.values(L.players).find((p) => p.ovr >= 78 && p.ctry === 'RUS')!;
     expect(interest(L, { ...star, team: null, st: 'FA', c: null }, L.teams.ORL)).toBeLessThan(0.45);
+  });
+});
+
+describe('Second League A and the way up', () => {
+  it('has the seventeen real clubs of division A with real squads and no foreigners', () => {
+    const L = career();
+    const clubs = Object.values(L.teams).filter((t) => t.lg === 'L2A');
+    expect(clubs).toHaveLength(17);
+    for (const t of clubs) {
+      const sq = squad(L, t.id);
+      expect(sq.length, t.id).toBeGreaterThanOrEqual(18);
+      expect(sq.every((p) => p.real), t.id).toBe(true);
+      expect(sq.filter((p) => p.pos === 'G').length, t.id).toBeGreaterThanOrEqual(2);
+      expect(sq.filter((p) => isForeign(p, 'RUS')), t.id).toHaveLength(0);
+    }
+    // 17 clubs, double round-robin: 16 × 17 games.
+    expect(L.games.filter((g) => g.comp === 'L2A')).toHaveLength(272);
+  });
+
+  /** Final tables in a given order: the club listed first in each league is the champion. */
+  function finish(L: League, order: Partial<Record<string, string[]>> = {}) {
+    for (const lg of ['RPL', 'FNL', 'L2A', 'L2B'] as const) {
+      const first = order[lg] ?? [];
+      const rest = Object.values(L.teams).filter((t) => t.lg === lg && !first.includes(t.id)).sort((a, b) => a.id.localeCompare(b.id));
+      [...first.map((id) => L.teams[id]), ...rest].forEach((t, i) => { t.rec.pts = 200 - i; t.rec.gp = 30; });
+      L.comps[lg].phase = 'done';
+    }
+    L.games = L.games.filter((g) => g.played);
+  }
+
+  it('play-offs: 13th and 14th of the RPL meet 4th and 3rd of the First League, 16th of the First League meets 3rd of division A', () => {
+    const L = career('ORL');
+    finish(L);
+    initPlayoffs(L, L.season);
+    const rpl = sortedTeams(L, 'RPL'), fnl = sortedTeams(L, 'FNL'), l2a = sortedTeams(L, 'L2A');
+    const ties = L.cups.PO!.ties.map((t) => [t.h, t.a]);
+    expect(ties).toEqual(expect.arrayContaining([[fnl[3].id, rpl[12].id], [fnl[2].id, rpl[13].id], [l2a[2].id, fnl[15].id]]));
+    expect(ties).toHaveLength(3);
+  });
+
+  it('Oryol can climb from division B to the Premier League, one division a season', () => {
+    const L = career('ORL');
+    const sizes = () => Object.fromEntries((['RPL', 'FNL', 'L2A', 'L2B'] as const).map((lg) => [lg, Object.values(L.teams).filter((t) => t.lg === lg).length]));
+    const before = sizes();
+    for (const want of ['L2A', 'FNL', 'RPL']) {
+      const lg = L.teams.ORL.lg;
+      finish(L, { [lg]: ['ORL'] });
+      const down = sortedTeams(L, LEAGUES[lg].up!).slice(-1)[0];
+      L.date = `${L.season + 1}-06-20`;
+      rollover(L);
+      expect(L.teams.ORL.lg).toBe(want);
+      expect(down.lg).toBe(lg);
+      expect(sizes()).toEqual(before);
+      expect(L.history[0].userRecord.place).toBe(1);
+    }
+    // Every division of the new season has its calendar.
+    for (const lg of ['RPL', 'FNL', 'L2A', 'L2B']) expect(L.games.some((g) => g.comp === lg), lg).toBe(true);
   });
 });
 

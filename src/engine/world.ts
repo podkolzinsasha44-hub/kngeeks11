@@ -71,10 +71,10 @@ export function upgradeSave(L: League, world: WorldJson) {
   if (L.v < 2) { modelledValues(L); L.v = 2; }
 }
 
-/** Second league B has no market values in the sources: there the value is the model (rating, age, potential,
+/** The Second League (divisions A and B) has no market values in the sources: there the value is the model (rating, age, potential,
  *  contract), so players of the same rating still differ in price. */
 function modelledValues(L: League) {
-  for (const p of Object.values(L.players)) if (p.team && L.teams[p.team]?.lg === 'L2B') p.val = modelValue(p, L.date);
+  for (const p of Object.values(L.players)) if (p.team && (L.teams[p.team]?.lg === 'L2B' || L.teams[p.team]?.lg === 'L2A')) p.val = modelValue(p, L.date);
 }
 
 /** Saves made before the Champions League: the guest clubs and their squads join the world; the real

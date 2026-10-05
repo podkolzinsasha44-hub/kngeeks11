@@ -1,10 +1,10 @@
 // Knock-out competitions: the Russian Cup (simplified to a 32-club single-match bracket) and the
 // promotion / relegation play-offs between the Premier League and the First League (two legs).
-import { leagueTeams } from './leagues';
+import { LEAGUES, LEAGUE_IDS, leagueTeams } from './leagues';
 import { pushNews } from './news';
 import { shuffle } from './rng';
 import { sortedTeams } from './standings';
-import type { Cup, CupTie, Game, League } from './types';
+import type { Cup, CupTie, Game, League, Team } from './types';
 import { addDays, dow } from './util';
 
 const wed = (d: string) => { while (dow(d) !== 3) d = addDays(d, 1); return d; };
@@ -90,15 +90,27 @@ export function onCupGame(L: League, g: Game): 'final' | 'tie' | null {
   return 'tie';
 }
 
-/** Play-offs for a Premier League place: 13th and 14th of the RPL against 4th and 3rd of the First League. */
+/** Divisions whose seasons must be over before the play-offs start. */
+export const PO_LEAGUES = LEAGUE_IDS.filter((lg) => LEAGUES[lg].playoff || LEAGUES[lg].promotePO);
+
+/**
+ * Play-offs between neighbouring divisions, two legs, the first at the club of the lower one: 13th and 14th of the
+ * RPL against 4th and 3rd of the First League; 16th of the First League against 3rd of the Second League A.
+ */
 export function initPlayoffs(L: League, season: number) {
-  const rpl = sortedTeams(L, 'RPL'), fnl = sortedTeams(L, 'FNL');
-  if (rpl.length < 16 || fnl.length < 4) return;
   const start = addDays(L.date, 3);
   const cup: Cup = { id: 'PO', name: 'Переходные матчи', season, rounds: [{ name: 'Переходные матчи', day: start }], round: 0, ties: [] };
   L.cups.PO = cup;
-  // The first leg is played at the First League club.
-  addTie(L, cup, 0, fnl[3].id, rpl[12].id, 2);
-  addTie(L, cup, 0, fnl[2].id, rpl[13].id, 2);
-  pushNews(L, { kind: 'league', title: `Переходные матчи: «${rpl[12].ru}» — «${fnl[3].ru}», «${rpl[13].ru}» — «${fnl[2].ru}»`, important: true });
+  const pairs: [Team, Team][] = [];
+  for (const hi of LEAGUE_IDS) {
+    const c = LEAGUES[hi], lo = c.down;
+    if (!lo || !c.playoff) continue;
+    const top = sortedTeams(L, hi), low = sortedTeams(L, lo);
+    const from = LEAGUES[lo].promote ?? 0, n = Math.min(c.playoff, LEAGUES[lo].promotePO ?? 0);
+    if (top.length < c.relegate + n || low.length < from + n) continue;
+    // The higher a club of the upper division finished, the stronger its opponent: 13th meets 4th, 14th meets 3rd.
+    for (let k = 0; k < n; k++) pairs.push([low[from + n - 1 - k], top[top.length - c.relegate - n + k]]);
+  }
+  for (const [lo, hi] of pairs) addTie(L, cup, 0, lo.id, hi.id, 2);
+  if (pairs.length) pushNews(L, { kind: 'league', title: `Переходные матчи: ${pairs.map(([lo, hi]) => `«${hi.ru}» — «${lo.ru}»`).join(', ')}`, important: true });
 }

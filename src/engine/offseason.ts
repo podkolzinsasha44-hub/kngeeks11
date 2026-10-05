@@ -55,20 +55,28 @@ export function endLeague(L: League, lg: LeagueId) {
   }
 }
 
-/** Clubs changing division after the season: [down, up] pairs. */
+/** Clubs changing division after the season: [down, up] pairs. The bottom of every division swaps with the top
+ *  of the one below (RPL ↔ First League ↔ Second League A ↔ group 3 of division B), then the play-off winners. */
 function movers(L: League): [Team, Team][] {
-  const rpl = sortedTeams(L, 'RPL'), fnl = sortedTeams(L, 'FNL');
-  const out: [Team, Team][] = [[rpl[rpl.length - 1], fnl[0]], [rpl[rpl.length - 2], fnl[1]]];
+  const out: [Team, Team][] = [];
+  for (const hi of LEAGUE_IDS) {
+    const lo = LEAGUES[hi].down;
+    if (!lo || !L.comps[hi] || !L.comps[lo]) continue;
+    const top = sortedTeams(L, hi), low = sortedTeams(L, lo);
+    const n = Math.min(LEAGUES[hi].relegate, LEAGUES[lo].promote ?? 0, top.length, low.length);
+    for (let k = 0; k < n; k++) out.push([top[top.length - 1 - k], low[k]]);
+  }
   for (const tie of L.cups.PO?.season === L.season ? L.cups.PO.ties : []) {
     const w = tie.winner ? L.teams[tie.winner] : null;
-    if (w && w.lg === 'FNL') out.push([L.teams[w.id === tie.h ? tie.a : tie.h], w]);
+    const other = w && L.teams[w.id === tie.h ? tie.a : tie.h];
+    if (w && other && LEAGUES[w.lg].up === other.lg) out.push([other, w]);
   }
   return out;
 }
 
 function income(t: Team, place: number, n: number) {
   const factor = 1.6 - (1.1 * (place - 1)) / Math.max(1, n - 1);
-  const base = { RPL: 12e6, FNL: 2.5e6, L2B: 0.35e6, U17: 0, EPL: 42e6, ESP: 27e6, ITA: 23e6, GER: 23e6, FRA: 17e6 }[t.lg];
+  const base = { RPL: 12e6, FNL: 2.5e6, L2A: 0.8e6, L2B: 0.35e6, U17: 0, EPL: 42e6, ESP: 27e6, ITA: 23e6, GER: 23e6, FRA: 17e6 }[t.lg];
   return Math.round((base * factor * Math.pow(t.rep / 60, 2)) / 1e5) * 1e5;
 }
 
@@ -118,9 +126,13 @@ export function rollover(L: League) {
 
   // --- promotion and relegation
   for (const [down, up] of moves) {
-    down.lg = 'FNL'; up.lg = 'RPL';
-    L.comps.RPL.history[0]?.relegated.push(down.id);
-    pushNews(L, { kind: 'league', title: `«${up.ru}» выходит в Премьер-Лигу, «${down.ru}» отправляется в Первую лигу`, important: down.id === me.id || up.id === me.id });
+    const hi = down.lg, lo = up.lg;
+    down.lg = lo; up.lg = hi;
+    L.comps[hi].history[0]?.relegated.push(down.id);
+    // A promoted club gets the money of its new level: sponsors and the league's share.
+    up.budget += Math.round((LEAGUES[hi].income * 0.15) / 1e4) * 1e4;
+    up.rep = Math.max(up.rep, Math.min(down.rep, up.rep + 6));
+    pushNews(L, { kind: 'league', title: `«${up.ru}» выходит ${LEAGUES[hi].into ?? `в ${LEAGUES[hi].name}`}, «${down.ru}» отправляется ${LEAGUES[lo].into ?? `в ${LEAGUES[lo].name}`}`, important: down.id === me.id || up.id === me.id });
   }
 
   // --- contracts, loans, retirements, development
@@ -185,7 +197,9 @@ export function rollover(L: League) {
   for (const t of Object.values(L.teams)) {
     t.rec = emptyRecord();
     t.lastGame = undefined;
-    t.wageBudget = Math.round(Math.max(t.wageBudget * (t.lg === 'FNL' && t.last?.lg === 'RPL' ? 0.75 : 1.03), wageBill(L, t.id) * 1.08) / 1e4) * 1e4;
+    // Relegation cuts the wage budget, promotion raises it.
+    const was = t.last?.lg ? LEAGUES[t.last.lg].tier : LEAGUES[t.lg].tier, now = LEAGUES[t.lg].tier;
+    t.wageBudget = Math.round(Math.max(t.wageBudget * (now > was ? 0.75 : now < was ? 1.35 : 1.03), wageBill(L, t.id) * 1.08) / 1e4) * 1e4;
     if (t.id !== me.id) aiLineup(L, t);
   }
   // Clubs left short by expired contracts sign free agents (or promote a youngster) straight away.

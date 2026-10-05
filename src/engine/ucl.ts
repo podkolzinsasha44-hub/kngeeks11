@@ -132,7 +132,7 @@ export function qualifiers(L: League, holder: string | undefined): string[] {
     for (const t of Object.values(L.teams)) if (t.last?.lg === lg && t.last.pos <= n) inn.add(t.id);
   }
   const hl = holder ? club(L, holder)?.lg : null;
-  if (holder && hl && hl !== 'FNL' && hl !== 'L2B' && (hl !== 'RPL' || L.settings.intlRussia)) inn.add(holder);
+  if (holder && hl && hl !== 'FNL' && hl !== 'L2A' && hl !== 'L2B' && (hl !== 'RPL' || L.settings.intlRussia)) inn.add(holder);
   // The rest of Europe: the guests by strength (a little luck decides between close clubs).
   const guests = Object.values(L.ext ?? {}).filter((t) => !inn.has(t.id)).map((t) => ({ t, k: t.rep + next() * 8 })).sort((a, b) => b.k - a.k);
   for (const { t } of guests) { if (inn.size >= 36) break; inn.add(t.id); }

@@ -51,7 +51,8 @@ function Table({ L, lg }: { L: League; lg: LeagueId }) {
   const cfg = LEAGUES[lg];
   const odds = useMemo(() => (L.comps[lg].phase === 'regular' ? seasonOdds(L, lg, 200) : null), [L.date, lg]); // eslint-disable-line react-hooks/exhaustive-deps
   const n = table.length;
-  const zone = (i: number) => (i < (cfg.up ? 2 : 1) ? '#e8c26a' : i < (cfg.up ? 4 : cfg.top) ? '#3ddc97' : i >= n - cfg.relegate && cfg.relegate ? '#ff5a5f' : i >= n - cfg.relegate - cfg.playoff && cfg.playoff ? '#ffb547' : 'transparent');
+  const up = cfg.up ? cfg.promote ?? 0 : 1, upPO = cfg.up ? cfg.promotePO ?? 0 : cfg.top - 1;
+  const zone = (i: number) => (i < up ? '#e8c26a' : i < up + upPO ? '#3ddc97' : i >= n - cfg.relegate && cfg.relegate ? '#ff5a5f' : i >= n - cfg.relegate - cfg.playoff && cfg.playoff ? '#ffb547' : 'transparent');
   return (
     <>
       <Card pad={false} className="mt-1 overflow-hidden">
@@ -69,11 +70,13 @@ function Table({ L, lg }: { L: League; lg: LeagueId }) {
         ))}
       </Card>
       <div className="flex gap-3 flex-wrap text-[11.5px] text-muted mt-2.5 px-1">
-        <span><i className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: '#e8c26a' }} />{cfg.up ? 'выход в РПЛ' : 'чемпион'}</span>
-        <span><i className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: '#3ddc97' }} />{cfg.up ? 'стыковые матчи' : `топ-${cfg.top}`}</span>
-        {cfg.playoff > 0 && <span><i className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: '#ffb547' }} />переходные матчи</span>}
-        {cfg.relegate > 0 && <span><i className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: '#ff5a5f' }} />вылет</span>}
+        <span><i className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: '#e8c26a' }} />{cfg.up ? `выход ${LEAGUES[cfg.up].into}` : 'чемпион'}</span>
+        {upPO > 0 && <span><i className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: '#3ddc97' }} />{cfg.up ? 'переходные матчи за выход' : `топ-${cfg.top}`}</span>}
+        {cfg.playoff > 0 && <span><i className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: '#ffb547' }} />переходные матчи за место</span>}
+        {cfg.relegate > 0 && <span><i className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: '#ff5a5f' }} />вылет{cfg.down ? ` ${LEAGUES[cfg.down].into}` : ''}</span>}
       </div>
+      {lg === 'L2A' && <div className="text-[11.5px] text-faint mt-1.5 px-1">В жизни дивизион А играет двумя этапами в группах «Золото» и «Серебро»; в игре это одна таблица из 17 клубов с теми же местами на выход и вылет.</div>}
+      {lg === 'L2B' && <div className="text-[11.5px] text-faint mt-1.5 px-1">Победитель группы выходит во Вторую лигу А. В игре это единственная группа дивизиона Б, поэтому вниз из неё никто не вылетает.</div>}
       {cfg.country !== 'RUS' && <div className="text-[11.5px] text-faint mt-1.5 px-1">Вылет и повышение в зарубежных лигах не моделируются: состав участников постоянный.</div>}
       {odds && (
         <>

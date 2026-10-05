@@ -13,9 +13,14 @@ export function ownerGoalFor(L: League, teamId: string): { goal: OwnerState['goa
   const t = L.teams[teamId];
   const ranks = leagueTeams(L, t.lg).map((x) => ({ id: x.id, p: teamPower(L, x) })).sort((a, b) => b.p - a.p);
   const rank = ((ranks.findIndex((r) => r.id === teamId) + 1) * 16) / ranks.length;
-  if (LEAGUES[t.lg].up) {
-    if (rank <= 4) return { goal: 'promote', text: 'состав сильнейший в лиге — задача одна: прямой выход в Премьер-Лигу (первые два места)' };
-    if (rank <= 9) return { goal: 'playoff', text: 'бороться за выход в Премьер-Лигу: место в первой четвёрке (стыковые матчи)' };
+  const cfg = LEAGUES[t.lg];
+  if (cfg.up) {
+    const into = LEAGUES[cfg.up].into, up = cfg.promote ?? 1, po = cfg.promotePO ?? 0;
+    const places = up === 1 ? 'первое место' : `первые ${up === 2 ? 'два' : up} места`;
+    if (rank <= 4) return { goal: 'promote', text: `состав сильнейший в лиге — задача одна: выход ${into} (${places})` };
+    if (rank <= 9) return po
+      ? { goal: 'playoff', text: `бороться за выход ${into}: место не ниже ${up + po}-го (${up + po === 3 ? 'третье' : 'третье и четвёртое'} — переходные матчи)` }
+      : { goal: 'top3', text: `быть рядом с лидерами: место в тройке, чтобы на следующий год бороться за выход ${into}` };
     return { goal: 'mid', text: 'спокойный сезон в середине таблицы и развитие молодых игроков' };
   }
   if (rank <= 2) return { goal: 'title', text: 'команда собрана для чемпионства — жду золотые медали' };
@@ -26,6 +31,10 @@ export function ownerGoalFor(L: League, teamId: string): { goal: OwnerState['goa
 }
 
 export const targetPlace = (L: League) => {
+  const cfg = LEAGUES[L.teams[L.user].lg];
+  // Promotion goals are the real promotion places of the division.
+  if (cfg.up && L.owner.goal === 'promote') return cfg.promote ?? 1;
+  if (cfg.up && L.owner.goal === 'playoff') return (cfg.promote ?? 1) + (cfg.promotePO ?? 0);
   const n = leagueTeams(L, L.teams[L.user].lg).length;
   return Math.max(1, Math.round((TARGET[L.owner.goal] * n) / 16));
 };

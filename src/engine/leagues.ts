@@ -15,11 +15,16 @@ export interface LeagueCfg {
   pause?: [[number, number], [number, number]];
   /** Playing style of the league (same for both teams): shot volume and finishing multipliers. */
   style: { shot: number; fin: number };
-  /** Direct relegation / promotion places and play-off places. */
+  /** The divisions below and above, the bottom places relegated directly and those that go to the play-offs. */
   down?: LeagueId;
   up?: LeagueId;
   relegate: number;
   playoff: number;
+  /** Top places promoted directly and those that go to the promotion play-offs (with `up`). */
+  promote?: number;
+  promotePO?: number;
+  /** "в Премьер-Лигу": the league in the accusative, for texts about promotion into it. */
+  into?: string;
   /** Places that count as a success for the board: European places / podium. */
   top: number;
   wageMul: number;
@@ -28,11 +33,16 @@ export interface LeagueCfg {
 }
 
 export const LEAGUES: Record<LeagueId, LeagueCfg> = {
-  RPL: { id: 'RPL', name: 'Российская Премьер-Лига', short: 'РПЛ', country: 'RUS', tier: 1, start: [7, 24], end: [5, 29], pause: [[12, 8], [2, 25]], style: { shot: 0.96, fin: 0.99 }, down: 'FNL', relegate: 2, playoff: 2, top: 3, wageMul: 0.9, income: 14e6 },
-  FNL: { id: 'FNL', name: 'Первая лига', short: 'Первая лига', country: 'RUS', tier: 2, start: [7, 18], end: [5, 23], pause: [[12, 1], [2, 26]], style: { shot: 0.93, fin: 0.95 }, up: 'RPL', relegate: 0, playoff: 0, top: 2, wageMul: 0.45, income: 2.5e6 },
+  RPL: { id: 'RPL', name: 'Российская Премьер-Лига', short: 'РПЛ', into: 'в Премьер-Лигу', country: 'RUS', tier: 1, start: [7, 24], end: [5, 29], pause: [[12, 8], [2, 25]], style: { shot: 0.96, fin: 0.99 }, down: 'FNL', relegate: 2, playoff: 2, top: 3, wageMul: 0.9, income: 14e6 },
+  // 18 clubs: 1-2 up, 3-4 to the play-offs with 14th and 13th of the RPL; 17-18 down to division A, 16th plays 3rd of division A.
+  FNL: { id: 'FNL', name: 'Первая лига', short: 'Первая лига', into: 'в Первую лигу', country: 'RUS', tier: 2, start: [7, 18], end: [5, 23], pause: [[12, 1], [2, 26]], style: { shot: 0.93, fin: 0.95 }, up: 'RPL', down: 'L2A', promote: 2, promotePO: 2, relegate: 2, playoff: 1, top: 2, wageMul: 0.45, income: 2.5e6 },
+  // Division A of the Second League, 2026-27: the 17 clubs of both groups of the first stage in one table (in reality
+  // two groups, "gold" and "silver", with a second stage in spring). 1-2 up, 3rd to the play-offs with 16th of the First
+  // League; the last one goes down to group 3 of division B (the only group of division B in the game).
+  L2A: { id: 'L2A', name: 'Вторая лига А', short: 'Вторая лига А', into: 'во Вторую лигу А', country: 'RUS', tier: 3, start: [7, 11], end: [5, 23], pause: [[11, 30], [3, 6]], style: { shot: 0.9, fin: 0.94 }, up: 'FNL', down: 'L2B', promote: 2, promotePO: 1, relegate: 1, playoff: 0, top: 2, wageMul: 0.3, income: 0.9e6 },
   // Group 3 of division B of the Second League (Oryol, Kursk, Tula, Penza…). Played on the calendar of the game
-  // (July–May) instead of the real March–October; no promotion or relegation is modelled for it.
-  L2B: { id: 'L2B', name: 'Вторая лига Б, группа 3', short: 'Вторая лига', country: 'RUS', tier: 4, start: [7, 25], end: [5, 30], pause: [[11, 29], [3, 6]], style: { shot: 1.0, fin: 1.0 }, relegate: 0, playoff: 0, top: 3, wageMul: 0.2, income: 0.4e6 },
+  // (July–May) instead of the real March–October. The winner goes up to division A.
+  L2B: { id: 'L2B', name: 'Вторая лига Б, группа 3', short: 'Вторая лига Б', into: 'во Вторую лигу Б', country: 'RUS', tier: 4, start: [7, 25], end: [5, 30], pause: [[11, 29], [3, 6]], style: { shot: 1.0, fin: 1.0 }, up: 'L2A', promote: 1, promotePO: 0, relegate: 0, playoff: 0, top: 1, wageMul: 0.2, income: 0.4e6 },
   // Youth league of players born in 2009 (Oryol and neighbouring regions): squads typed in by the user.
   U17: { id: 'U17', name: 'Юношеская лига 2009 г. р.', short: 'Юноши 2009', country: 'RUS', tier: 9, start: [8, 29], end: [5, 23], pause: [[11, 15], [3, 20]], style: { shot: 1.0, fin: 1.0 }, relegate: 0, playoff: 0, top: 3, wageMul: 0, income: 0 },
   EPL: { id: 'EPL', name: 'Премьер-лига', short: 'АПЛ', country: 'ENG', tier: 1, start: [8, 15], end: [5, 23], style: { shot: 1.0, fin: 1.01 }, relegate: 0, playoff: 0, top: 4, wageMul: 1.35, income: 150e6 },
@@ -66,7 +76,7 @@ export const isForeign = (p: Player, country: string) => (country === 'RUS' ? !H
 export function foreignLimit(lg: LeagueId, season: number): [number, number] | null {
   if (LEAGUES[lg]?.country !== 'RUS') return null;
   // The Second League admits only citizens of Russia (and of the Eurasian Economic Union): no foreigners at all.
-  if (lg === 'L2B') return [0, 0];
+  if (lg === 'L2A' || lg === 'L2B') return [0, 0];
   return season <= 2026 ? [12, 7] : season === 2027 ? [11, 6] : [10, 5];
 }
 

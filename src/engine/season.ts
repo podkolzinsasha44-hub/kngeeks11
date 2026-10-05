@@ -1,7 +1,7 @@
 // The daily loop: line-ups, matches of every competition, weekly and monthly routines.
 import { aiLineup, aiRenewals, fixForeign, foreignOnPitch, groupByTeam, updateStrategies } from './ai';
 import { updateValues } from './contracts';
-import { aggregateFor, initPlayoffs, isDecider, onCupGame } from './cup';
+import { aggregateFor, initPlayoffs, isDecider, onCupGame, PO_LEAGUES } from './cup';
 import { weeklyMorale } from './events';
 import { genPlayer } from './gen';
 import { intlDaily } from './intl';
@@ -218,7 +218,7 @@ export function advanceDay(L: League): DayReport {
         if (lg === L.teams[L.user]?.lg) L.stops.push('season-end');
       }
     }
-    if (L.comps.RPL.phase === 'done' && L.comps.FNL.phase === 'done' && L.cups.PO?.season !== L.season) initPlayoffs(L, L.season);
+    if (PO_LEAGUES.every((lg) => !L.comps[lg] || L.comps[lg].phase === 'done') && L.cups.PO?.season !== L.season) initPlayoffs(L, L.season);
   }
 
   intlDaily(L);

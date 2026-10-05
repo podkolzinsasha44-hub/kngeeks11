@@ -28,6 +28,10 @@ const REAL: Partial<Record<LeagueId, { gpm: number; home: number; draw: number; 
   // Second League B, group 3: mean of 2025 (full) and 2026 (26 of 30 rounds), from the league's own site.
   // Top scorer: a reference value — the 2026 leader (14 goals in 19 games) at his pace over 30 rounds
   // and about 25 games, ≈ 20; the season leader of a full year is not in the data yet.
+  // Second League A: 2025-26, both stages of both groups (326 matches, the league's own site). Points of the best and
+  // the worst club per game over 32 rounds (the game plays one table of 17). Top scorer: a reference value —
+  // the 2026-27 leader's pace (10 goals in 12 rounds) is too early to trust, so ≈ 22.
+  L2A: { gpm: 2.42, home: 0.405, draw: 0.31, champ: 64, last: 27, scorer: 22 },
   L2B: { gpm: 2.83, home: 0.433, draw: 0.196, champ: 69, last: 10, scorer: 20 },
   EPL: { gpm: 2.84, home: 0.417, draw: 0.26, champ: 84.5, last: 20, scorer: 27 },
   ESP: { gpm: 2.66, home: 0.467, draw: 0.25, champ: 91, last: 25, scorer: 31 },
