@@ -4,7 +4,7 @@ export type Role = 'GK' | 'CB' | 'LB' | 'RB' | 'DM' | 'CM' | 'AM' | 'LM' | 'RM' 
 export type Status = 'ACT' | 'FA' | 'RET';
 export type Difficulty = 'rookie' | 'real' | 'hard';
 /** Club leagues simulated by the engine. */
-export type LeagueId = 'RPL' | 'FNL' | 'EPL' | 'ESP' | 'ITA' | 'GER' | 'FRA';
+export type LeagueId = 'RPL' | 'FNL' | 'L2B' | 'EPL' | 'ESP' | 'ITA' | 'GER' | 'FRA';
 export type Strategy = 'contend' | 'bubble' | 'rebuild';
 export type FormationId = '4-4-2' | '4-3-3' | '4-2-3-1' | '3-5-2' | '5-3-2' | '4-1-4-1' | '3-4-3';
 export type Tactic = 'attack' | 'balanced' | 'defense';
@@ -164,6 +164,8 @@ export interface Team {
   ext?: true;
   /** Transfermarkt club id: the crest is loaded from its image CDN. */
   tm?: number;
+  /** Full crest URL for clubs Transfermarkt does not cover (the Second League: the league's own site). */
+  logo?: string;
   name: string;
   /** Russian name for the interface. */
   ru: string;

@@ -166,7 +166,7 @@ export function Office() {
         </div>
         <div className="mt-2 flex gap-1.5 flex-wrap">
           <Pill color={windowOpen(L) ? '#3ddc97' : '#8b98ae'}>{windowOpen(L) ? 'Трансферное окно открыто' : 'Окно закрыто'}</Pill>
-          {lim && <Pill>Легионеры: до {lim[0]} в заявке, {lim[1]} на поле</Pill>}
+          {lim && <Pill>{lim[0] ? `Легионеры: до ${lim[0]} в заявке, ${lim[1]} на поле` : 'Без легионеров'}</Pill>}
         </div>
       </Card>
 

@@ -11,14 +11,14 @@ const lum = (hex: string) => { const n = parseInt(hex.slice(1), 16); return (0.2
 export const inkOn = (hex: string) => (lum(hex) > 0.6 ? '#0b1220' : '#ffffff');
 
 /** Club crest: the real one from the Transfermarkt image CDN; offline (or for an unknown club) a badge drawn from the club colours. */
-export function TeamBadge({ team, id, size = 36 }: { team?: Pick<Team, 'id' | 'primary' | 'secondary' | 'short' | 'tm'>; id?: string; size?: number }) {
+export function TeamBadge({ team, id, size = 36 }: { team?: Pick<Team, 'id' | 'primary' | 'secondary' | 'short' | 'tm' | 'logo'>; id?: string; size?: number }) {
   const L = id && !team ? useGame.getState().L : null;
   const t = team ?? (id && L ? L.teams[id] ?? L.ext?.[id] : undefined);
   const [err, setErr] = useState(false);
-  if (t?.tm && !err) {
+  if ((t?.tm || t?.logo) && !err) {
     return (
       <img
-        src={crestUrl(t.tm)}
+        src={t.tm ? crestUrl(t.tm) : t.logo}
         alt={t.short}
         width={size}
         height={size}

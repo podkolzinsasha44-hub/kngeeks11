@@ -25,8 +25,10 @@ export function roundRobin(ids: string[]): [string, string][][] {
 }
 
 /** Match days of a league season: Saturdays first, then Wednesdays if there are not enough weekends. */
-export function matchDays(lg: LeagueId, season: number, rounds: number): string[] {
-  const { start, end, pause } = leagueDates(lg, season);
+export function matchDays(lg: LeagueId, season: number, rounds: number, from?: string): string[] {
+  const dates = leagueDates(lg, season);
+  const { end, pause } = dates;
+  const start = from && from > dates.start ? from : dates.start;
   const free = (d: string) => !pause || d < pause[0] || d > pause[1];
   const sats: string[] = [], weds: string[] = [];
   let d = start;
@@ -48,12 +50,14 @@ export function matchDays(lg: LeagueId, season: number, rounds: number): string[
   return out;
 }
 
-export function scheduleLeague(L: League, lg: LeagueId, season: number) {
+/** `from`: a league added to a running career starts later than its usual first round. */
+export function scheduleLeague(L: League, lg: LeagueId, season: number, from?: string) {
   const ids = shuffle(leagueTeams(L, lg).map((t) => t.id).sort());
+  if (ids.length < 2) { if (L.comps[lg]) L.comps[lg].phase = 'done'; return; }
   const first = roundRobin(ids);
   const second = first.map((r) => r.map(([h, a]) => [a, h] as [string, string]));
   const all = [...first, ...second];
-  const days = matchDays(lg, season, all.length);
+  const days = matchDays(lg, season, all.length, from);
   all.forEach((round, r) => {
     const day = days[Math.min(r, days.length - 1)];
     round.forEach(([h, a], i) => {

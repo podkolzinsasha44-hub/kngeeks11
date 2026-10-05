@@ -60,16 +60,22 @@ export function canRegister(L: League, t: Team, p: Player, wage: number, transfe
 /** How much a player wants to join a club: 0..1+. Below ~0.35 he refuses to talk. */
 export function interest(L: League, p: Player, to: Team) {
   const cur = p.team ? L.teams[p.team] : null;
-  const repNow = cur ? cur.rep : p.ext ? clamp(40 + (p.ovr - 65) * 2.2, 30, 92) : 30;
+  // Without a club the level of the player himself sets his standards: a free agent of 78 does not go
+  // to the fourth division, one of 58 is glad to.
+  const repNow = cur ? cur.rep : p.ext ? clamp(40 + (p.ovr - 65) * 2.2, 30, 92) : clamp(36 + (p.ovr - 65) * 2.2, 15, 90);
   const sq = squad(L, to.id).filter((x) => x.pos === p.pos).sort((a, b) => b.ovr - a.ovr);
   const starters = p.pos === 'G' ? 1 : p.pos === 'D' ? 4 : p.pos === 'M' ? 4 : 3;
   const rank = sq.filter((x) => x.ovr > p.ovr).length;
   const role = rank < starters ? 0.2 : rank < starters * 2 ? 0 : -0.25;
   const home = p.ctry === to.country ? 0.12 : 0;
   // A player far above the level of the club is not interested; a step up is attractive.
-  const level = clamp((to.rep - repNow) / 40, -0.6, 0.45);
+  const level = clamp((to.rep - repNow) / 40, -1, 0.45);
   const need = p.st === 'FA' ? 0.3 : p.wantsOut || p.listed ? 0.15 : 0;
-  return 0.5 + level + role + home + need + (p.pers.win - 10) * (to.strategy === 'contend' ? 0.012 : -0.008);
+  // A free agent clearly better than the whole team waits for an offer of his level.
+  const top = sq.length ? squad(L, to.id).map((x) => x.ovr).sort((x, y) => y - x).slice(0, 11) : [];
+  const above = top.length ? p.ovr - top.reduce((s, o) => s + o, 0) / top.length : 0;
+  const tooGood = p.st === 'FA' ? clamp((above - 5) * 0.08, 0, 0.8) : 0;
+  return 0.5 + level + role + home + need - tooGood + (p.pers.win - 10) * (to.strategy === 'contend' ? 0.012 : -0.008);
 }
 
 /** Contract length the player wants: veterans a short deal, talents a long one. */

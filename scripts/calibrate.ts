@@ -25,6 +25,10 @@ const REAL: Record<LeagueId, { gpm: number; home: number; draw: number; champ: n
   // Mean of the 2024-25 and 2025-26 seasons where both are in the dataset.
   RPL: { gpm: 2.62, home: 0.44, draw: 0.275, champ: 67.5, last: 20, scorer: 19 },
   FNL: { gpm: 2.3, home: 0.42, draw: 0.3, champ: 64, last: 25, scorer: 18 },
+  // Second League B, group 3: mean of 2025 (full) and 2026 (26 of 30 rounds), from the league's own site.
+  // Top scorer: a reference value — the 2026 leader (14 goals in 19 games) at his pace over 30 rounds
+  // and about 25 games, ≈ 20; the season leader of a full year is not in the data yet.
+  L2B: { gpm: 2.83, home: 0.433, draw: 0.196, champ: 69, last: 10, scorer: 20 },
   EPL: { gpm: 2.84, home: 0.417, draw: 0.26, champ: 84.5, last: 20, scorer: 27 },
   ESP: { gpm: 2.66, home: 0.467, draw: 0.25, champ: 91, last: 25, scorer: 31 },
   ITA: { gpm: 2.5, home: 0.393, draw: 0.272, champ: 84.5, last: 22, scorer: 25 },

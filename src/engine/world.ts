@@ -2,7 +2,7 @@
 import { aiLineup, updateStrategies } from './ai';
 import { initCup } from './cup';
 import { initIntl, setNations } from './intl';
-import { LEAGUES, LEAGUE_IDS, transferWindows } from './leagues';
+import { LEAGUES, LEAGUE_IDS, leagueDates, transferWindows } from './leagues';
 import { emptyLineup, touchSquads } from './lineup';
 import { PRESIDENT } from './names';
 import { pushMsg, pushNews } from './news';
@@ -12,7 +12,7 @@ import { scheduleLeague } from './schedule';
 import { emptyRecord } from './standings';
 import { initUclFromWorld, makeExt, type UclWorld } from './ucl';
 import type { KeeperAttrs, League, LeagueId, OutfieldAttrs, Player, Role, Settings, Team } from './types';
-import { ageOn, money, posOfRole, seasonLabel } from './util';
+import { addDays, ageOn, money, posOfRole, seasonLabel } from './util';
 
 export interface WorldPlayer {
   id: number; fn: string; ln: string; ru?: string; role: Role; alt?: Role[]; foot: 'L' | 'R' | 'B'; bd: string; ab?: 1;
@@ -20,12 +20,16 @@ export interface WorldPlayer {
   caps?: number; ig?: number; h?: (string | number)[][]; wc?: string | 1; loan?: string;
   /** Transfermarkt portrait: "<timestamp>" of a .jpg or "<timestamp>.<ext>". */
   im?: string;
+  /** Full photo URL (Second League players: the league's own site). */
+  iu?: string;
 }
 export interface WorldTeam {
   id: string; lg: LeagueId; name: string; ru: string; short: string; country: string; primary: string; secondary: string; stadium: string; cap: number;
   rep: number; coach: { name: string; rating: number }; budget: number; wages: number;
   /** Transfermarkt club id (crest image); absent when the club could not be identified reliably. */
   tm?: number;
+  /** Full crest URL (Second League clubs: the league's own site). */
+  logo?: string;
 }
 export interface WorldJson {
   v: number;
@@ -55,11 +59,12 @@ export const DEFAULT_SETTINGS: Settings = {
 const OUT: (keyof OutfieldAttrs)[] = ['pac', 'sho', 'pas', 'dri', 'att', 'def', 'phy', 'hea', 'dis', 'sta'];
 const KEEP: (keyof KeeperAttrs)[] = ['ref', 'pos', 'han', 'kic', 'con', 'men', 'sta'];
 
-const photoFile = (w: WorldPlayer) => (w.im ? `${w.id}-${w.im}${w.im.includes('.') ? '' : '.jpg'}` : null);
+const photoFile = (w: WorldPlayer) => (w.iu ? w.iu : w.im ? `${w.id}-${w.im}${w.im.includes('.') ? '' : '.jpg'}` : null);
 
 /** Brings a save made with an older snapshot up to date (photos, crests, the Champions League). */
 export function upgradeSave(L: League, world: WorldJson) {
   attachPhotos(L, world);
+  attachLeagues(L, world);
   attachUcl(L, world);
 }
 
@@ -88,6 +93,34 @@ function attachPhotos(L: League, world: WorldJson) {
     if (p.img || !p.real) continue;
     const w = byId.get(p.id);
     if (w?.im) p.img = photoFile(w);
+  }
+}
+
+function makeTeam(t: WorldTeam): Team {
+  return {
+    id: t.id, lg: t.lg, name: t.name, ru: t.ru, city: '', short: t.short, country: t.country, primary: t.primary, secondary: t.secondary, accent: t.secondary,
+    stadium: t.stadium, cap: t.cap, rep: t.rep, tactic: 'balanced', last: null, lineup: emptyLineup(), rec: emptyRecord(), strategy: 'bubble',
+    coach: { name: t.coach.name, rating: t.coach.rating, style: 'balanced', age: 50, wage: 500_000 }, fans: 60, rel: 50,
+    staff: { med: 2, scouting: 2, academy: t.rep >= 70 ? 3 : t.rep >= 50 ? 2 : 1 }, titles: 0, cups: 0,
+    budget: t.budget, wageBudget: Math.round((t.wages * 1.12 + 300_000) / 1e4) * 1e4, trophies: [], ...(t.tm ? { tm: t.tm } : {}), ...(t.logo ? { logo: t.logo } : {}),
+  };
+}
+
+/**
+ * Saves made before a league was added to the snapshot (the Second League) get its clubs and players.
+ * Its calendar starts the next weekend; late in the season it starts with the next season instead.
+ */
+function attachLeagues(L: League, world: WorldJson) {
+  for (const lg of LEAGUE_IDS) {
+    if (!world.leagues[lg] || Object.values(L.teams).some((t) => t.lg === lg)) continue;
+    const ids = new Set(world.leagues[lg].teams);
+    for (const t of world.teams) if (ids.has(t.id) && !L.teams[t.id]) L.teams[t.id] = makeTeam(t);
+    for (const w of world.players) if (w.t && ids.has(w.t) && !L.players[w.id]) L.players[w.id] = expandPlayer(w, L.season);
+    L.comps[lg] = { id: lg, name: LEAGUES[lg].name, country: LEAGUES[lg].country, tier: LEAGUES[lg].tier, phase: 'done', seasonStart: '', seasonEnd: '', champion: '', history: [] };
+    touchSquads();
+    for (const id of ids) if (L.teams[id]) aiLineup(L, L.teams[id]);
+    const { end } = leagueDates(lg, L.season);
+    if (L.date <= addDays(end, -150)) scheduleLeague(L, lg, L.season, addDays(L.date, 2));
   }
 }
 
@@ -125,16 +158,7 @@ export function newCareer(world: WorldJson, o: NewCareerOpts): League {
     windows: transferWindows(season), seasonLog: { bought: 0, sold: 0, spent: 0, earned: 0, userGames: { w: 0, d: 0, l: 0 } },
   };
 
-  for (const t of world.teams) {
-    const team: Team = {
-      id: t.id, lg: t.lg, name: t.name, ru: t.ru, city: '', short: t.short, country: t.country, primary: t.primary, secondary: t.secondary, accent: t.secondary,
-      stadium: t.stadium, cap: t.cap, rep: t.rep, tactic: 'balanced', last: null, lineup: emptyLineup(), rec: emptyRecord(), strategy: 'bubble',
-      coach: { name: t.coach.name, rating: t.coach.rating, style: 'balanced', age: 50, wage: 500_000 }, fans: 60, rel: 50,
-      staff: { med: 2, scouting: 2, academy: t.rep >= 70 ? 3 : t.rep >= 50 ? 2 : 1 }, titles: 0, cups: 0,
-      budget: t.budget, wageBudget: Math.round((t.wages * 1.12 + 300_000) / 1e4) * 1e4, trophies: [], ...(t.tm ? { tm: t.tm } : {}),
-    };
-    L.teams[t.id] = team;
-  }
+  for (const t of world.teams) L.teams[t.id] = makeTeam(t);
   for (const w of world.players) {
     if (w.t && !L.teams[w.t]) continue;
     L.players[w.id] = expandPlayer(w, season);

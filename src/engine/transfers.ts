@@ -244,11 +244,13 @@ function aiFreeAgents(L: League) {
   for (const p of fa.slice(0, 40)) {
     if (L.negotiations[p.id]) continue;
     if (next() > 0.35) continue;
-    const t = clubs.find((c) => {
+    // A free agent picks among the clubs that want him the ones of the highest standing.
+    const keen = clubs.filter((c) => {
       const sq = squad(L, c.id);
       const short = sq.length < 22 || sq.filter((x) => x.pos === p.pos).length < (p.pos === 'G' ? 2 : 5);
       return (short || wouldStart(L, c, p)) && interest(L, p, c) >= 0.45 && !canRegister(L, c, p, wageFor(p.ovr, c.lg));
-    });
+    }).sort((a, b) => b.rep - a.rep).slice(0, 3);
+    const t = keen.length ? keen[int(0, keen.length - 1)] : undefined;
     if (t) completeTransfer(L, p, t, 0, wageFor(p.ovr, t.lg), ageOn(p.bd, L.date) >= 31 ? 1 : 2);
   }
 }
@@ -268,7 +270,7 @@ export function ensureSquads(L: League, genYouth: (t: Team, pos: Player['pos']) 
         let best: Player | null = null;
         for (const id in L.players) {
           const p = L.players[id];
-          if (p.st === 'FA' && p.pos === pos && !p.inj && (!best || p.ovr > best.ovr) && !canRegister(L, t, p, wageFor(p.ovr, t.lg))) best = p;
+          if (p.st === 'FA' && p.pos === pos && !p.inj && (!best || p.ovr > best.ovr) && interest(L, p, t) >= 0.45 && !canRegister(L, t, p, wageFor(p.ovr, t.lg))) best = p;
         }
         if (best) completeTransfer(L, best, t, 0, wageFor(best.ovr, t.lg), 1);
         else genYouth(t, pos);

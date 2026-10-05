@@ -409,6 +409,26 @@ function checkLeaguePhase(L: League, games: { h: string; a: string }[], pots: st
   }
 }
 
+describe('Second League B, group 3', () => {
+  it('has the sixteen real clubs of Oryol\'s group with real squads and no foreigners', () => {
+    const L = career();
+    const clubs = Object.values(L.teams).filter((t) => t.lg === 'L2B');
+    expect(clubs).toHaveLength(16);
+    expect(L.teams.ORL.ru).toBe('Орёл');
+    for (const t of clubs) {
+      const sq = squad(L, t.id);
+      expect(sq.length, t.id).toBeGreaterThanOrEqual(20);
+      expect(sq.every((p) => p.real), t.id).toBe(true);
+      expect(sq.filter((p) => p.pos === 'G').length, t.id).toBeGreaterThanOrEqual(2);
+      expect(sq.filter((p) => isForeign(p, 'RUS')), t.id).toHaveLength(0);
+    }
+    expect(L.games.filter((g) => g.comp === 'L2B')).toHaveLength(240);
+    // A strong free agent does not go down to the fourth division.
+    const star = Object.values(L.players).find((p) => p.ovr >= 78 && p.ctry === 'RUS')!;
+    expect(interest(L, { ...star, team: null, st: 'FA', c: null }, L.teams.ORL)).toBeLessThan(0.45);
+  });
+});
+
 describe('Champions League', () => {
   it('2026-27 is the real draw: 36 clubs, 144 fixtures, the guests with real squads', () => {
     const L = career();

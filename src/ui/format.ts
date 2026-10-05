@@ -84,7 +84,9 @@ export function clubLabel(L: League, p: Player) {
 export const fitColor = (f: number) => (f >= 85 ? '#3ddc97' : f >= 70 ? '#ffb547' : '#ff5a5f');
 
 /** Player photo on the Transfermarkt CDN: 'original' (631×820) for the profile card, 'big' (300×390), 'header' (139×181) for lists. */
-export const photoUrl = (p: Player, size: 'original' | 'big' | 'header' = 'header') => (p.img ? `https://img.a.transfermarkt.technology/portrait/${size}/${p.img}?lm=1` : null);
+export const photoUrl = (p: Player, size: 'original' | 'big' | 'header' = 'header') =>
+  // Second League players: a full URL of the league's own site; everyone else: the Transfermarkt CDN.
+  p.img ? (p.img.startsWith('http') ? p.img : `https://img.a.transfermarkt.technology/portrait/${size}/${p.img}?lm=1`) : null;
 
 /** Scouts know their own players exactly; for others the potential is an estimate. */
 export function potLabel(L: League, p: Player) {

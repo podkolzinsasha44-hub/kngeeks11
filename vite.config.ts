@@ -49,6 +49,15 @@ export default defineConfig({
             },
           },
           {
+            urlPattern: /^https:\/\/s3\.fnl\.pro(:\d+)?\/fnl\/.*/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'second-league-images',
+              expiration: { maxEntries: 600, maxAgeSeconds: 60 * 60 * 24 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
             urlPattern: /^https:\/\/flagcdn\.com\/.*/,
             handler: 'CacheFirst',
             options: {

@@ -41,7 +41,7 @@ function SquadList({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
   return (
     <>
       <div className="mt-1"><Chips value={sort} onChange={setSort} options={[{ v: 'pos', label: 'По амплуа' }, { v: 'ovr', label: 'Рейтинг' }, { v: 'age', label: 'Возраст' }, { v: 'wage', label: 'Зарплата' }, { v: 'fit', label: 'Готовность' }]} /></div>
-      {lim && <div className="mt-2"><Pill color={foreign > lim[0] ? '#ff5a5f' : undefined}>Легионеры: {foreign} из {lim[0]} в заявке</Pill></div>}
+      {lim && lim[0] > 0 && <div className="mt-2"><Pill color={foreign > lim[0] ? '#ff5a5f' : undefined}>Легионеры: {foreign} из {lim[0]} в заявке</Pill></div>}
       {sort === 'pos' ? (['G', 'D', 'M', 'F'] as Pos[]).map((pos) => (
         <div key={pos}>
           <SectionTitle>{POS_FULL[pos]} · {sq.filter((p) => p.pos === pos).length}</SectionTitle>

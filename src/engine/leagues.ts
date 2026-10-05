@@ -30,6 +30,9 @@ export interface LeagueCfg {
 export const LEAGUES: Record<LeagueId, LeagueCfg> = {
   RPL: { id: 'RPL', name: 'Российская Премьер-Лига', short: 'РПЛ', country: 'RUS', tier: 1, start: [7, 24], end: [5, 29], pause: [[12, 8], [2, 25]], style: { shot: 0.96, fin: 0.99 }, down: 'FNL', relegate: 2, playoff: 2, top: 3, wageMul: 0.9, income: 14e6 },
   FNL: { id: 'FNL', name: 'Первая лига', short: 'Первая лига', country: 'RUS', tier: 2, start: [7, 18], end: [5, 23], pause: [[12, 1], [2, 26]], style: { shot: 0.93, fin: 0.95 }, up: 'RPL', relegate: 0, playoff: 0, top: 2, wageMul: 0.45, income: 2.5e6 },
+  // Group 3 of division B of the Second League (Oryol, Kursk, Tula, Penza…). Played on the calendar of the game
+  // (July–May) instead of the real March–October; no promotion or relegation is modelled for it.
+  L2B: { id: 'L2B', name: 'Вторая лига Б, группа 3', short: 'Вторая лига', country: 'RUS', tier: 4, start: [7, 25], end: [5, 30], pause: [[11, 29], [3, 6]], style: { shot: 1.0, fin: 1.0 }, relegate: 0, playoff: 0, top: 3, wageMul: 0.2, income: 0.4e6 },
   EPL: { id: 'EPL', name: 'Премьер-лига', short: 'АПЛ', country: 'ENG', tier: 1, start: [8, 15], end: [5, 23], style: { shot: 1.0, fin: 1.01 }, relegate: 0, playoff: 0, top: 4, wageMul: 1.35, income: 150e6 },
   ESP: { id: 'ESP', name: 'Ла Лига', short: 'Ла Лига', country: 'ESP', tier: 1, start: [8, 15], end: [5, 23], style: { shot: 0.95, fin: 0.99 }, relegate: 0, playoff: 0, top: 4, wageMul: 1, income: 70e6 },
   ITA: { id: 'ITA', name: 'Серия A', short: 'Серия A', country: 'ITA', tier: 1, start: [8, 22], end: [5, 23], style: { shot: 0.97, fin: 0.97 }, relegate: 0, playoff: 0, top: 4, wageMul: 0.95, income: 60e6 },
@@ -60,6 +63,8 @@ export const isForeign = (p: Player, country: string) => (country === 'RUS' ? !H
  */
 export function foreignLimit(lg: LeagueId, season: number): [number, number] | null {
   if (LEAGUES[lg]?.country !== 'RUS') return null;
+  // The Second League admits only citizens of Russia (and of the Eurasian Economic Union): no foreigners at all.
+  if (lg === 'L2B') return [0, 0];
   return season <= 2026 ? [12, 7] : season === 2027 ? [11, 6] : [10, 5];
 }
 
