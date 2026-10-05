@@ -39,6 +39,17 @@ const REAL: Partial<Record<LeagueId, { gpm: number; home: number; draw: number; 
   GER: { gpm: 3.19, home: 0.412, draw: 0.248, champ: 85.5, last: 25, scorer: 32 },
   FRA: { gpm: 2.9, home: 0.464, draw: 0.224, champ: 80, last: 20, scorer: 23 },
 };
+/**
+ * Cards per team per league match, 2024-25: yellow from the season totals (RPL 1051 in 240 matches, EPL 1549 in 380;
+ * La Liga 4.64, Bundesliga 4.24, Ligue 1 4.23, Serie A 4.07 per match), red — sending-offs of both kinds (RPL 0.25 per
+ * match, EPL 52 in 380; La Liga 0.22, Serie A 0.23, Bundesliga 0.10, Ligue 1 0.27 per match — Match TV). The lower
+ * Russian divisions have no published totals and are only reported.
+ */
+const CARDS_REAL: Partial<Record<LeagueId, { yc: number; rc: number }>> = {
+  RPL: { yc: 2.19, rc: 0.125 }, EPL: { yc: 2.04, rc: 0.068 }, ESP: { yc: 2.32, rc: 0.11 },
+  ITA: { yc: 2.04, rc: 0.115 }, GER: { yc: 2.12, rc: 0.05 }, FRA: { yc: 2.12, rc: 0.135 },
+};
+const CARDS_CORRIDOR = { yc: 0.15, rc: 0.04 };
 // The youth league (squads typed in by the user) has no real reference and is not calibrated.
 const CAL = LEAGUE_IDS.filter((lg) => REAL[lg]);
 const CORRIDOR = { gpm: 0.18, home: 0.06, draw: 0.055, champ: 9, last: 10, scorer: 8 };
@@ -87,7 +98,7 @@ for (let s = 0; s < N; s++) {
 let bad = 0;
 const f = (v: number, d = 2) => v.toFixed(d).padStart(6);
 console.log(`\n${N} seasons, ${((Date.now() - t0) / 1000).toFixed(0)} s. K = ${JSON.stringify({ SHOT: K.SHOT, KS: K.KS, KQ: K.KQ, KF: K.KF, KG: K.KG, HOME: K.HOME, AWAY: K.AWAY })}`);
-console.log('league      goals/match     home wins        draws        champion        last       top scorer   yellow red');
+console.log('league      goals/match     home wins        draws        champion        last       top scorer   yellow/team    red/team');
 for (const lg of CAL) {
   const a = acc[lg], r = REAL[lg]!;
   const cell = (k: keyof typeof CORRIDOR, d = 2) => {
@@ -95,7 +106,14 @@ for (const lg of CAL) {
     if (!ok) bad++;
     return `${f(a[k], d)}/${f(r[k], d)}${ok ? ' ' : '!'}`;
   };
-  console.log(`${lg.padEnd(6)} ${cell('gpm')} ${cell('home', 3)} ${cell('draw', 3)} ${cell('champ', 0)} ${cell('last', 0)} ${cell('scorer', 0)} ${f(a.cards)} ${f(a.reds)}`);
+  const cr = CARDS_REAL[lg];
+  const card = (v: number, k: keyof typeof CARDS_CORRIDOR, d: number) => {
+    if (!cr) return `${f(v, d)}       `;
+    const ok = Math.abs(v - cr[k]) <= CARDS_CORRIDOR[k];
+    if (!ok) bad++;
+    return `${f(v, d)}/${f(cr[k], d)}${ok ? ' ' : '!'}`;
+  };
+  console.log(`${lg.padEnd(6)} ${cell('gpm')} ${cell('home', 3)} ${cell('draw', 3)} ${cell('champ', 0)} ${cell('last', 0)} ${cell('scorer', 0)} ${card(a.cards / 2, 'yc', 2)} ${card(a.reds / 2, 'rc', 3)}`);
 }
 {
   const v = { gpm: ucl.gpm / ucl.n, home: ucl.home / ucl.n, draw: ucl.draw / ucl.n };

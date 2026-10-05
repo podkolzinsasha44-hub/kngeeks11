@@ -15,6 +15,12 @@ export interface LeagueCfg {
   pause?: [[number, number], [number, number]];
   /** Playing style of the league (same for both teams): shot volume and finishing multipliers. */
   style: { shot: number; fin: number };
+  /**
+   * Refereeing of the league (same for both teams): yellow (`y`) and red (`r`) card multipliers against the engine's
+   * base rate, which is set to the RPL; `ban` — league yellow cards per one-match ban (every 4th in Russia and France, every
+   * 5th in England, Spain, Italy and Germany). Calibrated to real totals per team and match (scripts/calibrate.ts).
+   */
+  cards: { y: number; r: number; ban: number };
   /** The divisions below and above, the bottom places relegated directly and those that go to the play-offs. */
   down?: LeagueId;
   up?: LeagueId;
@@ -39,23 +45,24 @@ export interface LeagueCfg {
 }
 
 export const LEAGUES: Record<LeagueId, LeagueCfg> = {
-  RPL: { id: 'RPL', name: 'Российская Премьер-Лига', short: 'РПЛ', into: 'в Премьер-Лигу', country: 'RUS', tier: 1, start: [7, 24], end: [5, 29], pause: [[12, 8], [2, 25]], style: { shot: 0.96, fin: 0.99 }, down: 'FNL', relegate: 2, playoff: 2, top: 3, wageMul: 0.9, income: 14e6 },
+  RPL: { id: 'RPL', name: 'Российская Премьер-Лига', short: 'РПЛ', into: 'в Премьер-Лигу', country: 'RUS', tier: 1, start: [7, 24], end: [5, 29], pause: [[12, 8], [2, 25]], style: { shot: 0.96, fin: 0.99 }, cards: { y: 1, r: 1, ban: 4 }, down: 'FNL', relegate: 2, playoff: 2, top: 3, wageMul: 0.9, income: 14e6 },
   // 18 clubs: 1-2 up, 3-4 to the play-offs with 14th and 13th of the RPL; 17-18 down to division A, 16th plays 3rd of division A.
-  FNL: { id: 'FNL', name: 'Первая лига', short: 'Первая лига', into: 'в Первую лигу', country: 'RUS', tier: 2, start: [7, 18], end: [5, 23], pause: [[12, 1], [2, 26]], style: { shot: 0.93, fin: 0.95 }, up: 'RPL', down: 'L2A', promote: 2, promotePO: 2, relegate: 2, playoff: 1, top: 2, wageMul: 0.45, income: 2.5e6 },
+  FNL: { id: 'FNL', name: 'Первая лига', short: 'Первая лига', into: 'в Первую лигу', country: 'RUS', tier: 2, start: [7, 18], end: [5, 23], pause: [[12, 1], [2, 26]], style: { shot: 0.93, fin: 0.95 }, cards: { y: 1, r: 1, ban: 4 }, up: 'RPL', down: 'L2A', promote: 2, promotePO: 2, relegate: 2, playoff: 1, top: 2, wageMul: 0.45, income: 2.5e6 },
   // Division A of the Second League, 2026-27: the 17 clubs of both groups of the first stage in one table (in reality
   // two groups, "gold" and "silver", with a second stage in spring). 1-2 up, 3rd to the play-offs with 16th of the First
   // League; the last one goes down to group 3 of division B (the only group of division B in the game).
-  L2A: { id: 'L2A', name: 'Вторая лига А', short: 'Вторая лига А', into: 'во Вторую лигу А', country: 'RUS', tier: 3, start: [7, 11], end: [5, 23], pause: [[11, 30], [3, 6]], style: { shot: 0.9, fin: 0.94 }, up: 'FNL', down: 'L2B', promote: 2, promotePO: 1, relegate: 1, playoff: 0, top: 2, wageMul: 0.3, income: 0.9e6, market: 0.4 },
+  L2A: { id: 'L2A', name: 'Вторая лига А', short: 'Вторая лига А', into: 'во Вторую лигу А', country: 'RUS', tier: 3, start: [7, 11], end: [5, 23], pause: [[11, 30], [3, 6]], style: { shot: 0.9, fin: 0.94 }, cards: { y: 1, r: 1, ban: 4 }, up: 'FNL', down: 'L2B', promote: 2, promotePO: 1, relegate: 1, playoff: 0, top: 2, wageMul: 0.3, income: 0.9e6, market: 0.4 },
   // Group 3 of division B of the Second League (Oryol, Kursk, Tula, Penza…). Played on the calendar of the game
   // (July–May) instead of the real March–October. The winner goes up to division A.
-  L2B: { id: 'L2B', name: 'Вторая лига Б, группа 3', short: 'Вторая лига Б', into: 'во Вторую лигу Б', country: 'RUS', tier: 4, start: [7, 25], end: [5, 30], pause: [[11, 29], [3, 6]], style: { shot: 1.0, fin: 1.0 }, up: 'L2A', promote: 1, promotePO: 0, relegate: 0, playoff: 0, top: 1, wageMul: 0.2, income: 0.4e6, market: 0.25 },
+  L2B: { id: 'L2B', name: 'Вторая лига Б, группа 3', short: 'Вторая лига Б', into: 'во Вторую лигу Б', country: 'RUS', tier: 4, start: [7, 25], end: [5, 30], pause: [[11, 29], [3, 6]], style: { shot: 1.0, fin: 1.0 }, cards: { y: 1, r: 1, ban: 4 }, up: 'L2A', promote: 1, promotePO: 0, relegate: 0, playoff: 0, top: 1, wageMul: 0.2, income: 0.4e6, market: 0.25 },
   // Youth league of players born in 2009 (Oryol and neighbouring regions): squads typed in by the user.
-  U17: { id: 'U17', name: 'Юношеская лига 2009 г. р.', short: 'Юноши 2009', country: 'RUS', tier: 9, start: [8, 29], end: [5, 23], pause: [[11, 15], [3, 20]], style: { shot: 1.0, fin: 1.0 }, relegate: 0, playoff: 0, top: 3, wageMul: 0, income: 0 },
-  EPL: { id: 'EPL', name: 'Премьер-лига', short: 'АПЛ', country: 'ENG', tier: 1, start: [8, 15], end: [5, 23], style: { shot: 1.0, fin: 1.01 }, relegate: 0, playoff: 0, top: 4, wageMul: 1.35, income: 150e6 },
-  ESP: { id: 'ESP', name: 'Ла Лига', short: 'Ла Лига', country: 'ESP', tier: 1, start: [8, 15], end: [5, 23], style: { shot: 0.95, fin: 0.99 }, relegate: 0, playoff: 0, top: 4, wageMul: 1, income: 70e6 },
-  ITA: { id: 'ITA', name: 'Серия A', short: 'Серия A', country: 'ITA', tier: 1, start: [8, 22], end: [5, 23], style: { shot: 0.97, fin: 0.97 }, relegate: 0, playoff: 0, top: 4, wageMul: 0.95, income: 60e6 },
-  GER: { id: 'GER', name: 'Бундеслига', short: 'Бундеслига', country: 'GER', tier: 1, start: [8, 21], end: [5, 15], pause: [[12, 21], [1, 14]], style: { shot: 1.07, fin: 1.04 }, relegate: 0, playoff: 0, top: 4, wageMul: 1, income: 65e6 },
-  FRA: { id: 'FRA', name: 'Лига 1', short: 'Лига 1', country: 'FRA', tier: 1, start: [8, 21], end: [5, 15], style: { shot: 1.0, fin: 1.0 }, relegate: 0, playoff: 0, top: 4, wageMul: 0.85, income: 40e6 },
+  U17: { id: 'U17', name: 'Юношеская лига 2009 г. р.', short: 'Юноши 2009', country: 'RUS', tier: 9, start: [8, 29], end: [5, 23], pause: [[11, 15], [3, 20]], style: { shot: 1.0, fin: 1.0 }, cards: { y: 1, r: 1, ban: 4 }, relegate: 0, playoff: 0, top: 3, wageMul: 0, income: 0 },
+  EPL: { id: 'EPL', name: 'Премьер-лига', short: 'АПЛ', country: 'ENG', tier: 1, start: [8, 15], end: [5, 23], style: { shot: 1.0, fin: 1.01 }, cards: { y: 0.89, r: 0.57, ban: 5 }, relegate: 0, playoff: 0, top: 4, wageMul: 1.35, income: 150e6 },
+  ESP: { id: 'ESP', name: 'Ла Лига', short: 'Ла Лига', country: 'ESP', tier: 1, start: [8, 15], end: [5, 23], style: { shot: 0.95, fin: 0.99 }, cards: { y: 1.03, r: 0.85, ban: 5 }, relegate: 0, playoff: 0, top: 4, wageMul: 1, income: 70e6 },
+  ITA: { id: 'ITA', name: 'Серия A', short: 'Серия A', country: 'ITA', tier: 1, start: [8, 22], end: [5, 23], style: { shot: 0.97, fin: 0.97 }, cards: { y: 0.89, r: 0.97, ban: 5 }, relegate: 0, playoff: 0, top: 4, wageMul: 0.95, income: 60e6 },
+  GER: { id: 'GER', name: 'Бундеслига', short: 'Бундеслига', country: 'GER', tier: 1, start: [8, 21], end: [5, 15], pause: [[12, 21], [1, 14]], style: { shot: 1.07, fin: 1.04 }, cards: { y: 0.95, r: 0.41, ban: 5 }, relegate: 0, playoff: 0, top: 4, wageMul: 1, income: 65e6 },
+  // Ligue 1 bans a player for 3 yellow cards within 10 matches: modelled as every 4th.
+  FRA: { id: 'FRA', name: 'Лига 1', short: 'Лига 1', country: 'FRA', tier: 1, start: [8, 21], end: [5, 15], style: { shot: 1.0, fin: 1.0 }, cards: { y: 0.95, r: 1.1, ban: 4 }, relegate: 0, playoff: 0, top: 4, wageMul: 0.85, income: 40e6 },
 };
 export const LEAGUE_IDS = Object.keys(LEAGUES) as LeagueId[];
 export const isLeague = (comp: string): comp is LeagueId => comp in LEAGUES;
@@ -70,6 +77,10 @@ export function leagueTeams(L: League, lg: LeagueId): Team[] {
 export const UCL_STYLE = { shot: 1.13, fin: 1.08 };
 /** Playing style for a game: league games use the league's, the Champions League its own, cups and play-offs the neutral one. */
 export const styleOf = (g: Pick<Game, 'comp'>) => (isLeague(g.comp) ? LEAGUES[g.comp].style : g.comp === 'UCL' ? UCL_STYLE : { shot: 1, fin: 1 });
+/** Champions League refereeing: a little fewer cards than a domestic game (approximate, not calibrated). */
+export const UCL_CARDS = { y: 0.9, r: 0.6 };
+/** Card rates for a game: league games use the league's, the Champions League its own, cups the base (RPL) rate. */
+export const cardsOf = (g: Pick<Game, 'comp'>) => (isLeague(g.comp) ? LEAGUES[g.comp].cards : g.comp === 'UCL' ? UCL_CARDS : { y: 1, r: 1 });
 
 /** Citizens of the Eurasian Economic Union are not counted as foreign players in Russia. */
 const HOME_RUS = new Set(['RUS', 'BLR', 'KAZ', 'ARM', 'KGZ']);

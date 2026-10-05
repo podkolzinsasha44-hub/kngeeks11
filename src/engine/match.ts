@@ -25,8 +25,11 @@ export const K = {
   MIX: [[0.06, 0.38], [0.24, 0.16], [0.45, 0.07], [0.25, 0.03]] as [number, number][],
   PEN: 0.00145,
   PEN_P: 0.77,
-  YELLOW: 0.0225,
-  RED: 0.00045,
+  /** Cards per team per minute at the RPL rate (league multipliers in `LeagueCfg.cards`). */
+  YELLOW: 0.0258,
+  RED: 0.00092,
+  /** Weight of a booked player for the next yellow card: booked players hold back, so a second yellow is rare. */
+  Y2: 0.18,
   /** Injuries per player per minute (≈ 0.08 per team per match, most of them minor). */
   INJ: 0.00008,
   SO_P: 0.75,
@@ -50,6 +53,8 @@ export interface MatchOpts {
   neutral?: boolean;
   /** League playing style (same for both teams): shot volume and finishing multipliers. */
   style?: { shot: number; fin: number };
+  /** Refereeing (same for both teams): yellow and red card multipliers. */
+  cards?: { y: number; r: number };
   detail?: boolean;
   subs?: number;
 }
@@ -208,6 +213,7 @@ export function simulateMatch(players: P, home: MatchSide, away: MatchSide, o: M
   const ev = (e: GameEvent) => { if (detail) events.push(e); };
   const styleShot = o.style?.shot ?? 1, styleFin = o.style?.fin ?? 1;
   const maxSubs = o.subs ?? 5;
+  const cardY = o.cards?.y ?? 1, cardR = o.cards?.r ?? 1;
   H.mul = o.neutral ? 1 : K.HOME;
   A.mul = o.neutral ? 1 : K.AWAY;
   let possH = 0, possN = 0;
@@ -326,8 +332,8 @@ export function simulateMatch(players: P, home: MatchSide, away: MatchSide, o: M
   };
 
   const discipline = (s: Side, minute: number, heat: number) => {
-    if (next() < K.YELLOW * heat) {
-      const x = pickW(s.on, (y) => (y.slot === 'GK' ? 0.12 : (112 - (y.p.r as OutfieldAttrs).dis) * (0.6 + PHASE[y.slot][2] * 0.7 + PHASE[y.slot][1] * 0.3) * (y.st.yc ? 0.45 : 1)));
+    if (next() < K.YELLOW * cardY * heat) {
+      const x = pickW(s.on, (y) => (y.slot === 'GK' ? 0.12 : (112 - (y.p.r as OutfieldAttrs).dis) * (0.6 + PHASE[y.slot][2] * 0.7 + PHASE[y.slot][1] * 0.3) * (y.st.yc ? K.Y2 * cardR : 1)));
       if (x) {
         if (x.st.yc) {
           x.st.yc = 2;
@@ -339,7 +345,7 @@ export function simulateMatch(players: P, home: MatchSide, away: MatchSide, o: M
         ev({ m: minute, type: 'yellow', team: s.in.id, players: [x.p.id], text: `Жёлтая карточка: ${nm(x.p)}` });
       }
     }
-    if (next() < K.RED * heat) {
+    if (next() < K.RED * cardR * heat) {
       const x = pickW(s.on, (y) => (y.slot === 'GK' ? 0.25 : (112 - (y.p.r as OutfieldAttrs).dis) * (0.5 + PHASE[y.slot][2])));
       if (x) {
         sendOff(s, x, minute);

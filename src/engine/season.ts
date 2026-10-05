@@ -5,17 +5,17 @@ import { aggregateFor, initPlayoffs, isDecider, onCupGame, PO_LEAGUES } from './
 import { weeklyMorale } from './events';
 import { genPlayer } from './gen';
 import { intlDaily } from './intl';
-import { LEAGUES, LEAGUE_IDS, foreignLimit, isLeague, rolloverDay, statKey, styleOf, windowOpen } from './leagues';
+import { LEAGUES, LEAGUE_IDS, cardsOf, foreignLimit, isLeague, rolloverDay, statKey, styleOf, windowOpen } from './leagues';
 import { FORMATIONS, lineupValid, validateLineup } from './lineup';
 import { simulateMatch, type MatchBox } from './match';
 import { pushMsg, pushNews, social } from './news';
 import { rollover, endLeague } from './offseason';
 import { sideOf } from './projection';
-import { getState, useState_ } from './rng';
+import { getState, next, useState_ } from './rng';
 import { applyResult, sortedTeams } from './standings';
 import { line } from './stats';
 import { ensureSquads, weeklyMarket } from './transfers';
-import type { Game, League, OutfieldAttrs, Player, Team } from './types';
+import type { Game, League, LeagueId, OutfieldAttrs, Player, Team } from './types';
 import { addDays, clamp, dispName, dow } from './util';
 import { autoRenew, renewalCases, VERDICT_RU } from './renewals';
 import { club, onUclGame, rosterOf, UCL } from './ucl';
@@ -72,7 +72,7 @@ export function playGame(L: League, g: Game): MatchBox {
   const H = club(L, g.h), A = club(L, g.a);
   const isUser = g.h === L.user || g.a === L.user;
   const box = simulateMatch(L.players, sideOf(H), sideOf(A), {
-    knockout: isDecider(L, g), agg: aggregateFor(L, g), neutral: g.neutral, style: styleOf(g), detail: isUser,
+    knockout: isDecider(L, g), agg: aggregateFor(L, g), neutral: g.neutral, style: styleOf(g), cards: cardsOf(g), detail: isUser,
   });
   applyGame(L, g, box);
   if (isUser) {
@@ -111,11 +111,15 @@ function applyGame(L: League, g: Game, box: MatchBox) {
     p.form = clamp(p.form * 0.8 + (s.rt - 6.6) * 0.25, -1, 1);
     const sta = p.pos === 'G' ? 95 : (p.r as OutfieldAttrs).sta;
     p.fit = clamp(p.fit - (s.min / 90) * (27 - sta / 6), 35, 100);
-    // Suspensions: a red card, or every fourth yellow card in the league.
-    if (s.rc || s.yc === 2) p.susp = (p.susp ?? 0) + (s.yc === 2 ? 1 : 2);
+    // Suspensions: a second yellow — one match; a straight red — one to three, as the disciplinary committee decides
+    // (denying a chance — one, serious foul play — two, violent conduct — three); every 4th or 5th yellow in the league.
+    let ban = 0;
+    if (s.yc === 2) ban = 1;
+    else if (s.rc) { const u = next(); ban = u < 0.45 ? 1 : u < 0.85 ? 2 : 3; }
+    if (ban) p.susp = (p.susp ?? 0) + ban;
     else if (s.yc && league) {
       p.yel = (p.yel ?? 0) + 1;
-      if (p.yel % 4 === 0) {
+      if (p.yel % LEAGUES[g.comp as LeagueId].cards.ban === 0) {
         p.susp = (p.susp ?? 0) + 1;
         if (p.team === L.user) pushMsg(L, { from: 'Тренерский штаб', kind: 'staff', title: `${dispName(p)} пропустит следующий матч`, body: `Перебор жёлтых карточек (${p.yel}).`, ref: { type: 'player', id: p.id } });
       }
@@ -124,7 +128,7 @@ function applyGame(L: League, g: Game, box: MatchBox) {
       pushNews(L, { kind: 'game', title: `Хет-трик! ${dispName(p)} («${club(L, p.team ?? (p.ext === A.name ? g.a : g.h))?.ru ?? ''}»)`, players: [p.id], team: p.team ?? undefined });
       if (p.team === L.user) social(L, `⚽⚽⚽ ${dispName(p)} оформляет хет-трик! Мяч забирает домой`, { kind: 'fan', team: L.user, players: [p.id] });
     }
-    if ((s.rc || s.yc === 2) && p.team === L.user) pushMsg(L, { from: 'Тренерский штаб', kind: 'staff', title: `${dispName(p)} удалён и дисквалифицирован`, body: `Игрок пропустит ${s.yc === 2 ? 'следующий матч' : 'два матча'}.`, ref: { type: 'player', id: p.id } });
+    if (ban && p.team === L.user) pushMsg(L, { from: 'Тренерский штаб', kind: 'staff', title: `${dispName(p)} удалён и дисквалифицирован`, body: `Игрок пропустит ${ban === 1 ? 'следующий матч' : ban === 2 ? 'два матча' : 'три матча'}.`, ref: { type: 'player', id: p.id } });
   }
   // Suspended players of both clubs have served one match.
   for (const t of [H, A]) {
