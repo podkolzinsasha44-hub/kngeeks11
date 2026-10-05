@@ -42,7 +42,8 @@ export function Market({ params }: { params: Record<string, unknown> }) {
 function Search({ L, free }: { L: League; free: boolean }) {
   const me = L.teams[L.user];
   const [pos, setPos] = useKeep<'all' | Pos>('market.pos', 'all');
-  const [lg, setLg] = useKeep<string>('market.lg', 'all');
+  // Several leagues at once; empty = all of them. 'ext' = clubs outside the simulated leagues.
+  const [lgs, setLgs] = useKeep<string[]>('market.lgs', []);
   const [sort, setSort] = useKeep<'ovr' | 'pot' | 'val' | 'age'>('market.sort', 'ovr');
   const [q, setQ] = useKeep('market.q', '');
   const [afford, setAfford] = useKeep('market.afford', false);
@@ -59,7 +60,7 @@ function Search({ L, free }: { L: League; free: boolean }) {
       if (p.team === L.user || p.st === 'RET') continue;
       if (free ? p.st !== 'FA' : p.st !== 'ACT') continue;
       if (pos !== 'all' && p.pos !== pos) continue;
-      if (!free && lg !== 'all' && (lg === 'ext' ? !!p.team : !p.team || L.teams[p.team].lg !== lg)) continue;
+      if (!free && lgs.length && !lgs.includes(p.team ? L.teams[p.team].lg : 'ext')) continue;
       if (afford && p.val > me.budget) continue;
       if (u23 && playerAge(L, p) > 23) continue;
       if (s && !`${p.fn} ${p.ln} ${p.ru ?? ''}`.toLowerCase().includes(s)) continue;
@@ -72,14 +73,16 @@ function Search({ L, free }: { L: League; free: boolean }) {
     }
     const by = { ovr: (p: Player) => -p.ovr, pot: (p: Player) => -p.pot, val: (p: Player) => -p.val, age: (p: Player) => playerAge(L, p) }[sort];
     return { list: out.sort((a, b) => by(a) - by(b) || b.ovr - a.ovr), deals };
-  }, [L, L.date, ver, pos, lg, sort, q, afford, u23, free, me.budget, can]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [L, L.date, ver, pos, lgs, sort, q, afford, u23, free, me.budget, can]); // eslint-disable-line react-hooks/exhaustive-deps
   // Only the search and the position stay on screen: the rest of the filters live in a sheet, so the
   // list starts in the upper half of the phone.
   const [sheet, setSheet] = useState(false);
   const SORTS = [{ v: 'ovr' as const, label: 'Рейтинг' }, { v: 'pot' as const, label: 'Потенциал' }, { v: 'val' as const, label: 'Стоимость' }, { v: 'age' as const, label: 'Моложе' }];
-  const LGS = [{ v: 'all', label: 'Все лиги' }, ...LEAGUE_IDS.map((id) => ({ v: id as string, label: LEAGUES[id].short })), { v: 'ext', label: 'Другие лиги' }];
+  // The youth league is outside the market.
+  const LGS = [...LEAGUE_IDS.filter((id) => id !== 'U17').map((id) => ({ v: id as string, label: LEAGUES[id].short })), { v: 'ext', label: 'Другие лиги' }];
+  const flip = (v: string) => setLgs((x) => (x.includes(v) ? x.filter((y) => y !== v) : [...x, v]));
   const active = [
-    !free && lg !== 'all' && { label: LGS.find((x) => x.v === lg)?.label ?? lg, off: () => setLg('all') },
+    ...(free ? [] : lgs.map((v) => ({ label: LGS.find((x) => x.v === v)?.label ?? v, off: () => setLgs((x) => x.filter((y) => y !== v)) }))),
     sort !== 'ovr' && { label: `↓ ${SORTS.find((x) => x.v === sort)!.label}`, off: () => setSort('ovr') },
     !free && afford && { label: 'По карману', off: () => setAfford(false) },
     u23 && { label: 'До 23 лет', off: () => setU23(false) },
@@ -106,9 +109,10 @@ function Search({ L, free }: { L: League; free: boolean }) {
       <Sheet open={sheet} onClose={() => setSheet(false)} title="Фильтры">
         {!free && (
           <>
-            <div className="text-[12px] uppercase tracking-wider text-muted mb-2">Лига</div>
+            <div className="text-[12px] uppercase tracking-wider text-muted mb-2">Лиги · можно несколько</div>
             <div className="flex flex-wrap gap-2">
-              {LGS.map((o) => <button key={o.v} onClick={() => setLg(o.v)} className={cx('press h-11 px-4 rounded-full text-[14.5px] font-medium border', lg === o.v ? 'bg-white text-[#05070d] border-white' : 'glass')}>{o.label}</button>)}
+              <button onClick={() => setLgs([])} className={cx('press h-11 px-4 rounded-full text-[14.5px] font-medium border', !lgs.length ? 'bg-white text-[#05070d] border-white' : 'glass')}>Все лиги</button>
+              {LGS.map((o) => <button key={o.v} onClick={() => flip(o.v)} aria-pressed={lgs.includes(o.v)} className={cx('press h-11 px-4 rounded-full text-[14.5px] font-medium border', lgs.includes(o.v) ? 'bg-white text-[#05070d] border-white' : 'glass')}>{lgs.includes(o.v) ? '✓ ' : ''}{o.label}</button>)}
             </div>
           </>
         )}
