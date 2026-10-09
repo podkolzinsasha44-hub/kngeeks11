@@ -1,6 +1,7 @@
 import { dateRu } from '../../engine/medical';
 import { addDays } from '../../engine/util';
 import { matchesRu } from '../components/Medical';
+import { loanBlock, loanOut, loanTargets } from '../../engine/loans';
 import { useMemo, useState } from 'react';
 import { renewalCases, VERDICT_RU } from '../../engine/renewals';
 import { saleView } from '../../engine/sale';
@@ -80,7 +81,9 @@ function Badges({ L, p }: { L: League; p: Player }) {
     !!p.susp && <Pill key="susp" color="#ff5a5f">Дисквалификация: пропустит {matchesRu(p.susp)}</Pill>,
     p.wantsOut && <Pill key="out" color="#ffb547">Хочет сменить клуб</Pill>,
     p.listed && <Pill key="list" color="#7fd3ff">На трансфере</Pill>,
-    p.loan && <Pill key="loan">Аренда из {p.loan.from ? L.teams[p.loan.from]?.ru : p.ext ?? 'другого клуба'}</Pill>,
+    p.loan && (p.loan.from === L.user
+      ? <Pill key="loan" color="#7fd3ff">Ваш игрок в аренде в «{L.teams[p.team ?? '']?.ru}» до 30 июня</Pill>
+      : <Pill key="loan">Аренда из {p.loan.from ? L.teams[p.loan.from]?.ru : p.ext ?? 'другого клуба'}</Pill>),
     p.ru && <Pill key="name">{fullName(p)}</Pill>,
   ].filter(Boolean);
   return items.length ? <div className="flex gap-1.5 flex-wrap mb-3 justify-center">{items}</div> : null;
@@ -114,6 +117,7 @@ function Actions({ L, p }: { L: League; p: Player }) {
   const push = useNav((s) => s.push);
   const [bid, setBid] = useState(false);
   const [confirm, setConfirm] = useState(false);
+  const [loan, setLoan] = useState(false);
   const desktop = useDesktop();
   const mine = p.team === L.user;
   const blocked = p.talksBlockedUntil && p.talksBlockedUntil > L.date;
@@ -129,6 +133,7 @@ function Actions({ L, p }: { L: League; p: Player }) {
       </Button>,
     );
     // A destructive action stays out of the thumb zone.
+    extra.push(<Button key="loan" onClick={() => { const b = loanBlock(L, p); if (b) toast(b, 'bad'); else setLoan(true); }}>В аренду</Button>);
     extra.push(<Button key="rel" variant="danger" onClick={() => { const b = saleBlock(p); if (b) toast(b, 'bad'); else setConfirm(true); }}>Расторгнуть</Button>);
   }
   if (!mine && p.st === 'FA') {
@@ -139,7 +144,7 @@ function Actions({ L, p }: { L: League; p: Player }) {
       }}>Предложить контракт</Button>,
     );
   }
-  if (!mine && p.st === 'ACT') {
+  if (!mine && p.st === 'ACT' && p.loan?.from !== L.user) {
     btns.push(L.negotiations[p.id]?.kind === 'transfer' && L.negotiations[p.id].status === 'open'
       ? <Button key="talk" variant="good" onClick={() => push('negotiate', { id: p.id })}>Клубы договорились — к контракту</Button>
       : <Button key="bid" variant="primary" onClick={() => setBid(true)} icon={<Icon name="swap" size={16} />}>Сделать предложение</Button>);
@@ -157,11 +162,38 @@ function Actions({ L, p }: { L: League; p: Player }) {
       ) : btns.length > 0 && <div className="flex flex-wrap gap-2 mt-3">{btns}</div>}
       {extra.length > 0 && <div className="flex flex-wrap gap-2 mt-3">{extra}</div>}
       <BidSheet open={bid} onClose={() => setBid(false)} L={L} p={p} />
+      {loan && <LoanSheet L={L} p={p} onClose={() => setLoan(false)} />}
       <Sheet open={confirm} onClose={() => setConfirm(false)} title="Расторгнуть контракт?">
         <div className="text-[14.5px] text-muted mb-4">{dispName(p)} станет свободным агентом. Клуб выплатит половину оставшейся зарплаты из трансферного бюджета.</div>
         <Button variant="danger" size="lg" full onClick={() => { const cost = act(() => releasePlayer(L, p)); setConfirm(false); toast(cost == null ? saleBlock(p) ?? 'Контракт расторгнуть нельзя' : `Контракт расторгнут. Компенсация: ${money(cost)}`, cost == null ? 'bad' : 'info'); }}>Расторгнуть</Button>
       </Sheet>
     </>
+  );
+}
+
+/** Clubs that would give the player games this season. */
+function LoanSheet({ L, p, onClose }: { L: League; p: Player; onClose: () => void }) {
+  const act = useGame((s) => s.act);
+  const toast = useGame((s) => s.toast);
+  const targets = useMemo(() => loanTargets(L, p, 6), [L, p]);
+  return (
+    <Sheet open onClose={onClose} title={`В аренду: ${dispName(p)}`}>
+      <div className="text-[13.5px] text-muted leading-snug mb-3">До 30 июня. Зарплату платит клуб-арендатор, перепродать игрока он не может. Рост рейтинга зависит от сыгранных минут — поэтому важно, чтобы игрок там играл.</div>
+      {targets.length ? (
+        <div className="flex flex-col gap-2">
+          {targets.map((x) => (
+            <button key={x.t.id} onClick={() => { const err = act(() => loanOut(L, p, x.t.id)); toast(err ?? `${dispName(p)} отправлен в аренду в «${x.t.ru}»`, err ? 'bad' : 'good'); onClose(); }} className="press glass rounded-2xl px-3 py-2.5 flex items-center gap-3 text-left">
+              <TeamBadge team={x.t} size={36} />
+              <div className="flex-1 min-w-0">
+                <div className="text-[15px] font-semibold truncate">{x.t.ru}</div>
+                <div className="text-[12.5px] text-muted truncate">{LEAGUES[x.t.lg].short}</div>
+              </div>
+              <Pill color={x.role === 'start' ? '#3ddc97' : '#ffb547'}>{x.role === 'start' ? 'основа' : 'ротация'}</Pill>
+            </button>
+          ))}
+        </div>
+      ) : <div className="text-[14px] text-muted">Нет клубов, где он гарантированно получит игровое время: для своего уровня он слишком силён или слишком слаб, либо мешает лимит на легионеров.</div>}
+    </Sheet>
   );
 }
 

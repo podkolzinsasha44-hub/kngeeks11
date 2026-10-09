@@ -14,6 +14,7 @@ import { EmptyCard, PitchCard } from '../components/PlayerCard';
 import { PitchSvg } from '../components/charts';
 import { dispName, dispShort, fitColor, money, playerAge, POS_FULL, ROLE_RU } from '../format';
 import { useKeep } from '../keep';
+import { loanedOut } from '../../engine/loans';
 
 type TabId = 'pitch' | 'list';
 
@@ -35,6 +36,7 @@ export function Roster({ params }: { params: Record<string, unknown> }) {
 function SquadList({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
   const [sort, setSort] = useKeep<'pos' | 'ovr' | 'age' | 'wage' | 'fit'>('roster.sort', 'pos');
   const xi = new Set(t.lineup.xi), bench = new Set(t.lineup.bench);
+  const loans = loanedOut(L);
   const lim = foreignLimit(t.lg, L.season);
   const foreign = sq.filter((p) => isForeign(p, t.country)).length;
   const badge = (p: Player) => (xi.has(p.id) ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-good/20 text-good">СТАРТ</span> : bench.has(p.id) ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/10 text-muted">ЗАП</span> : null);
@@ -52,6 +54,12 @@ function SquadList({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
           <Card pad={false} className="overflow-hidden">{sq.filter((p) => p.pos === pos).sort((a, b) => b.ovr - a.ovr).map(row)}</Card>
         </div>
       )) : <Card pad={false} className="mt-3 overflow-hidden">{sorted.map(row)}</Card>}
+      {loans.length > 0 && (
+        <>
+          <SectionTitle>В аренде · {loans.length}</SectionTitle>
+          <Card pad={false} className="overflow-hidden">{loans.map((p) => <PlayerRow key={p.id} p={p} right={<span className="text-[11.5px] text-muted mr-1 text-right">{L.teams[p.team!]?.ru}<br />до 30 июня</span>} />)}</Card>
+        </>
+      )}
     </>
   );
 }

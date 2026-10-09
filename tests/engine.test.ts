@@ -3,10 +3,10 @@ import path from 'node:path';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { foreignLimit, isForeign, LEAGUES, rulesOf } from '../src/engine/leagues';
 import { FORMATIONS, lineupValid, squad, teamPower, touchSquads } from '../src/engine/lineup';
-import { simulateMatch } from '../src/engine/match';
+import { createMatch, simulateMatch } from '../src/engine/match';
 import { gameOdds, quickOdds, ratingOf, sideOf } from '../src/engine/projection';
 import { seedState, useState_ } from '../src/engine/rng';
-import { advanceDay, lastUserBox, nextUserGame } from '../src/engine/season';
+import { advanceDay, applyLive, lastUserBox, nextUserGame, startLive } from '../src/engine/season';
 import { negotiate, userBid } from '../src/engine/transfers';
 import { canRegister, interest, startTalks } from '../src/engine/contracts';
 import { dealFor, transferAdvice } from '../src/engine/advice';
@@ -20,6 +20,10 @@ import type { League } from '../src/engine/types';
 import { newCareer, upgradeSave, type WorldJson } from '../src/engine/world';
 import { editYouthPlayer } from '../src/engine/youth';
 import { initPlayoffs } from '../src/engine/cup';
+import { recovery, startUpgrade, trainingGrowth, upgradeCost, weeklyTraining, facility } from '../src/engine/club';
+import { developPlayer } from '../src/engine/progression';
+import { loanBlock, loanOut, loanTargets, loanedOut } from '../src/engine/loans';
+import { returnLoans } from '../src/engine/transfers';
 import { rollover } from '../src/engine/offseason';
 import { sortedTeams } from '../src/engine/standings';
 import { club, drawLeague, makePots, matchdays, rosterOf, uclOrder, UCL } from '../src/engine/ucl';
@@ -839,4 +843,144 @@ describe('a full season', () => {
     expect(L.ucl!.pots[0][0]).toBe(u.champion);
     checkLeaguePhase(L, L.games.filter((g) => g.comp === UCL), L.ucl!.pots);
   }, 180_000);
+});
+
+
+describe('training, facilities and loans', () => {
+  it('light training keeps players fresher, hard training makes the young grow faster', () => {
+    const L = career();
+    const t = L.teams.SPA;
+    const p = squad(L, 'SPA').sort((a, b) => a.ovr - b.ovr)[0];
+    p.fit = 60;
+    t.training = { int: 'light', focus: 'balanced' };
+    const light = recovery(L, p);
+    t.training = { int: 'hard', focus: 'balanced' };
+    const hard = recovery(L, p);
+    expect(light).toBeGreaterThan(hard);
+    // AI clubs are untouched by the user's plan
+    const ai = squad(L, 'ZEN')[0];
+    expect(recovery(L, ai)).toBe(3.4);
+    useState_(seedState(3));
+    for (let w = 0; w < 46; w++) weeklyTraining(L);
+    const young = squad(L, 'SPA').filter((x) => !x.inj).sort((a, b) => a.bd < b.bd ? 1 : -1)[0];
+    expect(trainingGrowth(L, young)).toBeGreaterThan(0.4);
+    t.training = { int: 'normal', focus: 'balanced' };
+  });
+
+  it('season development includes the training bonus and resets it', () => {
+    const L = career();
+    const p = squad(L, 'SPA').sort((a, b) => (a.bd < b.bd ? 1 : -1))[0];
+    const clone = structuredClone(p);
+    useState_(seedState(9));
+    const base = developPlayer(L, clone, L.season);
+    p.trn = 60;
+    useState_(seedState(9));
+    const trained = developPlayer(L, p, L.season);
+    expect(trained).toBeGreaterThanOrEqual(base);
+    expect(p.trn).toBe(0);
+  });
+
+  it('a facility costs money, takes time and then levels up', () => {
+    const L = career();
+    const t = L.teams.SPA;
+    t.budget = 1e9;
+    const lvl = facility(t, 'med');
+    const cost = upgradeCost(t, 'med');
+    startUpgrade(L, 'med');
+    expect(t.budget).toBe(1e9 - cost);
+    expect(t.build?.kind).toBe('med');
+    expect(startUpgrade(L, 'train')).toMatch(/Уже идёт стройка/);
+    for (let i = 0; i < 95; i++) advanceDay(L);
+    expect(facility(t, 'med')).toBe(lvl + 1);
+    expect(t.build).toBeUndefined();
+  });
+
+  it('a loaned-out player plays for the borrower and comes back in summer', () => {
+    const L = career();
+    while (!L.windows.some(([a, b]) => L.date >= a && L.date <= b)) advanceDay(L);
+    const t = L.teams.SPA;
+    const p = squad(L, 'SPA').filter((x) => !loanBlock(L, x) && !t.lineup.xi.includes(x.id)).sort((a, b) => (a.bd < b.bd ? 1 : -1))[0];
+    expect(p).toBeTruthy();
+    const targets = loanTargets(L, p);
+    expect(targets.length).toBeGreaterThan(0);
+    const to = targets[0].t.id;
+    expect(loanOut(L, p, to)).toBeNull();
+    expect(p.team).toBe(to);
+    expect(p.loan).toEqual({ from: 'SPA', until: L.season + 1 });
+    expect(loanedOut(L)).toContain(p);
+    expect(squad(L, 'SPA')).not.toContain(p);
+    returnLoans(L);
+    expect(p.team).toBe('SPA');
+    expect(p.loan).toBeUndefined();
+    expect(L.inbox.some((m) => m.title.includes('вернулся из аренды'))).toBe(true);
+  });
+});
+
+
+describe('the match played live from the touchline', () => {
+  it('ticking a live match gives exactly the same game as simulating it at once', () => {
+    const L = career();
+    const t = L.teams.SPA, opp = L.teams.ZEN;
+    aiLineup(L, opp);
+    useState_(seedState(21));
+    const a = simulateMatch(L.players, sideOf(t), sideOf(opp), { detail: true });
+    useState_(seedState(21));
+    const live = createMatch(L.players, sideOf(t), sideOf(opp), { detail: true });
+    while (!live.done) live.tick();
+    expect(live.box!.result.hs).toBe(a.result.hs);
+    expect(live.box!.result.as).toBe(a.result.as);
+    expect(live.box!.result.events.length).toBe(a.result.events.length);
+  });
+
+  it('the user changes the tactic and makes substitutions from his bench', () => {
+    const L = career();
+    const t = L.teams.SPA, opp = L.teams.ZEN;
+    aiLineup(L, opp);
+    const shots = (tac: 'attack' | 'defense') => {
+      useState_(seedState(4));
+      let n = 0;
+      for (let i = 0; i < 150; i++) {
+        const m = createMatch(L.players, sideOf(t), sideOf(opp));
+        for (let k = 0; k < 30; k++) m.tick();
+        m.setTactic(true, tac);
+        while (!m.done) m.tick();
+        n += m.box!.result.shH;
+      }
+      return n;
+    };
+    expect(shots('attack')).toBeGreaterThan(shots('defense'));
+    useState_(seedState(5));
+    const m = createMatch(L.players, sideOf(t), sideOf(opp), { detail: true });
+    for (let k = 0; k < 50; k++) m.tick();
+    const out = m.view(true).on.find((x) => x.slot !== 'GK')!.p;
+    const inn = m.view(true).bench[0];
+    expect(m.sub(true, out.id, inn.id)).toBe(true);
+    expect(m.view(true).on.some((x) => x.p.id === inn.id)).toBe(true);
+    expect(m.sub(true, out.id, inn.id)).toBe(false);
+    while (!m.done) m.tick();
+    expect(m.box!.players.find((p) => p.id === inn.id)?.started).toBe(false);
+    expect(m.box!.result.events.some((e) => e.type === 'sub' && e.players?.[0] === inn.id)).toBe(true);
+  });
+
+  it('the day leaves the user game for the live match, and an unfinished one is played out the next day', () => {
+    const L = career();
+    let r = advanceDay(L, { live: true });
+    for (let i = 0; i < 60 && !r.live; i++) r = advanceDay(L, { live: true });
+    const g = r.live!;
+    expect(g.played).toBeFalsy();
+    expect(L.liveGame).toBe(g.id);
+    const live = startLive(L, g);
+    while (!live.done) live.tick();
+    applyLive(L, g, live.box!);
+    expect(g.played).toBe(true);
+    expect(L.lastUserGame).toBe(g.id);
+    expect(L.liveGame).toBeUndefined();
+    // Closed mid-match: the next day plays it out.
+    r = advanceDay(L, { live: true });
+    for (let i = 0; i < 60 && !r.live; i++) r = advanceDay(L, { live: true });
+    const g2 = r.live!;
+    const r2 = advanceDay(L);
+    expect(g2.played).toBe(true);
+    expect(r2.userGame?.game.id).toBe(g2.id);
+  });
 });

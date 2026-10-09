@@ -1,4 +1,5 @@
 // Development and ageing. Runs once per season at the rollover, for every player in the world.
+import { focusKeys, trainingGrowth } from './club';
 import { seasonTotal } from './stats';
 import { next, normal } from './rng';
 import type { KeeperAttrs, League, OutfieldAttrs, Player } from './types';
@@ -35,6 +36,9 @@ export function developPlayer(L: League, p: Player, season: number): number {
     d *= 1 - (p.pers.prof - 10) * 0.02;
     if (p.dev === 'E' && age >= 30) d *= 1.2;
   }
+  // The club's training of the season: load, emphasis and the training ground (club.ts).
+  d += trainingGrowth(L, p);
+  p.trn = 0;
   d += normal(0, 0.9);
   // A strong season shows in the ratings; a season on the bench does not.
   if (st.gp >= 15) d += clamp((st.rt / st.gp / 10 - 6.7) * 0.9, -0.6, 0.9);
@@ -49,14 +53,16 @@ export function developPlayer(L: League, p: Player, season: number): number {
   } else {
     const a = p.r as OutfieldAttrs;
     const w = W_ROLE[p.role as keyof typeof W_ROLE];
+    const focus = focusKeys(L, p);
     for (const k of ['pac', 'sho', 'pas', 'dri', 'att', 'def', 'phy', 'hea'] as const) {
       // Ageing hits pace and stamina first; passing and reading of the game hold up.
-      const ageW = delta < 0 ? (k === 'pac' ? 1.7 : k === 'pas' || k === 'att' ? 0.5 : k === 'def' ? 0.7 : 1) : (p.focus === k ? 1.5 : 1);
+      const ageW = delta < 0 ? (k === 'pac' ? 1.7 : k === 'pas' || k === 'att' ? 0.5 : k === 'def' ? 0.7 : 1) : (p.focus === k ? 1.5 : 1) * (focus.includes(k) ? 1.3 : 1);
       const share = (w[k] ?? 0) > 0.03 || delta < 0 ? 1 : 0.4;
       a[k] = clamp(Math.round(a[k] + delta * ageW * share + normal(0, 0.6)), 15, 99);
     }
     if (delta < 0) a.sta = clamp(a.sta - (age >= 32 ? 2 : 1), 30, 99);
     else if (age <= 23) a.sta = clamp(a.sta + 1, 30, 99);
+    if (focus.includes('sta') && age <= 30) a.sta = clamp(a.sta + 1, 30, 99);
   }
   const before = p.ovr;
   p.ovr = calcOvr(p);

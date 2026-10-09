@@ -5,6 +5,11 @@ export type Status = 'ACT' | 'FA' | 'RET';
 export type Difficulty = 'rookie' | 'real' | 'hard';
 /** How often players get injured and sent off: as in real football or less often. The same for every club. */
 export type Incidents = 'real' | 'less' | 'rare';
+/** Training load and emphasis (training.ts). */
+export type Intensity = 'light' | 'normal' | 'hard';
+export type TrainFocus = 'balanced' | 'physical' | 'attack' | 'defense';
+/** Facilities the user can build up (club.ts). */
+export type Facility = 'med' | 'train' | 'academy';
 /** Club leagues simulated by the engine. */
 export type LeagueId = 'RPL' | 'FNL' | 'L2A' | 'L2B' | 'U17' | 'EPL' | 'ESP' | 'ITA' | 'GER' | 'FRA';
 export type Strategy = 'contend' | 'bubble' | 'rebuild';
@@ -126,6 +131,8 @@ export interface Player {
   listed?: boolean;
   retired?: number;
   focus?: keyof OutfieldAttrs | keyof KeeperAttrs | null;
+  /** Training of this season, accumulated week by week: above 0 — extra growth at the rollover, below — less. */
+  trn?: number;
   talksBlockedUntil?: string;
   /** Season the player joined the current club. */
   joined?: number;
@@ -200,7 +207,12 @@ export interface Team {
   fans: number; // 0-100 mood
   /** Relationship of this AI club with the user (0-100). */
   rel: number;
-  staff: { med: number; scouting: number; academy: number };
+  /** Club facilities 1..5: medical centre, scouting, academy, training ground (`train`, missing in old saves = 2). */
+  staff: { med: number; scouting: number; academy: number; train?: number };
+  /** Training plan of the week (the user's club; AI clubs train normally). */
+  training?: { int: Intensity; focus: TrainFocus };
+  /** A facility under construction: it reaches the next level on `done`. */
+  build?: { kind: Facility; done: string; cost: number };
   /** Titles: league, cup. */
   titles: number;
   cups: number;
@@ -492,6 +504,8 @@ export interface League {
   nextId: number;
   games: Game[];
   nextGameId: number;
+  /** The user's game being played live; if the app was closed mid-match, it is played out the next day. */
+  liveGame?: number;
   negotiations: Record<number, Negotiation>;
   news: News[];
   inbox: Message[];
@@ -519,7 +533,7 @@ export interface League {
 export interface GameEvent {
   /** Minute of the match (1..120). */
   m: number;
-  type: 'goal' | 'yellow' | 'red' | 'sub' | 'injury' | 'half' | 'end' | 'chance' | 'save' | 'pen' | 'penmiss' | 'shootout' | 'kickoff';
+  type: 'goal' | 'yellow' | 'red' | 'sub' | 'injury' | 'half' | 'end' | 'chance' | 'save' | 'pen' | 'penmiss' | 'shootout' | 'kickoff' | 'tactic';
   team: string;
   text: string;
   players?: number[];

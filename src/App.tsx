@@ -110,6 +110,7 @@ function useShortcuts() {
       const nav = useNav.getState();
       const g = useGame.getState();
       if (e.key === 'Escape') {
+        if (nav.modal?.params?.interactive) return; // a live match is left with its own buttons
         if (nav.modal) {
           const after = nav.modal.name === 'match' ? nav.modal.params?.after : undefined;
           nav.closeModal();

@@ -206,7 +206,7 @@ export function rollInjury(id: number) {
   return { id, days: 4, type: 'Ушиб' };
 }
 
-export function simulateMatch(players: P, home: MatchSide, away: MatchSide, o: MatchOpts = {}): MatchBox {
+export function createMatch(players: P, home: MatchSide, away: MatchSide, o: MatchOpts = {}): LiveMatch {
   const detail = !!o.detail;
   const H = mkSide(players, home, true), A = mkSide(players, away, false);
   const events: GameEvent[] = [];
@@ -222,10 +222,10 @@ export function simulateMatch(players: P, home: MatchSide, away: MatchSide, o: M
   let possH = 0, possN = 0;
   ev({ m: 0, type: 'kickoff', team: '', text: 'Стартовый свисток' });
 
-  const substitute = (s: Side, out: Side['on'][number], minute: number, forced: boolean) => {
+  const substitute = (s: Side, out: Side['on'][number], minute: number, forced: boolean, chosen?: Player) => {
     if (s.subs >= maxSubs || !s.bench.length) return false;
-    let best: Player | undefined, bv = -1;
-    for (const b of s.bench) {
+    let best: Player | undefined = chosen, bv = chosen ? Infinity : -1;
+    if (!chosen) for (const b of s.bench) {
       const v = slotRating(b, out.slot) * condition(b);
       if (v > bv) { bv = v; best = b; }
     }
@@ -412,70 +412,154 @@ export function simulateMatch(players: P, home: MatchSide, away: MatchSide, o: M
     if (dirty || minute % 10 === 0) { refresh(H, minute); refresh(A, minute); }
   };
 
-  for (let m = 1; m <= 90; m++) {
-    minuteTick(m, false);
-    if (m === 45) ev({ m: 45, type: 'half', team: '', score: [H.goals, A.goals], text: 'Перерыв' });
-  }
   let et = false, pen: [number, number] | null = null;
   const level = () => H.goals + (o.agg?.[0] ?? 0) === A.goals + (o.agg?.[1] ?? 0);
-  if (o.knockout && level()) {
-    et = true;
-    ev({ m: 90, type: 'half', team: '', score: [H.goals, A.goals], text: 'Основное время — ничья. Дополнительное время' });
-    for (let m = 91; m <= 120; m++) minuteTick(m, true);
-    if (level()) {
-      const kick = (s: Side, d: Side, i: number) => {
-        const order = [...s.on].filter((x) => x.slot !== 'GK').sort((a, b) => fin(b.p) - fin(a.p));
-        const k = order[i % Math.max(1, order.length)] ?? s.on[0];
-        const p = clamp(K.SO_P + (fin(k.p) - 72) * 0.004 - (d.str.gk - 72) * 0.005, 0.55, 0.9);
-        const ok = next() < p;
-        ev({ m: 120, type: 'shootout', team: s.in.id, players: [k.p.id], text: `Серия пенальти: ${nm(k.p)} ${ok ? '— гол' : '— мимо'}` });
-        return ok;
-      };
-      let h = 0, a = 0;
-      for (let i = 0; i < 5; i++) {
-        if (kick(H, A, i)) h++;
-        if (h > a + (5 - i) || a > h + (4 - i)) break;
-        if (kick(A, H, i)) a++;
-        if (h > a + (4 - i) || a > h + (4 - i)) break;
-      }
-      for (let i = 5; h === a && i < 40; i++) {
-        const hk = kick(H, A, i), ak = kick(A, H, i);
-        if (hk) h++;
-        if (ak) a++;
-      }
-      if (h === a) (next() < 0.5 ? h++ : a++);
-      pen = [h, a];
+  const shootout = (): [number, number] => {
+    const kick = (s: Side, d: Side, i: number) => {
+      const order = [...s.on].filter((x) => x.slot !== 'GK').sort((a, b) => fin(b.p) - fin(a.p));
+      const k = order[i % Math.max(1, order.length)] ?? s.on[0];
+      const p = clamp(K.SO_P + (fin(k.p) - 72) * 0.004 - (d.str.gk - 72) * 0.005, 0.55, 0.9);
+      const ok = next() < p;
+      ev({ m: 120, type: 'shootout', team: s.in.id, players: [k.p.id], text: `Серия пенальти: ${nm(k.p)} ${ok ? '— гол' : '— мимо'}` });
+      return ok;
+    };
+    let h = 0, a = 0;
+    for (let i = 0; i < 5; i++) {
+      if (kick(H, A, i)) h++;
+      if (h > a + (5 - i) || a > h + (4 - i)) break;
+      if (kick(A, H, i)) a++;
+      if (h > a + (4 - i) || a > h + (4 - i)) break;
     }
-  }
-  const total = et ? 120 : 90;
-  ev({ m: total, type: 'end', team: '', score: [H.goals, A.goals], text: 'Финальный свисток' });
-
-  // Minutes and ratings
-  const all = [...H.stats, ...A.stats];
-  for (const s of [H, A]) {
-    const opp = s === H ? A : H;
-    const won = s.goals > opp.goals, lost = s.goals < opp.goals;
-    for (const st of s.stats) {
-      if (!st.off && !st.rc) st.min += total - st.on;
-      const share = Math.min(1, st.min / 90);
-      const back = st.slot === 'GK' || PHASE[st.slot][2] >= 0.7;
-      let r = 6 + st.g * 1.0 + st.a * 0.65 + st.sh * 0.05 - (st.yc === 1 ? 0.2 : 0) - (st.rc ? 1.6 : 0) + st.sv * 0.14;
-      r += share * ((won ? 0.3 : lost ? -0.3 : 0) + (back ? (opp.goals === 0 ? 0.55 : -0.22 * Math.min(4, opp.goals)) : (s.goals - 1.3) * 0.08));
-      r += share * ((st.p.ovr - 72) * 0.012 + normal(0, 0.32));
-      st.rt = clamp(Math.round(r * 10) / 10, 3, 10);
+    for (let i = 5; h === a && i < 40; i++) {
+      const hk = kick(H, A, i), ak = kick(A, H, i);
+      if (hk) h++;
+      if (ak) a++;
     }
-  }
-  const eligible = all.filter((s) => s.min >= 30);
-  const mom = (eligible.length ? eligible : all).sort((a, b) => b.rt - a.rt)[0]?.id ?? 0;
-
-  const result: GameResult = {
-    hs: H.goals, as: A.goals, et, pen,
-    shH: H.shots, shA: A.shots, onH: H.onT, onA: A.onT,
-    xgH: Math.round(H.xg * 100) / 100, xgA: Math.round(A.xg * 100) / 100,
-    posH: possN ? possH / possN : 0.5,
-    events, mom, shotsMap, injuries, momentum,
+    if (h === a) (next() < 0.5 ? h++ : a++);
+    return [h, a];
   };
-  return { result, players: all, home, away };
+
+  let box: MatchBox | null = null;
+  const finish = () => {
+    const total = et ? 120 : 90;
+    ev({ m: total, type: 'end', team: '', score: [H.goals, A.goals], text: 'Финальный свисток' });
+
+    // Minutes and ratings
+    const all = [...H.stats, ...A.stats];
+    for (const s of [H, A]) {
+      const opp = s === H ? A : H;
+      const won = s.goals > opp.goals, lost = s.goals < opp.goals;
+      for (const st of s.stats) {
+        if (!st.off && !st.rc) st.min += total - st.on;
+        const share = Math.min(1, st.min / 90);
+        const back = st.slot === 'GK' || PHASE[st.slot][2] >= 0.7;
+        let r = 6 + st.g * 1.0 + st.a * 0.65 + st.sh * 0.05 - (st.yc === 1 ? 0.2 : 0) - (st.rc ? 1.6 : 0) + st.sv * 0.14;
+        r += share * ((won ? 0.3 : lost ? -0.3 : 0) + (back ? (opp.goals === 0 ? 0.55 : -0.22 * Math.min(4, opp.goals)) : (s.goals - 1.3) * 0.08));
+        r += share * ((st.p.ovr - 72) * 0.012 + normal(0, 0.32));
+        st.rt = clamp(Math.round(r * 10) / 10, 3, 10);
+      }
+    }
+    const eligible = all.filter((s) => s.min >= 30);
+    const mom = (eligible.length ? eligible : all).sort((a, b) => b.rt - a.rt)[0]?.id ?? 0;
+
+    const result: GameResult = {
+      hs: H.goals, as: A.goals, et, pen,
+      shH: H.shots, shA: A.shots, onH: H.onT, onA: A.onT,
+      xgH: Math.round(H.xg * 100) / 100, xgA: Math.round(A.xg * 100) / 100,
+      posH: possN ? possH / possN : 0.5,
+      events, mom, shotsMap, injuries, momentum,
+    };
+    box = { result, players: all, home, away };
+  };
+
+  // The match is played one minute per tick: 1..90, extra time 91..120 in a knock-out game when level, then penalties.
+  let m = 1;
+  const tick = () => {
+    if (box) return;
+    if (m <= 90) {
+      minuteTick(m, false);
+      if (m === 45) ev({ m: 45, type: 'half', team: '', score: [H.goals, A.goals], text: 'Перерыв' });
+      if (m === 90) {
+        if (o.knockout && level()) {
+          et = true;
+          ev({ m: 90, type: 'half', team: '', score: [H.goals, A.goals], text: 'Основное время — ничья. Дополнительное время' });
+        } else { finish(); return; }
+      }
+    } else {
+      minuteTick(m, true);
+      if (m === 120) {
+        if (level()) pen = shootout();
+        finish();
+        return;
+      }
+    }
+    m++;
+  };
+
+  const sideOfMatch = (home: boolean) => (home ? H : A);
+  return {
+    get minute() { return box ? (et ? 120 : 90) : m - 1; },
+    get done() { return !!box; },
+    get box() { return box; },
+    events,
+    score: () => [H.goals, A.goals],
+    tick,
+    setTactic: (home: boolean, t: Tactic) => {
+      const s = sideOfMatch(home);
+      if (box || s.in.tactic === t) return;
+      s.in = { ...s.in, tactic: t };
+      ev({ m: Math.max(1, m - 1), type: 'tactic', team: s.in.id, text: `${s.in.short}: ${t === 'attack' ? 'все вперёд — атака' : t === 'defense' ? 'отходим в оборону' : 'играем в баланс'}` });
+      refresh(s, m - 1);
+    },
+    sub: (home: boolean, outId: number, inId: number) => {
+      const s = sideOfMatch(home);
+      const out = s.on.find((x) => x.p.id === outId), b = s.bench.find((x) => x.id === inId);
+      if (box || !out || !b) return false;
+      const ok = substitute(s, out, Math.max(1, m - 1), true, b);
+      if (ok) refresh(s, m - 1);
+      return ok;
+    },
+    view: (home: boolean) => {
+      const s = sideOfMatch(home);
+      return { on: s.on.map((x) => ({ p: x.p, slot: x.slot, cond: x.cond, st: x.st })), bench: s.bench, subs: s.subs, maxSubs, tactic: s.in.tactic, shots: s.shots, onT: s.onT, xg: s.xg, reds: s.reds };
+    },
+    possession: () => (possN ? possH / possN : 0.5),
+  };
+}
+
+export interface LiveSide {
+  on: { p: Player; slot: Role; cond: number; st: PStat }[];
+  bench: Player[];
+  subs: number;
+  maxSubs: number;
+  tactic: Tactic;
+  shots: number;
+  onT: number;
+  xg: number;
+  reds: number;
+}
+
+/** A match in progress that can be played minute by minute and changed from the touchline. */
+export interface LiveMatch {
+  readonly minute: number;
+  readonly done: boolean;
+  readonly box: MatchBox | null;
+  readonly events: GameEvent[];
+  score(): number[];
+  /** Plays the next minute (extra time and penalties when they are due). */
+  tick(): void;
+  setTactic(home: boolean, t: Tactic): void;
+  /** A substitution from the bench; false when it is not allowed (no changes left, player not there). */
+  sub(home: boolean, outId: number, inId: number): boolean;
+  view(home: boolean): LiveSide;
+  possession(): number;
+}
+
+/** Plays a whole match at once. */
+export function simulateMatch(players: P, home: MatchSide, away: MatchSide, o: MatchOpts = {}): MatchBox {
+  const live = createMatch(players, home, away, o);
+  while (!live.done) live.tick();
+  return live.box!;
 }
 
 export const keeperQuality = (g: Player) => keeperOvr(g.r as KeeperAttrs);

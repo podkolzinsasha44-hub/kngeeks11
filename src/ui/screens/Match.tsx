@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { club, gameLabel } from '../../engine/ucl';
 import { motion } from 'motion/react';
-import { afterStop, useL } from '../../store/game';
+import { afterStop, useGame, useL } from '../../store/game';
+import { EVENT_ICON, LiveMatchScreen } from './LiveMatch';
 import { useNav } from '../../store/nav';
 import { lastUserBox } from '../../engine/season';
-import type { GameEvent } from '../../engine/types';
 import { Button, Card, cx, Ovr, SectionTitle, Segmented } from '../components/kit';
 import { Icon } from '../components/shell';
 import { TeamBadge } from '../components/media';
@@ -12,9 +12,21 @@ import { Momentum, ShotMap } from '../components/charts';
 import { dateLong, dispName, ROLE_RU } from '../format';
 import { horn } from '../sound';
 
-const ICON: Partial<Record<GameEvent['type'], string>> = { goal: '⚽', pen: '⚽', yellow: '🟨', red: '🟥', sub: '🔁', injury: '✚', save: '🧤', chance: '💨', penmiss: '❌', half: '⏸', end: '🏁', shootout: '🎯', kickoff: '▶️' };
+const ICON = EVENT_ICON;
 
 export function MatchScreen({ params }: { params: Record<string, unknown> }) {
+  const [after, setAfter] = useState<{ v: unknown } | null>(params.interactive ? null : { v: params.after });
+  if (!after) {
+    return <LiveMatchScreen id={Number(params.id)} onDone={() => {
+      // A final won or the last round of the league: the celebration or the table come after the review.
+      const L = useGame.getState().L!;
+      setAfter({ v: L.stops.find((s) => s === 'cup' || s === 'ucl' || s === 'season-end') ?? params.after ?? null });
+    }} />;
+  }
+  return <MatchReview params={{ id: params.id, live: params.live, after: after.v }} />;
+}
+
+function MatchReview({ params }: { params: Record<string, unknown> }) {
   const L = useL();
   const closeModal = useNav((s) => s.closeModal);
   // A trophy or the final table waits until the replay is closed.

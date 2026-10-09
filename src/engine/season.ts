@@ -7,7 +7,7 @@ import { genPlayer } from './gen';
 import { intlDaily } from './intl';
 import { LEAGUES, LEAGUE_IDS, foreignLimit, isLeague, rolloverDay, rulesOf, statKey, styleOf, windowOpen } from './leagues';
 import { FORMATIONS, lineupValid, returnRegulars, validateLineup } from './lineup';
-import { simulateMatch, type MatchBox } from './match';
+import { createMatch, simulateMatch, type LiveMatch, type MatchBox, type MatchOpts } from './match';
 import { pushMsg, pushNews, social } from './news';
 import { rollover, endLeague } from './offseason';
 import { sideOf } from './projection';
@@ -19,6 +19,7 @@ import type { Game, League, LeagueId, OutfieldAttrs, Player, Team } from './type
 import { addDays, clamp, dispName, dow } from './util';
 import { autoRenew, renewalCases, VERDICT_RU } from './renewals';
 import { absenceText, dateRu, injure } from './medical';
+import { dailyClub, recovery, weeklyTraining } from './club';
 import { club, onUclGame, rosterOf, UCL } from './ucl';
 
 export interface DayReport {
@@ -27,6 +28,8 @@ export interface DayReport {
   userGame?: { game: Game; box: MatchBox };
   /** The day was not played: the user has to fix the line-up first. */
   blocked?: boolean;
+  /** The user's game of the day, left to be played live from the touchline (`startLive` / `applyLive`). */
+  live?: Game;
 }
 
 /** Last user game box, kept in memory for the match centre (not saved). */
@@ -69,18 +72,49 @@ function prepareUserLineup(L: League, t: Team, roster: Player[], date: string): 
   return true;
 }
 
+/** Everything the engine needs to know about a game besides the two teams. */
+const optsOf = (L: League, g: Game, detail: boolean): MatchOpts => ({
+  knockout: isDecider(L, g), agg: aggregateFor(L, g), neutral: g.neutral, style: styleOf(g), ...rulesOf(L, g), detail,
+});
+
 export function playGame(L: League, g: Game): MatchBox {
   const H = club(L, g.h), A = club(L, g.a);
   const isUser = g.h === L.user || g.a === L.user;
-  const box = simulateMatch(L.players, sideOf(H), sideOf(A), {
-    knockout: isDecider(L, g), agg: aggregateFor(L, g), neutral: g.neutral, style: styleOf(g), ...rulesOf(L, g), detail: isUser,
-  });
+  const box = simulateMatch(L.players, sideOf(H), sideOf(A), optsOf(L, g, isUser));
   applyGame(L, g, box);
   if (isUser) {
     lastUserBox = { game: g, box };
     L.lastUserGame = g.id;
   }
   return box;
+}
+
+/** The user's game played live: the same engine and the same rules, one minute at a time. */
+export function startLive(L: League, g: Game): LiveMatch {
+  return createMatch(L.players, sideOf(club(L, g.h)), sideOf(club(L, g.a)), optsOf(L, g, true));
+}
+
+/** Writes a live game into the season once it is over. */
+export function applyLive(L: League, g: Game, box: MatchBox) {
+  if (g.played) return;
+  applyGame(L, g, box);
+  lastUserBox = { game: g, box };
+  L.lastUserGame = g.id;
+  L.liveGame = undefined;
+  checkEnds(L);
+}
+
+/** Leagues whose last game has been played end; when all of them are over, the play-offs are drawn. */
+function checkEnds(L: League) {
+  for (const lg of LEAGUE_IDS) {
+    const c = L.comps[lg];
+    if (c.phase === 'regular' && !L.games.some((g) => g.comp === lg && !g.played)) {
+      c.phase = 'done';
+      endLeague(L, lg);
+      if (lg === L.teams[L.user]?.lg) L.stops.push('season-end');
+    }
+  }
+  if (PO_LEAGUES.every((lg) => !L.comps[lg] || L.comps[lg].phase === 'done') && L.cups.PO?.season !== L.season) initPlayoffs(L, L.season);
 }
 
 function applyGame(L: League, g: Game, box: MatchBox) {
@@ -177,7 +211,7 @@ function daily(L: League) {
         if (p.team === L.user) back.push(p);
       }
     }
-    if (p.fit < 100) p.fit = Math.min(100, p.fit + (p.inj ? 1 : 3.4));
+    if (p.fit < 100) p.fit = Math.min(100, p.fit + recovery(L, p));
   }
   // A manual line-up: regulars who were out (injured or suspended) take their places back.
   const t = L.teams[L.user];
@@ -198,7 +232,7 @@ function daily(L: League) {
 }
 
 /** Advances the world by one day. */
-export function advanceDay(L: League): DayReport {
+export function advanceDay(L: League, opts: { live?: boolean } = {}): DayReport {
   useState_(L.rng);
   const date = L.date;
   const report: DayReport = { date, games: [] };
@@ -211,7 +245,8 @@ export function advanceDay(L: League): DayReport {
     }
   }
 
-  const todays = L.games.filter((g) => g.day === date && !g.played);
+  // A live game left unfinished (the app was closed during the match) is played out first.
+  const todays = L.games.filter((g) => !g.played && (g.day === date || (g.day < date && g.id === L.liveGame)));
   if (todays.length) {
     const byTeam = groupByTeam(L);
     const playing = new Set<string>();
@@ -226,26 +261,26 @@ export function advanceDay(L: League): DayReport {
     // AI coaches keep their shape between matches and reconsider it once a week.
     for (const id of playing) if (id !== L.user) aiLineup(L, club(L, id), byTeam.get(id) ?? [], club(L, id).lineup.xi.length === 11 && dow(date) !== 6);
     for (const g of todays) {
+      const mine = g.h === L.user || g.a === L.user;
+      if (mine && opts.live && g.day === date) {
+        report.live = g;
+        L.liveGame = g.id;
+        continue;
+      }
       const box = playGame(L, g);
       report.games.push(g);
-      if (g.h === L.user || g.a === L.user) report.userGame = { game: g, box };
+      if (mine) { report.userGame = { game: g, box }; L.liveGame = undefined; }
     }
-    for (const lg of LEAGUE_IDS) {
-      const c = L.comps[lg];
-      if (c.phase === 'regular' && !L.games.some((g) => g.comp === lg && !g.played)) {
-        c.phase = 'done';
-        endLeague(L, lg);
-        if (lg === L.teams[L.user]?.lg) L.stops.push('season-end');
-      }
-    }
-    if (PO_LEAGUES.every((lg) => !L.comps[lg] || L.comps[lg].phase === 'done') && L.cups.PO?.season !== L.season) initPlayoffs(L, L.season);
+    checkEnds(L);
   }
 
   intlDaily(L);
   daily(L);
+  dailyClub(L);
 
   if (dow(date) === 1) {
     weeklyMorale(L);
+    weeklyTraining(L);
     updateStrategies(L);
     weeklyMarket(L);
     ensureSquads(L, (t, pos) => genPlayer(L, { team: t, role: pos === 'G' ? 'GK' : pos === 'D' ? 'CB' : pos === 'M' ? 'CM' : 'ST', age: 18, ovr: Math.max(45, Math.round(sortedTeams(L, t.lg).length ? 40 + t.rep * 0.25 : 50)) }));

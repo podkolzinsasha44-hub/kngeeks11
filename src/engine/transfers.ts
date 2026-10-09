@@ -4,6 +4,7 @@ import { canRegister, interest, offerContract, signContract, startTalks, wageBil
 import { foreignLimit, isForeign, windowOpen } from './leagues';
 import { FORMATIONS, autoLineup, available, slotRating, squad, touchSquads } from './lineup';
 import { pushMsg, pushNews, social } from './news';
+import { avgRating, seasonTotal } from './stats';
 import { int, next, pick, shuffle } from './rng';
 import type { League, Player, Team, TransferOffer } from './types';
 import { isYouth, onMarket, youthBoy, youthPlayer } from './youth';
@@ -351,6 +352,14 @@ export function returnLoans(L: League) {
     if (owner) { p.team = owner.id; if (!p.teams.includes(owner.id)) p.teams.push(owner.id); }
     else { p.team = null; if (!p.ext) p.st = 'FA'; }
     if (was === L.user) pushMsg(L, { from: 'Спортивный отдел', kind: 'staff', title: `Аренда завершена: ${dispName(p)}`, body: `Игрок вернулся в ${owner ? `«${owner.ru}»` : p.ext ?? 'свой клуб'}.` });
+    if (owner && owner.id === L.user && was && was !== L.user) {
+      const st = seasonTotal(p, L.season);
+      pushMsg(L, {
+        from: 'Спортивный отдел', kind: 'staff', title: `${dispName(p)} вернулся из аренды`,
+        body: `Сезон в «${L.teams[was]?.ru ?? 'другом клубе'}»: ${st.gp ? `${st.gp} матчей${st.g ? `, голов — ${st.g}` : ''}${st.a ? `, передач — ${st.a}` : ''}, средняя оценка ${avgRating(st).toFixed(2)}` : 'игровой практики почти не было'}.`,
+        ref: { type: 'player', id: p.id },
+      });
+    }
   }
 }
 

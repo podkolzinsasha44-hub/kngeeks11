@@ -142,10 +142,13 @@ export const useGame = create<GameState>((set, get) => ({
     // "Watch the match" goes straight to the game: offers and injuries on the way wait in the inbox.
     const stopSet = opts?.watch ? ALWAYS : mode === 'event' || mode === 'week' || mode === 'game' || mode === 'day' ? EVENT : ALWAYS;
     let reason: string | null = null;
+    let live: Game | null = null;
     while (get().sim?.running) {
       L.stops = [];
-      const rep = advanceDay(L);
+      // "Watch the match": the user's game is not simulated with the day, it is played live from the touchline.
+      const rep = advanceDay(L, { live: !!opts?.watch });
       if (rep.blocked) { reason = 'lineup'; break; }
+      if (rep.live) { live = rep.live; reason = L.stops.find((s) => ALWAYS.has(s)) ?? null; break; }
       sim.days++;
       if (rep.userGame) {
         const r = { game: rep.userGame.game, res: resultOf(L, rep.userGame.game) };
@@ -170,6 +173,7 @@ export const useGame = create<GameState>((set, get) => ({
     }
     set({ sim: null, ver: get().ver + 1 });
     get().save();
+    if (live) return useNav.getState().openModal('match', { interactive: true, id: live.id, after: reason });
     onStop(reason, mode, !!opts?.watch, !!sim.last);
   },
   stopSim: () => {

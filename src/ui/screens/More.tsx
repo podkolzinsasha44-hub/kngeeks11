@@ -1,4 +1,5 @@
 import { INCIDENTS } from '../../engine/leagues';
+import { INTENSITY, trainingOf } from '../../engine/club';
 import type { Incidents } from '../../engine/types';
 import { useEffect, useMemo, useState } from 'react';
 import { openUcl } from './Ucl';
@@ -25,6 +26,7 @@ import { useKeep } from '../keep';
 const TILES: { route: string; icon: string; title: string; sub: (L: League) => string; badge?: (L: League) => number }[] = [
   { route: 'news', icon: '📰', title: 'Новости', sub: (L) => `${L.news.length} материалов` },
   { route: 'inbox', icon: '✉️', title: 'Входящие', sub: (L) => { const n = L.inbox.filter((m) => !m.read).length; return n ? `${n} непрочитанных` : 'Всё прочитано'; }, badge: (L) => L.inbox.filter((m) => !m.read).length },
+  { route: 'club', icon: '🏟️', title: 'Клуб', sub: (L) => { const t = L.teams[L.user]; return t.build ? `Стройка до ${t.build.done.slice(8, 10)}.${t.build.done.slice(5, 7)}` : `Тренировки: ${INTENSITY[trainingOf(t).int].label.toLowerCase()}`; } },
   { route: 'finance', icon: '💰', title: 'Финансы', sub: (L) => `Бюджет ${money(L.teams[L.user].budget)}` },
   { route: 'intl', icon: '🌍', title: 'Сборные', sub: (L) => L.intl.current?.name ?? 'ЧМ и Евро' },
   { route: 'career', icon: '👔', title: 'Карьера', sub: (L) => `Доверие ${L.owner.trust}/100` },

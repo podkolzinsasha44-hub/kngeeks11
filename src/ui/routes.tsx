@@ -7,6 +7,7 @@ import { NegotiateScreen } from './screens/Negotiate';
 import { LeagueScreen, TeamScreen } from './screens/League';
 import { MatchScreen } from './screens/Match';
 import { YouthScreen } from './screens/Youth';
+import { ClubScreen } from './screens/Club';
 import { CareerScreen, CelebrationModal, FinanceScreen, HistoryScreen, InboxScreen, IntlScreen, MoreScreen, NewsScreen, SettingsScreen } from './screens/More';
 
 type RouteComp = ComponentType<{ params: Record<string, unknown> }>;
@@ -28,6 +29,7 @@ export const ROUTES: Record<string, RouteComp> = {
   settings: SettingsScreen,
   intl: IntlScreen,
   youth: YouthScreen,
+  club: ClubScreen,
 };
 
 export const MODALS: Record<string, RouteComp> = {
