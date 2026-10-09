@@ -188,7 +188,9 @@ export function validateLineup(L: League, team: Pick<Team, 'id' | 'lineup'>, ros
     if (sub) {
       ln.xi[i] = sub.id;
       used.add(sub.id);
-      notes.push(`${old ? old.ln : 'Пустая позиция'} → ${sub.ln} (${roles[i]})`);
+      // A regular who is only out for a while gets his place back when he can play again.
+      if (old && old.team === team.id && old.st === 'ACT') setCover(ln, sub.id, old.id);
+      notes.push(`${old ? old.ln : 'Пустая позиция'} → ${sub.ln} (${roles[i]})${old && old.team === team.id && old.st === 'ACT' ? ' — временно' : ''}`);
     }
   }
   ln.xi = ln.xi.slice(0, 11);
@@ -200,6 +202,38 @@ export function validateLineup(L: League, team: Pick<Team, 'id' | 'lineup'>, ros
   }
   if (ln.pen == null || !xiSet.has(ln.pen)) ln.pen = bestTaker(ln.xi.map((id) => L.players[id]).filter(Boolean));
   return notes;
+}
+
+/** Records that `sub` stands in for `regular`; a stand-in for a stand-in covers the original regular. */
+export function setCover(ln: Lineup, sub: number, regular: number) {
+  const c = (ln.cover ??= {});
+  const orig = c[regular] ?? regular;
+  delete c[regular];
+  if (orig !== sub) c[sub] = orig;
+}
+
+/**
+ * Regulars of a manual line-up who were out and can play again take back the slot of their stand-in;
+ * the stand-in goes to the bench. A stand-in the user has moved out of the eleven is no longer tracked.
+ */
+export function returnRegulars(L: League, t: Pick<Team, 'id' | 'lineup'>): { back: Player; out: Player }[] {
+  const ln = t.lineup;
+  const done: { back: Player; out: Player }[] = [];
+  if (!ln.cover) return done;
+  for (const key of Object.keys(ln.cover)) {
+    const subId = Number(key), regId = ln.cover[subId];
+    const reg = L.players[regId], sub = L.players[subId];
+    const i = ln.xi.indexOf(subId);
+    if (!reg || !sub || reg.team !== t.id || reg.st !== 'ACT' || i < 0 || ln.xi.includes(regId)) { delete ln.cover[subId]; continue; }
+    if (!available(reg)) continue;
+    ln.xi[i] = regId;
+    ln.bench = [subId, ...ln.bench.filter((id) => id !== regId && id !== subId)].slice(0, BENCH_SIZE);
+    delete ln.cover[subId];
+    done.push({ back: reg, out: sub });
+  }
+  if (done.length && (ln.pen == null || !ln.xi.includes(ln.pen))) ln.pen = bestTaker(ln.xi.map((id) => L.players[id]).filter(Boolean));
+  if (!Object.keys(ln.cover).length) delete ln.cover;
+  return done;
 }
 
 /** True when the XI is complete and every player in it can play today. */

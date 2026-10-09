@@ -25,6 +25,7 @@ import { squad } from '../../engine/lineup';
 import { keepFor } from '../keep';
 import { surname } from '../components/PlayerCard';
 import { PlayerPhoto } from '../components/media';
+import { MedicalCard } from '../components/Medical';
 
 export function Office() {
   const L = useL();
@@ -113,6 +114,7 @@ export function Office() {
 
       <BestLineupButton />
       <AdviceCard />
+      <MedicalCard L={L} />
 
       {recent.length > 0 && (
         <div className="flex gap-2 mt-3">

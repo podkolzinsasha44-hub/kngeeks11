@@ -1,3 +1,5 @@
+import { INCIDENTS } from '../../engine/leagues';
+import type { Incidents } from '../../engine/types';
 import { useEffect, useMemo, useState } from 'react';
 import { openUcl } from './Ucl';
 import { motion } from 'motion/react';
@@ -262,6 +264,9 @@ export function SettingsScreen() {
         <T k="noFiring" label="Без увольнения" sub="Доверие руководства считается, но уволить вас нельзя" /><Divider />
         <T k="intlRussia" label="Россия в турнирах FIFA и UEFA" sub="Сборная на ЧМ и Евро, чемпион РПЛ — в Лиге чемпионов (со следующего сезона). В реальности отстранены с 2022 года" />
       </Card>
+      <SectionTitle>Травмы и карточки</SectionTitle>
+      <Segmented value={s.incidents ?? 'less'} onChange={(v) => act(() => { s.incidents = v; })} options={(Object.keys(INCIDENTS) as Incidents[]).map((v) => ({ v, label: INCIDENTS[v].label }))} />
+      <div className="text-[12px] text-muted mt-1.5 px-1">{INCIDENTS[s.incidents ?? 'less'].sub}. Действует на все матчи всех клубов одинаково — и на ваш, и на соперников.</div>
       <SectionTitle>Сложность</SectionTitle>
       <Segmented value={s.difficulty} onChange={(v) => act(() => { s.difficulty = v; })} options={[{ v: 'rookie', label: 'Новичок' }, { v: 'real', label: 'Реализм' }, { v: 'hard', label: 'Хардкор' }]} />
       <div className="text-[12px] text-muted mt-1.5 px-1">Меняет цены и аппетиты на рынке и терпение руководства. Матчевый движок от сложности не зависит.</div>

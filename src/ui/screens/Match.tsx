@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { club, gameLabel } from '../../engine/ucl';
 import { motion } from 'motion/react';
-import { useL } from '../../store/game';
+import { afterStop, useL } from '../../store/game';
 import { useNav } from '../../store/nav';
 import { lastUserBox } from '../../engine/season';
 import type { GameEvent } from '../../engine/types';
@@ -16,7 +16,9 @@ const ICON: Partial<Record<GameEvent['type'], string>> = { goal: 'âš½', pen: 'âš
 
 export function MatchScreen({ params }: { params: Record<string, unknown> }) {
   const L = useL();
-  const close = useNav((s) => s.closeModal);
+  const closeModal = useNav((s) => s.closeModal);
+  // A trophy or the final table waits until the replay is closed.
+  const close = () => { closeModal(); if (params.after !== undefined) afterStop((params.after as string | null) ?? null); };
   const push = useNav((s) => s.push);
   const g = L.games.find((x) => x.id === Number(params.id));
   const box = lastUserBox && g && lastUserBox.game.id === g.id ? lastUserBox.box : null;

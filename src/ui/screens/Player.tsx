@@ -1,3 +1,6 @@
+import { dateRu } from '../../engine/medical';
+import { addDays } from '../../engine/util';
+import { matchesRu } from '../components/Medical';
 import { useMemo, useState } from 'react';
 import { renewalCases, VERDICT_RU } from '../../engine/renewals';
 import { saleView } from '../../engine/sale';
@@ -73,8 +76,8 @@ export function PlayerScreen({ params }: { params: Record<string, unknown> }) {
 function Badges({ L, p }: { L: League; p: Player }) {
   const items = [
     !p.real && <Pill key="acad">Воспитанник академии</Pill>,
-    p.inj && <Pill key="inj" color="#ff5a5f">Травма: {p.inj.type}, {p.inj.days} дн.</Pill>,
-    !!p.susp && <Pill key="susp" color="#ff5a5f">Дисквалификация: {p.susp} матч.</Pill>,
+    p.inj && <Pill key="inj" color="#ff5a5f">Травма: {p.inj.type}, ещё {p.inj.days} дн. · вернётся {dateRu(addDays(L.date, p.inj.days))}</Pill>,
+    !!p.susp && <Pill key="susp" color="#ff5a5f">Дисквалификация: пропустит {matchesRu(p.susp)}</Pill>,
     p.wantsOut && <Pill key="out" color="#ffb547">Хочет сменить клуб</Pill>,
     p.listed && <Pill key="list" color="#7fd3ff">На трансфере</Pill>,
     p.loan && <Pill key="loan">Аренда из {p.loan.from ? L.teams[p.loan.from]?.ru : p.ext ?? 'другого клуба'}</Pill>,

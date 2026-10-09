@@ -1,6 +1,6 @@
 // Rules and calendars of the simulated leagues. Everything here is the same for every club of a
 // league; nothing depends on which club the user manages.
-import type { Game, League, LeagueId, Player, Team } from './types';
+import type { Game, Incidents, League, LeagueId, Player, Team } from './types';
 
 export interface LeagueCfg {
   id: LeagueId;
@@ -81,6 +81,23 @@ export const styleOf = (g: Pick<Game, 'comp'>) => (isLeague(g.comp) ? LEAGUES[g.
 export const UCL_CARDS = { y: 0.9, r: 0.6 };
 /** Card rates for a game: league games use the league's, the Champions League its own, cups the base (RPL) rate. */
 export const cardsOf = (g: Pick<Game, 'comp'>) => (isLeague(g.comp) ? LEAGUES[g.comp].cards : g.comp === 'UCL' ? UCL_CARDS : { y: 1, r: 1 });
+
+/**
+ * The "injuries and cards" setting: multipliers of the injury, yellow and red card rates of the engine.
+ * 'real' is the calibrated rate of real football; the setting applies to every match of every club alike.
+ */
+export const INCIDENTS: Record<Incidents, { inj: number; y: number; r: number; label: string; sub: string }> = {
+  real: { inj: 1, y: 1, r: 1, label: 'Как в жизни', sub: 'Травмы и карточки с частотой реальных лиг' },
+  less: { inj: 0.45, y: 0.85, r: 0.5, label: 'Реже', sub: 'Травм и удалений примерно вдвое меньше' },
+  rare: { inj: 0.15, y: 0.6, r: 0.2, label: 'Редко', sub: 'Травмы и удаления — редкое событие' },
+};
+export const incidentsOf = (L: Pick<League, 'settings'>) => INCIDENTS[L.settings.incidents ?? 'less'];
+
+/** Everything the referee and the physio bring into a club game: league card rates times the setting, injury rate. */
+export function rulesOf(L: Pick<League, 'settings'>, g: Pick<Game, 'comp'>) {
+  const c = cardsOf(g), k = incidentsOf(L);
+  return { cards: { y: c.y * k.y, r: c.r * k.r }, inj: k.inj };
+}
 
 /** Citizens of the Eurasian Economic Union are not counted as foreign players in Russia. */
 const HOME_RUS = new Set(['RUS', 'BLR', 'KAZ', 'ARM', 'KGZ']);

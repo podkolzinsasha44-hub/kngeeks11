@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect } from 'react';
-import { useGame } from './store/game';
+import { afterStop, useGame } from './store/game';
 import { useNav, type Tab } from './store/nav';
 import { TabBar, TABS, Toasts, useDesktop } from './ui/components/shell';
 import { Sidebar } from './ui/components/Sidebar';
@@ -70,7 +70,7 @@ function GameShell() {
         {ModalComp && (
           desktop ? (
             // On a PC the match centre opens as a window over the dimmed game.
-            <motion.div key={modal!.key} className="fixed inset-0 bottom-edge z-50 flex justify-center py-6 px-8 bg-black/65" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <motion.div key={modal!.key} className="fixed inset-0 bottom-edge z-50 flex justify-center py-6 px-8 bg-black/75 backdrop-blur-xl" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <motion.div
                 className="relative w-full max-w-[820px] rounded-[28px] overflow-hidden border border-white/10 shadow-2xl"
                 style={{ background: 'var(--color-bg)' }}
@@ -110,8 +110,11 @@ function useShortcuts() {
       const nav = useNav.getState();
       const g = useGame.getState();
       if (e.key === 'Escape') {
-        if (nav.modal) nav.closeModal();
-        else nav.pop();
+        if (nav.modal) {
+          const after = nav.modal.name === 'match' ? nav.modal.params?.after : undefined;
+          nav.closeModal();
+          if (after !== undefined) afterStop((after as string | null) ?? null);
+        } else nav.pop();
         return;
       }
       if (document.querySelector('[data-sheet]')) return;

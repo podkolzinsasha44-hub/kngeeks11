@@ -55,6 +55,8 @@ export interface MatchOpts {
   style?: { shot: number; fin: number };
   /** Refereeing (same for both teams): yellow and red card multipliers. */
   cards?: { y: number; r: number };
+  /** Injury rate multiplier (the "injuries and cards" setting, same for both teams). */
+  inj?: number;
   detail?: boolean;
   subs?: number;
 }
@@ -153,7 +155,8 @@ function mkSide(players: P, s: MatchSide, home: boolean): Side {
     on.push({ p, slot: roles[i], cond: c, base: c, st });
   });
   const side: Side = {
-    in: s, home, on, stats, bench: s.lineup.bench.map((id) => players[id]).filter(Boolean),
+    // An injured or suspended substitute cannot come on, whoever named him.
+    in: s, home, on, stats, bench: s.lineup.bench.map((id) => players[id]).filter((p) => p && !p.inj && !(p.susp && p.susp > 0) && p.st !== 'RET'),
     str: { att: 0, mid: 0, def: 0, gk: 0 }, mul: 1, goals: 0, shots: 0, onT: 0, xg: 0, subs: 0, reds: 0,
   };
   refresh(side, 0);
@@ -213,7 +216,7 @@ export function simulateMatch(players: P, home: MatchSide, away: MatchSide, o: M
   const ev = (e: GameEvent) => { if (detail) events.push(e); };
   const styleShot = o.style?.shot ?? 1, styleFin = o.style?.fin ?? 1;
   const maxSubs = o.subs ?? 5;
-  const cardY = o.cards?.y ?? 1, cardR = o.cards?.r ?? 1;
+  const cardY = o.cards?.y ?? 1, cardR = o.cards?.r ?? 1, injRate = o.inj ?? 1;
   H.mul = o.neutral ? 1 : K.HOME;
   A.mul = o.neutral ? 1 : K.AWAY;
   let possH = 0, possN = 0;
@@ -357,7 +360,7 @@ export function simulateMatch(players: P, home: MatchSide, away: MatchSide, o: M
   };
 
   const knocks = (s: Side, minute: number) => {
-    if (next() >= K.INJ * 11) return false;
+    if (next() >= K.INJ * 11 * injRate) return false;
     const x = pickW(s.on, (y) => 1.7 - (y.p.pos === 'G' ? 95 : (y.p.r as OutfieldAttrs).sta) / 100 - y.p.fit / 400);
     if (!x) return false;
     injuries.push(rollInjury(x.p.id));

@@ -55,7 +55,7 @@ export interface NewCareerOpts {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  difficulty: 'real', sound: false, assistant: true, stopOnUserGames: false, watchGames: false, hideMedia: false, autoRenew: true,
+  difficulty: 'real', sound: false, assistant: true, stopOnUserGames: false, watchGames: false, hideMedia: false, autoRenew: true, incidents: 'less',
 };
 
 const OUT: (keyof OutfieldAttrs)[] = ['pac', 'sho', 'pas', 'dri', 'att', 'def', 'phy', 'hea', 'dis', 'sta'];

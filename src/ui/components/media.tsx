@@ -152,7 +152,7 @@ export function StatusDots({ p }: { p: Player }) {
   return (
     <>
       {p.inj && <span title="Травма" className="text-bad text-[12px]">✚{p.inj.days}</span>}
-      {!!p.susp && <span title="Дисквалификация" className="text-[12px]">🟥</span>}
+      {!!p.susp && <span title={`Дисквалификация: ${p.susp} матч.`} className="text-[12px]">🟥{p.susp > 1 ? p.susp : ''}</span>}
       {p.wantsOut && <span title="Хочет уйти" className="text-warn text-[12px]">↗</span>}
       {p.listed && <span title="Выставлен на трансфер" className="text-[11px] text-ice">ТР</span>}
       {p.loan && <span title="Аренда" className="text-[11px] text-muted">АР</span>}

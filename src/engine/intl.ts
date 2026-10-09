@@ -3,6 +3,8 @@
 // Qualification is not played: the field is the strongest nations by confederation quota.
 import { FORMATION_IDS, bestXI, pickBench } from './lineup';
 import { simulateMatch, type MatchSide } from './match';
+import { rulesOf } from './leagues';
+import { absenceText, injure } from './medical';
 import { pushMsg, pushNews } from './news';
 import { shuffle } from './rng';
 import { line } from './stats';
@@ -149,7 +151,7 @@ function sideFor(L: League, T: Tournament, c: string): MatchSide {
 
 function playIntl(L: League, T: Tournament, g: IntlGame) {
   const ko = g.stage.length > 1;
-  const box = simulateMatch(L.players, sideFor(L, T, g.h), sideFor(L, T, g.a), { knockout: ko, neutral: true });
+  const box = simulateMatch(L.players, sideFor(L, T, g.h), sideFor(L, T, g.a), { knockout: ko, neutral: true, ...rulesOf(L, { comp: 'INTL' }) });
   const r = box.result;
   g.played = true; g.hs = r.hs; g.as = r.as; g.mom = r.mom;
   if (r.et) g.et = true;
@@ -177,8 +179,8 @@ function playIntl(L: League, T: Tournament, g: IntlGame) {
   for (const inj of r.injuries) {
     const p = L.players[inj.id];
     if (!p || p.inj) continue;
-    p.inj = { type: inj.type, days: inj.days, total: inj.days };
-    if (p.team === L.user) pushMsg(L, { from: 'Медицинский штаб', kind: 'staff', title: `Травма в сборной: ${dispName(p)}`, body: `${inj.type}, ориентировочно ${inj.days} дн.`, ref: { type: 'player', id: p.id } });
+    const days = injure(L, p, inj);
+    if (p.team === L.user) pushMsg(L, { from: 'Медицинский штаб', kind: 'staff', title: `Травма в сборной: ${dispName(p)}`, body: `${inj.type}, ориентировочно ${absenceText(days)} (${days} дн.).`, ref: { type: 'player', id: p.id } });
   }
 }
 

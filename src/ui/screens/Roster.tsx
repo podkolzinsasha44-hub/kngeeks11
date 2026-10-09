@@ -5,7 +5,7 @@ import { aiLineup, foreignOnPitch } from '../../engine/ai';
 import { lineupOptions, type ShapeOption } from '../../engine/bestxi';
 import { wageBill } from '../../engine/contracts';
 import { foreignLimit, isForeign } from '../../engine/leagues';
-import { BENCH_SIZE, FORMATIONS, FORMATION_IDS, available, lineupValid, slotRating, squad, teamPower, teamStrength } from '../../engine/lineup';
+import { BENCH_SIZE, FORMATIONS, FORMATION_IDS, available, lineupValid, setCover, slotRating, squad, teamPower, teamStrength } from '../../engine/lineup';
 import type { FormationId, League, Player, Pos, Role, Tactic, Team } from '../../engine/types';
 import { Button, Card, Chips, cx, Ovr, Pill, SectionTitle, Segmented } from '../components/kit';
 import { Screen, Sheet } from '../components/shell';
@@ -103,6 +103,7 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
   const cardW = Math.max(54, Math.min(84, w * 0.176));
   const manual = <T,>(fn: () => T) => act(() => { t.lineup.auto = false; return fn(); });
   const ok = (id: number | null) => id != null && !!L.players[id] && available(L.players[id]);
+  const covers = Object.entries(ln.cover ?? {}).map(([sub, reg]) => [L.players[Number(sub)], L.players[reg]] as const).filter(([sub, reg]) => sub && reg && !available(reg) && ln.xi.includes(sub.id));
   const refuse = (id: number | null) => { if (id != null && L.players[id]) toast(`${dispName(L.players[id])} сейчас не может играть`, 'bad'); };
 
   /** Two places on the team sheet exchange their players. */
@@ -127,6 +128,10 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
         else arr[i] = id;
       };
       if (a.zone === 'res' && b.zone === 'res') return;
+      // A starter who is out for now (injury, suspension) gets his place back when he can play: remember who covers.
+      for (const [x, y] of [[a, b], [b, a]] as const) {
+        if (x.zone === 'xi' && y.zone !== 'xi' && x.id != null && y.id != null && !ok(x.id) && L.players[x.id]?.team === t.id) setCover(l, y.id, x.id);
+      }
       put(a.zone, a.i, b.id);
       put(b.zone, b.i, a.id);
       // A starter pushed out by a reserve sits on the bench while there is room.
@@ -176,6 +181,12 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
         <div className="mb-2 rounded-2xl border border-bad/40 bg-bad/10 px-3 py-2 text-[13px]">
           {!valid && <div>⚠️ В старте есть игрок, который не может выйти на поле (красный значок), или состав неполный.</div>}
           {lim && fOn > lim[1] && <div>⚠️ Легионеров на поле: {fOn}, разрешено не больше {lim[1]}.</div>}
+        </div>
+      )}
+      {!ln.auto && covers.length > 0 && (
+        <div className="mb-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[12.5px] leading-snug">
+          {covers.map(([sub, reg]) => <div key={sub.id}>🔄 <b>{dispShort(sub)}</b> временно вместо <b>{dispShort(reg)}</b> ({reg.inj ? `травма, ещё ${reg.inj.days} дн.` : 'дисквалификация'})</div>)}
+          <div className="text-muted mt-0.5">Когда они смогут играть, штаб сам вернёт их на место.</div>
         </div>
       )}
     </>

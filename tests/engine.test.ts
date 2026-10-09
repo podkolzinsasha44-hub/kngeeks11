@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { foreignLimit, isForeign, LEAGUES } from '../src/engine/leagues';
+import { foreignLimit, isForeign, LEAGUES, rulesOf } from '../src/engine/leagues';
 import { FORMATIONS, lineupValid, squad, teamPower, touchSquads } from '../src/engine/lineup';
 import { simulateMatch } from '../src/engine/match';
 import { gameOdds, quickOdds, ratingOf, sideOf } from '../src/engine/projection';
@@ -112,6 +112,86 @@ describe('the team the user picks is the team that plays', () => {
     const now = L.teams.SPA.lineup.xi;
     expect(now.filter((id, i) => id !== picked[i])).toHaveLength(1);
     expect(now).not.toContain(hurt.id);
+  });
+
+  it('a regular replaced while injured gets his place back as soon as he is fit', () => {
+    const L = career();
+    const t = L.teams.SPA;
+    const picked = [...t.lineup.xi];
+    const day = nextUserGame(L)!.day;
+    while (L.date < day) advanceDay(L);
+    const hurt = L.players[picked[5]];
+    hurt.inj = { type: 'test', days: 3, total: 3 };
+    advanceDay(L); // blocked
+    advanceDay(L); // played with a stand-in
+    const stand = t.lineup.xi[5];
+    expect(stand).not.toBe(hurt.id);
+    expect(t.lineup.cover?.[stand]).toBe(hurt.id);
+    for (let i = 0; i < 4; i++) advanceDay(L);
+    expect(hurt.inj).toBeNull();
+    expect(t.lineup.xi).toEqual(picked);
+    expect(t.lineup.bench).toContain(stand);
+    expect(t.lineup.cover).toBeUndefined();
+    expect(L.inbox.some((m) => m.title.includes('здоров') && m.body.includes('снова в стартовом составе'))).toBe(true);
+  });
+
+  it('a stand-in the user takes out himself is not swapped back', () => {
+    const L = career();
+    const t = L.teams.SPA;
+    const day = nextUserGame(L)!.day;
+    while (L.date < day) advanceDay(L);
+    const hurt = L.players[t.lineup.xi[5]];
+    hurt.inj = { type: 'test', days: 3, total: 3 };
+    advanceDay(L);
+    advanceDay(L);
+    const other = squad(L, 'SPA').find((p) => p.pos !== 'G' && !t.lineup.xi.includes(p.id) && p.id !== hurt.id && !p.inj && !p.susp)!;
+    t.lineup.xi[5] = other.id;
+    for (let i = 0; i < 4; i++) advanceDay(L);
+    expect(t.lineup.xi[5]).toBe(other.id);
+  });
+
+  it('injured or suspended substitutes never come on', () => {
+    const L = career();
+    const t = L.teams.SPA;
+    const benched = t.lineup.bench.map((id) => L.players[id]);
+    benched.forEach((p, i) => { if (i % 2) p.inj = { type: 'test', days: 60, total: 60 }; else p.susp = 3; });
+    const out = new Set(benched.map((p) => p.id));
+    useState_(seedState(5));
+    const opp = Object.values(L.teams).find((x) => x.lg === t.lg && x.id !== t.id)!;
+    aiLineup(L, opp);
+    for (let i = 0; i < 40; i++) {
+      const box = simulateMatch(L.players, sideOf(t), sideOf(opp));
+      for (const s of box.players) expect(out.has(s.id)).toBe(false);
+    }
+  });
+});
+
+describe('injuries and cards setting', () => {
+  it('"less" means clearly fewer injuries and red cards than "real", the same for both sides', () => {
+    const L = career();
+    const t = L.teams.SPA;
+    const opp = Object.values(L.teams).find((x) => x.lg === t.lg && x.id !== t.id)!;
+    aiLineup(L, opp);
+    const count = (k: 'real' | 'less') => {
+      L.settings.incidents = k;
+      useState_(seedState(11));
+      let inj = 0, red = 0;
+      for (let i = 0; i < 400; i++) {
+        const r = simulateMatch(L.players, sideOf(t), sideOf(opp), rulesOf(L, { comp: 'RPL' }));
+        inj += r.result.injuries.length;
+        red += r.players.filter((p) => p.rc || p.yc === 2).length;
+      }
+      return { inj, red };
+    };
+    const real = count('real'), less = count('less');
+    expect(less.inj).toBeLessThan(real.inj * 0.65);
+    expect(less.red).toBeLessThan(real.red * 0.75);
+  });
+
+  it('old saves without the setting play with fewer incidents', () => {
+    const L = career();
+    delete L.settings.incidents;
+    expect(rulesOf(L, { comp: 'RPL' }).inj).toBeLessThan(1);
   });
 });
 

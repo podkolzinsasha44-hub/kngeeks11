@@ -63,7 +63,7 @@ for (const lg of CAL) acc[lg] = { gpm: 0, home: 0, draw: 0, champ: 0, last: 0, s
 let oddsErr = 0, oddsN = 0;
 const t0 = Date.now();
 for (let s = 0; s < N; s++) {
-  const L = newCareer(world, { team: 'ZEN', gmName: 'Cal', seed: 1000 + s * 77 });
+  const L = newCareer(world, { team: 'ZEN', gmName: 'Cal', seed: 1000 + s * 77, settings: { incidents: 'real' } });
   L.teams.ZEN.lineup.auto = true;
   // The odds shown to the user against what the engine then actually does (first-round sample).
   if (s === 0) {

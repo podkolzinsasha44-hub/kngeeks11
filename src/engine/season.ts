@@ -5,8 +5,8 @@ import { aggregateFor, initPlayoffs, isDecider, onCupGame, PO_LEAGUES } from './
 import { weeklyMorale } from './events';
 import { genPlayer } from './gen';
 import { intlDaily } from './intl';
-import { LEAGUES, LEAGUE_IDS, cardsOf, foreignLimit, isLeague, rolloverDay, statKey, styleOf, windowOpen } from './leagues';
-import { FORMATIONS, lineupValid, validateLineup } from './lineup';
+import { LEAGUES, LEAGUE_IDS, foreignLimit, isLeague, rolloverDay, rulesOf, statKey, styleOf, windowOpen } from './leagues';
+import { FORMATIONS, lineupValid, returnRegulars, validateLineup } from './lineup';
 import { simulateMatch, type MatchBox } from './match';
 import { pushMsg, pushNews, social } from './news';
 import { rollover, endLeague } from './offseason';
@@ -18,6 +18,7 @@ import { ensureSquads, weeklyMarket } from './transfers';
 import type { Game, League, LeagueId, OutfieldAttrs, Player, Team } from './types';
 import { addDays, clamp, dispName, dow } from './util';
 import { autoRenew, renewalCases, VERDICT_RU } from './renewals';
+import { absenceText, dateRu, injure } from './medical';
 import { club, onUclGame, rosterOf, UCL } from './ucl';
 
 export interface DayReport {
@@ -72,7 +73,7 @@ export function playGame(L: League, g: Game): MatchBox {
   const H = club(L, g.h), A = club(L, g.a);
   const isUser = g.h === L.user || g.a === L.user;
   const box = simulateMatch(L.players, sideOf(H), sideOf(A), {
-    knockout: isDecider(L, g), agg: aggregateFor(L, g), neutral: g.neutral, style: styleOf(g), cards: cardsOf(g), detail: isUser,
+    knockout: isDecider(L, g), agg: aggregateFor(L, g), neutral: g.neutral, style: styleOf(g), ...rulesOf(L, g), detail: isUser,
   });
   applyGame(L, g, box);
   if (isUser) {
@@ -137,13 +138,11 @@ function applyGame(L: League, g: Game, box: MatchBox) {
   for (const inj of r.injuries) {
     const p = L.players[inj.id];
     if (!p || p.inj) continue;
-    const med = p.team ? L.teams[p.team]?.staff.med ?? 2 : 2;
-    const days = Math.max(1, Math.round(inj.days * (1.15 - med * 0.075)));
-    p.inj = { type: inj.type, days, total: days };
+    const days = injure(L, p, inj);
     if (p.team === L.user) {
       pushMsg(L, {
         from: 'Медицинский штаб', kind: 'staff', title: `Травма: ${dispName(p)}`,
-        body: `${inj.type}. Ориентировочно ${days <= 3 ? 'несколько дней' : days <= 10 ? 'до полутора недель' : days < 45 ? `${Math.round(days / 7)} нед.` : `${Math.round(days / 30)} мес.`}`,
+        body: `${inj.type}. Ориентировочно ${absenceText(days)}, вернётся к ${dateRu(addDays(L.date, days))}.${!L.teams[L.user].lineup.auto && L.teams[L.user].lineup.xi.includes(p.id) ? '\n\nОн в вашем стартовом составе: перед матчем замените его. Когда он поправится, штаб сам вернёт его на место.' : ''}`,
         ref: { type: 'player', id: p.id },
       });
       if (days >= 10 && p.ovr >= L.teams[L.user].lineup.xi.reduce((s, id) => s + (L.players[id]?.ovr ?? 0), 0) / 11 - 3) L.stops.push('injury');
@@ -167,6 +166,7 @@ function applyGame(L: League, g: Game, box: MatchBox) {
 }
 
 function daily(L: League) {
+  const back: Player[] = [];
   for (const id in L.players) {
     const p = L.players[id];
     if (p.inj) {
@@ -174,10 +174,26 @@ function daily(L: League) {
       if (p.inj.days <= 0) {
         p.inj = null;
         p.fit = Math.min(p.fit, 80);
-        if (p.team === L.user) pushMsg(L, { from: 'Медицинский штаб', kind: 'staff', title: `${dispName(p)} здоров`, body: 'Игрок вернулся в общую группу и может выйти на поле.', ref: { type: 'player', id: p.id } });
+        if (p.team === L.user) back.push(p);
       }
     }
     if (p.fit < 100) p.fit = Math.min(100, p.fit + (p.inj ? 1 : 3.4));
+  }
+  // A manual line-up: regulars who were out (injured or suspended) take their places back.
+  const t = L.teams[L.user];
+  const returned = t && !t.lineup.auto ? returnRegulars(L, t) : [];
+  for (const p of back) {
+    const r = returned.find((x) => x.back === p);
+    const inXI = t?.lineup.xi.includes(p.id);
+    pushMsg(L, {
+      from: 'Медицинский штаб', kind: 'staff', title: `${dispName(p)} здоров`,
+      body: `Игрок вернулся в общую группу и может выйти на поле.${r ? `\n\nОн снова в стартовом составе — вместо ${dispName(r.out)}, который его заменял.` : !t?.lineup.auto && !inXI ? '\n\nСейчас он не в стартовом составе: если он нужен на поле, поставьте его в «Составе».' : ''}`,
+      ref: { type: 'player', id: p.id },
+    });
+  }
+  for (const r of returned) {
+    if (back.includes(r.back)) continue;
+    pushMsg(L, { from: 'Тренерский штаб', kind: 'staff', title: `${dispName(r.back)} снова в старте`, body: `Дисквалификация отбыта: ${dispName(r.back)} возвращается на своё место в стартовом составе вместо ${dispName(r.out)}.`, ref: { type: 'player', id: r.back.id } });
   }
 }
 

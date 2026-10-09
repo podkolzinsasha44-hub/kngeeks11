@@ -139,7 +139,8 @@ export const useGame = create<GameState>((set, get) => ({
     const sim: SimState = { mode, running: true, from: L.date, target, days: 0, results: [], last: null };
     set({ sim });
     let budgetStart = performance.now();
-    const stopSet = mode === 'event' || mode === 'week' || mode === 'game' || mode === 'day' ? EVENT : ALWAYS;
+    // "Watch the match" goes straight to the game: offers and injuries on the way wait in the inbox.
+    const stopSet = opts?.watch ? ALWAYS : mode === 'event' || mode === 'week' || mode === 'game' || mode === 'day' ? EVENT : ALWAYS;
     let reason: string | null = null;
     while (get().sim?.running) {
       L.stops = [];
@@ -209,6 +210,17 @@ export const useGame = create<GameState>((set, get) => ({
 
 function onStop(reason: string | null, mode: SimMode, watch: boolean, played: boolean) {
   const nav = useNav.getState();
+  const L = useGame.getState().L!;
+  // The match comes first: a trophy, the final table or the inbox would give the score away before the replay.
+  if (played && lastUserBox && !L.gm.fired && reason !== 'lineup' && (mode === 'game' || watch) && (watch || L.settings.watchGames)) {
+    return nav.openModal('match', { live: true, id: lastUserBox.game.id, after: reason });
+  }
+  afterStop(reason);
+}
+
+/** Where the game goes when the simulation stops for a reason (also after the replay of the match that caused it). */
+export function afterStop(reason: string | null) {
+  const nav = useNav.getState();
   const game = useGame.getState();
   const L = game.L!;
   if (L.gm.fired) return nav.go('more', 'career');
@@ -225,7 +237,6 @@ function onStop(reason: string | null, mode: SimMode, watch: boolean, played: bo
   if (reason === 'intl') return nav.go('more', 'intl');
   if (reason === 'offer') return nav.go('market', undefined, { tab: 'offers' });
   if (reason === 'expiring') return nav.go('more', 'finance');
-  if (played && lastUserBox && (mode === 'game' || watch) && (watch || L.settings.watchGames)) nav.openModal('match', { live: true, id: lastUserBox.game.id });
 }
 
 export function useL(): League {

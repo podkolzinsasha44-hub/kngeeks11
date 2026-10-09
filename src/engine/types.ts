@@ -3,6 +3,8 @@ export type Pos = 'G' | 'D' | 'M' | 'F';
 export type Role = 'GK' | 'CB' | 'LB' | 'RB' | 'DM' | 'CM' | 'AM' | 'LM' | 'RM' | 'LW' | 'RW' | 'ST';
 export type Status = 'ACT' | 'FA' | 'RET';
 export type Difficulty = 'rookie' | 'real' | 'hard';
+/** How often players get injured and sent off: as in real football or less often. The same for every club. */
+export type Incidents = 'real' | 'less' | 'rare';
 /** Club leagues simulated by the engine. */
 export type LeagueId = 'RPL' | 'FNL' | 'L2A' | 'L2B' | 'U17' | 'EPL' | 'ESP' | 'ITA' | 'GER' | 'FRA';
 export type Strategy = 'contend' | 'bubble' | 'rebuild';
@@ -144,6 +146,11 @@ export interface Lineup {
   auto: boolean;
   pen?: number;
   cap?: number;
+  /**
+   * Stand-ins of a manual line-up: stand-in id -> the regular he replaces while that one is injured or suspended.
+   * The regular takes his place back as soon as he can play (`returnRegulars` in lineup.ts).
+   */
+  cover?: Record<number, number>;
 }
 
 export interface Record_ {
@@ -372,6 +379,8 @@ export interface Settings {
   intlRussia?: boolean;
   /** The assistant extends good contracts of the user's players by itself (on unless switched off). */
   autoRenew?: boolean;
+  /** Injuries and cards (missing in old saves: 'less'). */
+  incidents?: Incidents;
 }
 
 export interface Scouting {
