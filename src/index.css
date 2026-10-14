@@ -42,14 +42,8 @@ body {
   -webkit-text-size-adjust: 100%;
   touch-action: manipulation;
 }
-/* The page itself never scrolls (only the screens inside it do), so nothing can move the layout.
-   iOS home-screen apps sometimes leave a strip below the page: the root background, which paints the
-   whole screen, has the colour of the tab bar, so the strip reads as part of the bar instead of a dark band. */
-html {
-  height: 100%;
-  overflow: hidden;
-  background: #0b0f1a;
-}
+/* The same root as NHL GM: the page fills the screen and never scrolls (only the screens inside it do). */
+html,
 body,
 #root {
   height: 100%;

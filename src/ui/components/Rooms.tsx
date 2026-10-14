@@ -29,7 +29,7 @@ export function RoomSettings() {
   };
   return (
     <>
-      <SectionTitle>Игра на нескольких устройствах</SectionTitle>
+      <SectionTitle className="!mt-2">Игра на нескольких устройствах</SectionTitle>
       {link ? (
         <Card>
           <div className="text-[12.5px] text-muted">Код комнаты</div>
@@ -41,7 +41,11 @@ export function RoomSettings() {
             <Button full onClick={() => share(link.code)}>Поделиться кодом</Button>
             <Button full disabled={busy} onClick={() => pullIfNewer()}>{busy ? <Spinner /> : 'Синхронизировать'}</Button>
           </div>
-          <Button full variant="ghost" className="mt-1" onClick={() => leaveRoom()}>Отключить это устройство</Button>
+          <Button full variant="ghost" className="mt-1" disabled={busy} onClick={async () => {
+            // A fresh room for the same career: the old code stops receiving it.
+            try { const code = await createRoom(); toast(`Новый код комнаты: ${showCode(code)}`, 'good'); } catch (e) { toast(e instanceof CloudError ? e.message : 'Не удалось создать комнату', 'bad'); }
+          }}>Создать новый код</Button>
+          <Button full variant="ghost" onClick={() => leaveRoom()}>Отключить это устройство</Button>
         </Card>
       ) : (
         <Button full disabled={busy} onClick={async () => {
@@ -49,7 +53,7 @@ export function RoomSettings() {
         }}>{busy ? <Spinner /> : 'Создать код комнаты'}</Button>
       )}
       <div className="text-[12px] text-muted mt-2 px-1">
-        Карьера хранится в облаке под кодом. Введите его на телефоне, планшете или компьютере («Играть по коду» в главном меню) — и продолжайте с того же дня.
+        Код можно создать в любой момент карьеры — текущий сезон, день и состав сохранятся. Введите его на телефоне, планшете или компьютере («Играть по коду» в главном меню) — и продолжайте с того же дня.
         Изменения уходят в облако сами через несколько секунд и при сворачивании игры; при возвращении подтягивается то, что сыграно на другом устройстве.
         Код — как ключ: кто его знает, тот может играть этой карьерой.
       </div>

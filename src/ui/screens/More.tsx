@@ -31,7 +31,7 @@ const TILES: { route: string; icon: string; title: string; sub: (L: League) => s
   { route: 'intl', icon: '🌍', title: 'Сборные', sub: (L) => L.intl.current?.name ?? 'ЧМ и Евро' },
   { route: 'career', icon: '👔', title: 'Карьера', sub: (L) => `Доверие ${L.owner.trust}/100` },
   { route: 'history', icon: '📜', title: 'История', sub: (L) => `${L.history.length} сез.` },
-  { route: 'settings', icon: '⚙️', title: 'Настройки', sub: () => 'Сохранения, код комнаты, звук, режимы' },
+  { route: 'settings', icon: '⚙️', title: 'Настройки', sub: () => 'Код комнаты для игры на ПК и планшете, сохранения, режимы' },
 ];
 
 export function MoreScreen() {
@@ -256,7 +256,8 @@ export function SettingsScreen() {
   );
   return (
     <Screen title="Настройки">
-      <SectionTitle className="!mt-2">Игра</SectionTitle>
+      <RoomSettings />
+      <SectionTitle>Игра</SectionTitle>
       <Card pad={false} className="overflow-hidden">
         <T k="watchGames" label="Показывать матч после игры" sub="Матч-центр с живым повтором открывается сам" /><Divider />
         <T k="autoRenew" label="Автопродление выгодных контрактов" sub="Штаб сам продлевает нужных игроков на рыночных условиях и пишет почему" /><Divider />
@@ -278,7 +279,6 @@ export function SettingsScreen() {
         <Button full onClick={() => exportFile(L)}>Экспорт в файл</Button>
       </div>
       <div className="text-[12px] text-muted mt-2 px-1">Игра сохраняется автоматически в памяти устройства. Экспорт в файл — страховка на случай очистки данных браузера.</div>
-      <RoomSettings />
     </Screen>
   );
 }

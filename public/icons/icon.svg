@@ -21,5 +21,5 @@
     <circle cx="512" cy="430" r="250"/>
     <path d="M512 264v66M598 392l70-4M565 494l45 66M459 494l-45 66M426 392l-70-4"/>
   </g>
-  <text x="512" y="900" text-anchor="middle" font-family="Oswald, Arial Narrow, sans-serif" font-weight="700" font-size="150" letter-spacing="10" fill="url(#gold)">FOOTBALL GM</text>
+  <text x="512" y="900" text-anchor="middle" font-family="Oswald, Arial Narrow, sans-serif" font-weight="700" font-size="150" letter-spacing="10" textLength="820" lengthAdjust="spacingAndGlyphs" fill="url(#gold)">FOOTBALL GM</text>
 </svg>

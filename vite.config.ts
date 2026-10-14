@@ -11,7 +11,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icons/*.svg'],
+      includeAssets: ['icons/*.png', 'icons/*.svg'],
       manifest: {
         name: 'Football GM — футбольный менеджер',
         short_name: 'Football GM',
@@ -20,14 +20,20 @@ export default defineConfig({
         start_url: './',
         scope: './',
         display: 'standalone',
-        // Phones are played in portrait; tablets and PCs in any orientation (from 1024 px the PC layout).
-        orientation: 'any',
+        // As in NHL GM: a home-screen app locked to portrait. With `any` iOS lays the app out in a window
+        // shorter than the screen by the status bar, leaving a dead band under the tab bar.
+        orientation: 'portrait',
         background_color: '#05070d',
         theme_color: '#05070d',
-        icons: [{ src: 'icons/icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }],
+        icons: [
+          { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+          { src: 'icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: 'icons/icon.svg', sizes: 'any', type: 'image/svg+xml' },
+        ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,woff2,json}'],
+        globPatterns: ['**/*.{js,css,html,png,svg,woff2,json}'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         // Player photos: once seen, they stay available offline.
         runtimeCaching: [
