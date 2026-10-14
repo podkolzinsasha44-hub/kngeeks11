@@ -75,8 +75,8 @@ export function saleView(L: League, p: Player, offerFee = 0): SaleView {
   let min: number, label: string, keep = false;
   if (leaving) {
     min = val * 0.5;
-    label = p.wantsOut ? 'хочет уйти — лучше продать' : 'контракт истекает — летом уйдёт бесплатно';
-    why.push(p.wantsOut ? 'игрок хочет сменить клуб: недовольный игрок портит настроение и всё равно уйдёт' : `контракт до лета ${p.c?.until}, продлевать штаб не советует — любые деньги лучше, чем ничего`);
+    label = p.wantsOut ? 'просит о трансфере — можно продать' : 'контракт истекает — летом уйдёт бесплатно';
+    why.push(p.wantsOut ? 'игрок недоволен ролью и просит о трансфере: без игрового времени или нового контракта он так и будет портить настроение' : `контракт до лета ${p.c?.until}, продлевать штаб не советует — любые деньги лучше, чем ничего`);
   } else if (key) {
     // With a replacement in sight the sale must at least pay for it (with a margin for the risk);
     // without one he is not for sale at any price a club would realistically pay.

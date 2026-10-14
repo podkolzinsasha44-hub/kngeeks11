@@ -64,6 +64,8 @@ export function interest(L: League, p: Player, to: Team) {
   // Youth teams are outside the market: adults do not join them and their boys are not for sale.
   if (to.lg === 'U17' || (p.team && L.teams[p.team]?.lg === 'U17')) return 0;
   const cur = p.team ? L.teams[p.team] : null;
+  // A free agent whose last club this was comes back without looking at its level: he grew up there.
+  const formerClub = p.st === 'FA' && p.lastClub === to.id;
   // Without a club the level of the player himself sets his standards: a free agent of 78 does not go
   // to the fourth division, one of 58 is glad to.
   const repNow = cur ? cur.rep : p.ext ? clamp(40 + (p.ovr - 65) * 2.2, 30, 92) : clamp(36 + (p.ovr - 65) * 2.2, 15, 90);
@@ -73,12 +75,12 @@ export function interest(L: League, p: Player, to: Team) {
   const role = rank < starters ? 0.2 : rank < starters * 2 ? 0 : -0.25;
   const home = p.ctry === to.country ? 0.12 : 0;
   // A player far above the level of the club is not interested; a step up is attractive.
-  const level = clamp((to.rep - repNow) / 40, -1, 0.45);
+  const level = clamp((to.rep - repNow) / 40, formerClub ? 0 : -1, 0.45);
   const need = p.st === 'FA' ? 0.3 : p.wantsOut || p.listed ? 0.15 : 0;
   // A free agent clearly better than the whole team waits for an offer of his level.
   const top = sq.length ? squad(L, to.id).map((x) => x.ovr).sort((x, y) => y - x).slice(0, 11) : [];
   const above = top.length ? p.ovr - top.reduce((s, o) => s + o, 0) / top.length : 0;
-  const tooGood = p.st === 'FA' ? clamp((above - 5) * 0.08, 0, 0.8) : 0;
+  const tooGood = p.st === 'FA' && !formerClub ? clamp((above - 5) * 0.08, 0, 0.8) : 0;
   return 0.5 + level + role + home + need - tooGood + (p.pers.win - 10) * (to.strategy === 'contend' ? 0.012 : -0.008);
 }
 
@@ -141,10 +143,17 @@ export function offerContract(L: League, n: Negotiation, wage: number, years: nu
   }
   if (eff < n.floor) {
     n.patience -= Math.round(12 + ((n.floor - eff) / n.floor) * 90);
+    // A player under contract never walks out of talks with his own club: whether he stays is the club's
+    // decision. A lowball offer only costs his mood, and the agent stands firm on the ask.
+    if (n.patience <= 0 && n.kind === 'extend') {
+      n.patience = 0;
+      p.morale = clamp(p.morale - 3, 0, 100);
+      n.history.push({ wage, years, result: `Ниже не опустимся: ${money(n.ask.wage)} × ${n.ask.years}` });
+      return { status: 'counter', text: `Агент: «Это несерьёзно. Мы остаёмся в клубе, но меньше чем на ${money(n.ask.wage)} в год не согласимся».` };
+    }
     if (n.patience <= 0) {
       n.status = 'broken';
       p.talksBlockedUntil = `${L.season + (L.date.slice(5) > '06-30' ? 1 : 0)}-${L.date.slice(5) > '06-30' ? '01-01' : '06-20'}`;
-      if (n.kind === 'extend') p.morale = clamp(p.morale - 8, 0, 100);
       n.history.push({ wage, years, result: 'Переговоры сорваны' });
       return { status: 'broken', text: 'Агент прерывает переговоры: предложение слишком далеко от ожиданий.' };
     }
@@ -167,6 +176,7 @@ export function signContract(L: League, p: Player, t: Team, wage: number, years:
   p.c = { wage, until, signed: L.season };
   p.wantsOut = false;
   p.listed = false;
+  p.lastClub = undefined;
   if (fresh) {
     touchSquads();
     p.team = t.id;

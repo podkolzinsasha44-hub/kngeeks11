@@ -120,13 +120,14 @@ function Actions({ L, p }: { L: League; p: Player }) {
   const [loan, setLoan] = useState(false);
   const desktop = useDesktop();
   const mine = p.team === L.user;
-  const blocked = p.talksBlockedUntil && p.talksBlockedUntil > L.date;
+  // After failed talks the agent waits — except to come back to the club whose contract has just run out.
+  const blocked = p.talksBlockedUntil && p.talksBlockedUntil > L.date && p.lastClub !== L.user;
   const btns: React.ReactNode[] = [];
   const extra: React.ReactNode[] = [];
   if (mine && !p.loan) {
     btns.push(
-      <Button key="ext" variant="primary" disabled={!!blocked} onClick={() => { act(() => startTalks(L, p, L.user, 'extend')); push('negotiate', { id: p.id }); }}>
-        {blocked ? 'Агент не готов' : yearsLeft(L, p) === 0 ? 'Продлить — истекает' : 'Продлить'}
+      <Button key="ext" variant="primary" onClick={() => { act(() => startTalks(L, p, L.user, 'extend')); push('negotiate', { id: p.id }); }}>
+        {yearsLeft(L, p) === 0 ? 'Продлить — истекает' : 'Продлить'}
       </Button>,
       <Button key="list" onClick={() => { const off = !p.listed && !!saleBlock(p); toast(act(() => setListed(p, !p.listed)), off ? 'bad' : 'info'); }} icon={<Icon name="swap" size={16} />}>
         {p.listed ? 'Снять с трансфера' : 'На трансфер'}

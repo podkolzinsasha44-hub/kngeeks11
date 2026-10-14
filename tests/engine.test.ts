@@ -460,6 +460,35 @@ describe('contract renewals', () => {
     for (const c of off.before.filter((x) => x.final)) expect(c.p.c!.until).toBe(off.L.season + 1);
     expect(autoRenew(off.L)).toEqual([]);
   });
+  it('a player under contract never walks out of extension talks: staying is the club\'s decision', () => {
+    const L = career('ORL');
+    const p = squad(L, 'ORL').sort((a, b) => b.ovr - a.ovr)[0];
+    // Grown far above the club, unhappy, disloyal and asking for a transfer.
+    Object.assign(p, { ovr: 82, pot: 84, morale: 15, wantsOut: true });
+    p.pers.loy = 1;
+    const n = startTalks(L, p, 'ORL', 'extend');
+    for (let i = 0; i < 15; i++) expect(negotiate(L, p.id, 1000, n.ask.years).status).toBe('counter');
+    expect(p.talksBlockedUntil).toBeUndefined();
+    expect(p.team).toBe('ORL');
+    expect(renewalCases(L).find((c) => c.p.id === p.id)?.verdict ?? 'haggle').toBe('haggle');
+    expect(negotiate(L, p.id, n.ask.wage, n.ask.years).status).toBe('signed');
+    expect(p.wantsOut).toBe(false);
+  });
+  it('a player whose contract ran out is ready to come back to his club, whatever its level', () => {
+    const L = career('ORL');
+    const p = squad(L, 'ORL').sort((a, b) => b.ovr - a.ovr)[0];
+    p.c!.until = L.season + 1;
+    L.date = `${L.season + 1}-06-20`;
+    rollover(L);
+    expect(p.st).toBe('FA');
+    expect(p.lastClub).toBe('ORL');
+    // Grown far above the level of the club (the rollover recomputes the rating, so it is set afterwards).
+    Object.assign(p, { ovr: 80, pot: 82 });
+    expect(interest(L, p, L.teams.ORL)).toBeGreaterThanOrEqual(0.45);
+    // Another club of the same division is still below his ambitions.
+    const other = Object.values(L.teams).find((t) => t.lg === L.teams.ORL.lg && t.id !== 'ORL')!;
+    expect(interest(L, p, other)).toBeLessThan(0.35);
+  });
 });
 
 describe('sale advice', () => {

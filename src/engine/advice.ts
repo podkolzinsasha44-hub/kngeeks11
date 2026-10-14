@@ -22,7 +22,7 @@ export interface Deal { fee: number; wage: number }
  */
 export function dealFor(L: League, p: Player, t: Team): Deal | null {
   if (p.team === t.id || p.loan || (p.st !== 'ACT' && p.st !== 'FA')) return null;
-  if (p.talksBlockedUntil && p.talksBlockedUntil > L.date) return null;
+  if (p.talksBlockedUntil && p.talksBlockedUntil > L.date && p.lastClub !== t.id) return null;
   const free = p.st === 'FA';
   if (!free && !windowOpen(L)) return null;
   if (interest(L, p, t) < 0.35) return null;

@@ -448,9 +448,10 @@ export function RenewalSheet({ L, c, onClose }: { L: League; c: RenewalCase | nu
                 Продлить сейчас: {money(c.wage)} в год на {c.years} {c.years === 1 ? 'год' : c.years < 5 ? 'года' : 'лет'}
               </Button>
             )}
-            {c.verdict !== 'sell' && !c.p.wantsOut && (
-              <Button full onClick={() => { act(() => startTalks(L, c.p, L.user, 'extend')); onClose(); push('negotiate', { id: c.p.id }); }}>Переговоры — попробовать дешевле</Button>
-            )}
+            {/* Whatever the advice, keeping the player is the user's call: his own player always sits down to talk. */}
+            <Button full onClick={() => { act(() => startTalks(L, c.p, L.user, 'extend')); onClose(); push('negotiate', { id: c.p.id }); }}>
+              {c.verdict === 'extend' || c.verdict === 'haggle' ? 'Переговоры — попробовать дешевле' : 'Всё равно продлить — переговоры'}
+            </Button>
             {(c.verdict === 'sell' || c.verdict === 'release') && !c.p.listed && (saleBlock(c.p)
               ? <div className="text-[13px] text-warn leading-snug px-1">⛔ {saleBlock(c.p)}</div>
               : <Button full onClick={() => { toast(act(() => setListed(c.p, true)), 'good'); onClose(); }}>Выставить на трансфер</Button>

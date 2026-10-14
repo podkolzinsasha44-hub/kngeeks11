@@ -88,19 +88,26 @@ export function renewalCases(L: League): RenewalCase[] {
     let verdict: Verdict, short: string;
     const wanted = key || core || talent || quality || (depth && ratio <= 1.15);
     const tooOld = age >= 34 && loss < 0.8;
-    if (p.wantsOut || will < 0.45 || (p.talksBlockedUntil && p.talksBlockedUntil > L.date)) {
+    // A player under contract never refuses to stay: whether he does is the club's decision. A poor mood or
+    // a request to leave only makes him ask for more, and the staff does not sign such a deal by itself.
+    if (p.wantsOut && wanted && !tooOld) {
+      verdict = 'haggle';
+      short = 'просит о трансфере — решать вам';
+      cons.unshift('недоволен ролью и просит о трансфере; новый контракт вернёт ему настроение');
+    } else if (p.wantsOut) {
       verdict = p.val >= 1e6 && final ? 'sell' : 'release';
-      short = p.wantsOut ? 'хочет уйти — продлить не выйдет' : 'не настроен продлевать';
-      cons.unshift(p.wantsOut ? 'игрок хочет сменить клуб' : 'агент сейчас не готов к переговорам');
+      short = 'просит о трансфере, составу не нужен';
+      cons.unshift('недоволен ролью и просит о трансфере');
       if (verdict === 'sell') cons.push(`летом уйдёт бесплатно, а сейчас стоит ${money(p.val)} — лучше продать в окно`);
     } else if (!wanted || tooOld) {
       verdict = 'release';
       short = tooOld ? 'возраст, замена найдётся' : 'не нужен составу';
       if (!wanted) cons.unshift('не входит в планы: не игрок основы, не талант, позиция закрыта');
-    } else if (ratio > (talent ? 1.45 : key ? 1.35 : 1.15) || !fits) {
+    } else if (ratio > (talent ? 1.45 : key ? 1.35 : 1.15) || !fits || will < 0.45) {
       verdict = 'haggle';
-      short = !fits ? 'нужен, но не влезает в зарплаты' : 'нужен, но просит слишком много';
-      cons.push(!fits ? `в зарплатном бюджете свободно только ${money(Math.max(0, room))}` : `это на ${Math.round((ratio - 1) * 100)}% выше рыночного — попробуйте сбить цену в переговорах`);
+      const pricey = ratio > (talent ? 1.45 : key ? 1.35 : 1.15);
+      short = !fits ? 'нужен, но не влезает в зарплаты' : pricey ? 'нужен, но просит слишком много' : 'не в настроении — договариваться самому';
+      cons.push(!fits ? `в зарплатном бюджете свободно только ${money(Math.max(0, room))}` : pricey ? `это на ${Math.round((ratio - 1) * 100)}% выше рыночного — попробуйте сбить цену в переговорах` : 'настроение плохое — остаться готов, но торговаться будет жёстко');
     } else {
       verdict = 'extend';
       const what = key ? 'ключевой игрок' : core ? 'игрок основы' : talent ? 'талант' : quality ? 'качественная замена' : 'нужен для глубины';

@@ -134,6 +134,8 @@ export interface Player {
   /** Training of this season, accumulated week by week: above 0 — extra growth at the rollover, below — less. */
   trn?: number;
   talksBlockedUntil?: string;
+  /** Free agent: the club whose contract has just run out (he is ready to come back whatever its level). */
+  lastClub?: string;
   /** Season the player joined the current club. */
   joined?: number;
   /** How the user's club got him: fee (0 = free agent), date and the club he came from (display name). */

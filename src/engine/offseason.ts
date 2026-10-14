@@ -150,6 +150,7 @@ export function rollover(L: League) {
     }
     if (p.team && p.c && p.c.until <= season + 1) {
       if (p.team === me.id) leaving.push(`${dispName(p)} (${p.ovr})`);
+      p.lastClub = p.team;
       p.team = null; p.c = null; p.st = 'FA'; p.listed = false; p.wantsOut = false;
       p.joined = season + 1;
     } else if (p.st === 'FA' && (p.joined ?? 0) <= season) {
@@ -223,7 +224,7 @@ export function rollover(L: League) {
   pushMsg(L, {
     from: 'Спортивный отдел', kind: 'staff', title: `Межсезонье: что изменилось`,
     body: [
-      leaving.length ? `Контракты истекли, игроки ушли свободными агентами:\n${leaving.join('\n')}` : 'Все контракты действуют.',
+      leaving.length ? `Контракты истекли, игроки ушли свободными агентами:\n${leaving.join('\n')}\n\nВ свой бывший клуб они готовы вернуться — предложите контракт, пока их не подписали другие.` : 'Все контракты действуют.',
       retiring.length ? `Завершили карьеру: ${retiring.join(', ')}` : '',
       intake.length ? `Из академии переведены: ${intake.map((id) => `${dispName(L.players[id])} (${L.players[id].role}, ${L.players[id].ovr})`).join(', ')}` : '',
       up.length ? `Прибавили: ${up.join(', ')}` : '', down.length ? `Сдали: ${down.join(', ')}` : '',
