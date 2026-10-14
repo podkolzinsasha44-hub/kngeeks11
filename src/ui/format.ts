@@ -1,6 +1,6 @@
 import { LEAGUES } from '../engine/leagues';
 import type { League, Player, Pos, Role, Team } from '../engine/types';
-import { ageOn } from '../engine/util';
+import { ageOn, seasonLabel } from '../engine/util';
 
 export { money, seasonLabel, dispName, dispShort } from '../engine/util';
 export { nationName } from '../engine/intl';
@@ -53,21 +53,49 @@ export function plural(n: number, one: string, few: string, many: string) {
 }
 
 /**
- * Card rarity by rating, like the card tiers of FIFA Mobile. Rarer tiers get richer frames and animation.
- * Shares of the 6 523 players at the start: icon 0.9%, legend 1.7%, epic 4.7%, elite 9.9%, gold 22.5%, silver 38%, bronze 22.6%.
+ * Player cards in the manner of FIFA Ultimate Team. Every player has one: the rating gives the base edition
+ * (bronze, silver, gold, rare gold, epic, star, world class), achievements give a special one on top of it.
+ * Shares of the rating editions among the 6 523 players at the start: world class 0.9%, star 1.7%, epic 4.7%,
+ * rare gold 9.9%, gold 22.5%, silver 38%, bronze 22.6%.
  */
 export const TIERS = {
-  icon: { min: 90, name: 'Икона', color: '#ff8ad8' },
-  legend: { min: 87, name: 'Легенда', color: '#ffd76a' },
-  epic: { min: 84, name: 'Эпик', color: '#c58bff' },
-  elite: { min: 80, name: 'Элита', color: '#5fd4ff' },
-  gold: { min: 75, name: 'Золото', color: '#e8c26a' },
-  silver: { min: 68, name: 'Серебро', color: '#c3cbd9' },
-  bronze: { min: 0, name: 'Бронза', color: '#d4925f' },
+  // Special editions (achievements), from the rarest.
+  icon: { min: Infinity, name: 'Легенда', color: '#f1d98a', why: 'ветеран от 34 лет с рейтингом 81+ или завершивший карьеру мастер' },
+  toty: { min: Infinity, name: 'Команда года', color: '#6f9bff', why: 'игрок сезона в своей лиге' },
+  ucl: { min: Infinity, name: 'Лига чемпионов', color: '#8fb4ff', why: 'победитель Лиги чемпионов' },
+  tots: { min: Infinity, name: 'Команда сезона', color: '#42e6d2', why: 'награда лиги по итогам сезона' },
+  hero: { min: Infinity, name: 'Герой клуба', color: '#ff6b81', why: 'четыре сезона и больше в вашем клубе' },
+  future: { min: Infinity, name: 'Будущая звезда', color: '#a6ff4d', why: 'до 21 года, потенциал 80+' },
+  // Rating editions.
+  world: { min: 90, name: 'Мировой класс', color: '#ff8ad8', why: 'рейтинг 90+' },
+  star: { min: 87, name: 'Звезда', color: '#ffd76a', why: 'рейтинг 87–89' },
+  epic: { min: 84, name: 'Эпик', color: '#c58bff', why: 'рейтинг 84–86' },
+  rare: { min: 80, name: 'Редкое золото', color: '#5fd4ff', why: 'рейтинг 80–83' },
+  gold: { min: 75, name: 'Золото', color: '#e8c26a', why: 'рейтинг 75–79' },
+  silver: { min: 68, name: 'Серебро', color: '#c3cbd9', why: 'рейтинг 68–74' },
+  bronze: { min: 0, name: 'Бронза', color: '#d4925f', why: 'рейтинг до 68' },
 } as const;
 export type Tier = keyof typeof TIERS;
 const TIER_ORDER = Object.keys(TIERS) as Tier[];
+/** Edition by rating alone. */
 export const tierOf = (ovr: number): Tier => TIER_ORDER.find((t) => ovr >= TIERS[t].min) ?? 'bronze';
+export const SPECIAL: Tier[] = ['icon', 'toty', 'ucl', 'tots', 'hero', 'future'];
+
+/** The card a player has now: a special edition for achievements, otherwise the edition of his rating. */
+export function cardOf(L: League, p: Player): Tier {
+  const age = ageOn(p.bd, L.date);
+  const peak = p.hist.reduce((m, h) => Math.max(m, h[1]), p.ovr);
+  if ((p.st === 'RET' && peak >= 80) || (age >= 34 && peak >= 81)) return 'icon';
+  // Awards of the season just finished (or being finished) stay on the card for a year.
+  const recent = [seasonLabel(L.season), seasonLabel(L.season - 1)];
+  const won = p.awards.filter((a) => recent.some((s) => a.startsWith(s)));
+  if (won.some((a) => a.endsWith('игрок сезона'))) return 'toty';
+  if (won.some((a) => a.includes('победитель Лиги чемпионов'))) return 'ucl';
+  if (won.some((a) => a.includes(': лучший'))) return 'tots';
+  if (p.team === L.user && p.joined != null && L.season - p.joined >= 4) return 'hero';
+  if (age <= 21 && p.pot >= 80 && p.pot - p.ovr >= 8) return 'future';
+  return tierOf(p.ovr);
+}
 export const ovrColor = (ovr: number) => TIERS[tierOf(ovr)].color;
 
 export function phaseLabel(L: League) {

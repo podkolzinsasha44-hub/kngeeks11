@@ -215,7 +215,7 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
           const rating = Math.round(slotRating(p, r));
           return (
             <div key={i} className={cx('absolute -translate-x-1/2 -translate-y-1/2', isSel('xi', i) && 'z-10')} style={style}>
-              <PitchCard p={p} team={t} width={cardW} rating={rating} role={r} warn={rating < p.ovr - 2} unavailable={p.team !== t.id || !available(p)} selected={isSel('xi', i)} onClick={() => tap({ zone: 'xi', i, id: p.id })} />
+              <PitchCard p={p} L={L} team={t} width={cardW} rating={rating} role={r} warn={rating < p.ovr - 2} unavailable={p.team !== t.id || !available(p)} selected={isSel('xi', i)} onClick={() => tap({ zone: 'xi', i, id: p.id })} />
             </div>
           );
         })}
@@ -230,7 +230,7 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
         </div>
         <div className="hscroll flex gap-2 px-3 pt-2 pb-3" style={{ scrollSnapType: 'none' }}>
           {ln.bench.map((id, i) => L.players[id] && (
-            <PitchCard key={id} p={L.players[id]} team={t} width={cardW} unavailable={!available(L.players[id])} selected={isSel('bench', i)} onClick={() => tap({ zone: 'bench', i, id })} />
+            <PitchCard key={id} p={L.players[id]} L={L} team={t} width={cardW} unavailable={!available(L.players[id])} selected={isSel('bench', i)} onClick={() => tap({ zone: 'bench', i, id })} />
           ))}
           {ln.bench.length < BENCH_SIZE && <EmptyCard width={cardW} label="запас" onClick={() => (sel?.zone === 'res' ? tap({ zone: 'bench', i: ln.bench.length, id: null }) : toast('Выберите игрока из резерва, затем нажмите сюда'))} />}
         </div>
@@ -239,7 +239,7 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
       <SectionTitle right={<span className="text-[12px] text-muted">{reserves.length} вне заявки на матч</span>}>Резерв</SectionTitle>
       {reserves.length ? (
         <div className="flex flex-wrap gap-2">
-          {reserves.map((p, i) => <PitchCard key={p.id} p={p} team={t} width={cardW} unavailable={!available(p)} selected={isSel('res', i)} onClick={() => tap({ zone: 'res', i, id: p.id })} />)}
+          {reserves.map((p, i) => <PitchCard key={p.id} p={p} L={L} team={t} width={cardW} unavailable={!available(p)} selected={isSel('res', i)} onClick={() => tap({ zone: 'res', i, id: p.id })} />)}
         </div>
       ) : <div className="text-muted text-[13.5px] px-1">Все игроки в заявке на матч.</div>}
 

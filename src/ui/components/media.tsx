@@ -132,6 +132,8 @@ export const clubBase = (t: Pick<Team, 'primary' | 'secondary'> | null | undefin
 /** Light accent of a club for silhouettes and lines on dark backgrounds. */
 export const clubAccent = (t: Team | null | undefined) => (t ? (lum(t.primary) < 0.22 ? t.secondary : t.primary) : '#7fd3ff');
 
+const HEAD_FADE = 'radial-gradient(ellipse 50% 56% at 50% 46%, #000 68%, transparent 100%)';
+
 export function PlayerPhoto({ p, L, size = 44, className, round = true }: { p: Player; L: League; size?: number; className?: string; round?: boolean }) {
   const [err, setErr] = useState(false);
   const t = playerClub(L, p);
@@ -140,7 +142,10 @@ export function PlayerPhoto({ p, L, size = 44, className, round = true }: { p: P
   return (
     <div className={cx('relative overflow-hidden shrink-0', round ? 'rounded-full' : 'rounded-2xl', className)} style={{ width: size, height: size, background: bg }}>
       {src && !err ? (
-        <img src={src} alt="" loading="lazy" onError={() => setErr(true)} className="absolute inset-0 w-full h-full object-cover object-top" draggable={false} />
+        // Transfermarkt portraits are cropped close to the head: shown smaller and faded at the edges, the
+        // whole head (hair to chin) sits inside the circle with a little air around it.
+        <img src={src} alt="" loading="lazy" onError={() => setErr(true)} draggable={false} className="absolute object-cover object-top"
+          style={{ left: '11%', top: '7%', width: '78%', height: '101%', maskImage: HEAD_FADE, WebkitMaskImage: HEAD_FADE }} />
       ) : (
         <Silhouette p={p} color={clubAccent(t)} />
       )}

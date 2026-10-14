@@ -257,26 +257,42 @@ button {
 }
 
 /* ------------------------------------------------------------------ card rarity */
-/* Frames: the rarer the tier, the richer the border and the more it moves. */
-.frame-bronze { background: linear-gradient(140deg, #f0b88a, #8a5330 45%, #d99a6c 70%, #5a3018); }
-.frame-silver { background: linear-gradient(140deg, #ffffff, #8f9bb0 40%, #e6ecf5 65%, #5d6778); }
-.frame-gold { background: linear-gradient(140deg, #fff3c9, #c9a24b 40%, #ffe7a3 65%, #8a6a22); }
-.frame-elite { background: linear-gradient(140deg, #ffe7a3, #5fd4ff 30%, #0f3a66 55%, #ffe7a3 80%, #5fd4ff); }
-.frame-epic,
-.frame-legend,
-.frame-icon { animation: holo 5s linear infinite; }
-.frame-epic { background: conic-gradient(from var(--holo-angle, 0deg), #c58bff, #ff6ad5, #6a3df0, #c58bff); box-shadow: 0 0 26px -6px #b06bff; }
-.frame-legend { background: conic-gradient(from var(--holo-angle, 0deg), #fff3c9, #c9a24b, #1a1408, #ffd76a, #fff3c9, #8a6a22, #1a1408, #fff3c9); box-shadow: 0 0 34px -6px #ffcf5a; }
-.frame-icon { background: conic-gradient(from var(--holo-angle, 0deg), #ff8ad8, #7fd3ff, #9dffb0, #ffe27a, #ff8ad8); box-shadow: 0 0 40px -4px rgba(255, 138, 216, 0.75); animation-duration: 3.5s; }
+/* The FIFA shield: the frame and the face of every card are cut to it. */
+.shield {
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 140' preserveAspectRatio='none'%3E%3Cpath d='M0 13C5 13 9 10 11 4L38 4C43 4 46 2 50 0C54 2 57 4 62 4L89 4C91 10 95 13 100 13L100 103C100 109 97 112 91 115L56 135C52 137.5 48 137.5 44 135L9 115C3 112 0 109 0 103Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 140' preserveAspectRatio='none'%3E%3Cpath d='M0 13C5 13 9 10 11 4L38 4C43 4 46 2 50 0C54 2 57 4 62 4L89 4C91 10 95 13 100 13L100 103C100 109 97 112 91 115L56 135C52 137.5 48 137.5 44 135L9 115C3 112 0 109 0 103Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+}
 
-/* Card faces */
-.face-bronze { background: linear-gradient(165deg, #9a6640 0%, #4a2c18 52%, #1e130b 100%); }
-.face-silver { background: linear-gradient(165deg, #a9b4c6 0%, #4d5768 52%, #141922 100%); }
-.face-gold { background: linear-gradient(165deg, #d8b25a 0%, #75591f 50%, #1a1408 100%); }
-.face-elite { background: radial-gradient(120% 70% at 50% 0%, #2b79b8 0%, #0f2a48 55%, #060c18 100%); }
-.face-epic { background: radial-gradient(120% 70% at 50% 0%, #8a3fd1 0%, #2a1048 55%, #0b0414 100%); }
-.face-legend { background: radial-gradient(120% 70% at 50% 0%, #4a3a14 0%, #15100a 55%, #000 100%); }
-.face-icon { background: radial-gradient(120% 70% at 50% 0%, #3a2f6e 0%, #141032 55%, #05040f 100%); }
+/* Frames (the rim around the face). Rating editions are metal; rarer ones move. */
+.fr-bronze { background: linear-gradient(150deg, #ffd2a8, #8a5330 40%, #e6a77a 62%, #5a3018); }
+.fr-silver { background: linear-gradient(150deg, #ffffff, #8f9bb0 40%, #f1f4f9 62%, #5d6778); }
+.fr-gold { background: linear-gradient(150deg, #fff6d2, #b8902f 40%, #fff0b8 62%, #7a5a18); }
+.fr-rare { background: linear-gradient(150deg, #fffbe6, #e0b23c 30%, #fff3b0 50%, #b8861c 70%, #fff3b0); }
+.fr-epic, .fr-star, .fr-world, .fr-icon, .fr-toty, .fr-ucl, .fr-tots, .fr-hero, .fr-future { animation: holo 6s linear infinite; }
+.fr-epic { background: conic-gradient(from var(--holo-angle, 0deg), #c58bff, #ff6ad5, #6a3df0, #c58bff); }
+.fr-star { background: conic-gradient(from var(--holo-angle, 0deg), #fff3c9, #c9a24b, #2a200a, #ffd76a, #fff3c9, #8a6a22, #2a200a, #fff3c9); }
+.fr-world { background: conic-gradient(from var(--holo-angle, 0deg), #ff8ad8, #7fd3ff, #9dffb0, #ffe27a, #ff8ad8); animation-duration: 3.5s; }
+.fr-icon { background: conic-gradient(from var(--holo-angle, 0deg), #fffaf0, #d9b45a, #fff6dc, #b38a2e, #fffaf0); animation-duration: 8s; }
+.fr-toty { background: conic-gradient(from var(--holo-angle, 0deg), #ffe9a6, #c9a24b, #1d3cff, #ffe9a6, #8a6a22, #1d3cff, #ffe9a6); }
+.fr-ucl { background: conic-gradient(from var(--holo-angle, 0deg), #ffffff, #8fb4ff, #0b1c5c, #ffffff, #8fb4ff, #0b1c5c, #ffffff); }
+.fr-tots { background: conic-gradient(from var(--holo-angle, 0deg), #7dfff0, #1aa6c9, #0b3f6e, #e9d58a, #7dfff0); }
+.fr-hero { background: conic-gradient(from var(--holo-angle, 0deg), #ffd36e, #ff3d5a, #5a0a1a, #ffd36e, #ff3d5a, #ffd36e); }
+.fr-future { background: conic-gradient(from var(--holo-angle, 0deg), #a6ff4d, #ff4fd8, #3b0b6e, #a6ff4d); animation-duration: 4s; }
+
+/* Faces: light metal for bronze, silver, gold and the legends (dark text on them), deep colours for the rest. */
+.fc-bronze { background: linear-gradient(160deg, #f2c29b 0%, #c7895c 35%, #a8693f 70%, #8a5330 100%); }
+.fc-silver { background: linear-gradient(160deg, #ffffff 0%, #dfe4ec 35%, #b9c1ce 70%, #9aa4b4 100%); }
+.fc-gold { background: linear-gradient(160deg, #fff4c4 0%, #f0d27e 35%, #ddb455 70%, #c49a3a 100%); }
+.fc-rare { background: radial-gradient(110% 70% at 70% 15%, #fffbe0 0%, #ffe58a 30%, #f2c443 60%, #d9a52a 100%); }
+.fc-epic { background: radial-gradient(120% 75% at 50% 0%, #8a3fd1 0%, #3a1466 55%, #12061f 100%); }
+.fc-star { background: radial-gradient(120% 75% at 50% 0%, #3a2e10 0%, #15100a 55%, #050403 100%); }
+.fc-world { background: radial-gradient(120% 75% at 50% 0%, #5a2f7e 0%, #1d1342 55%, #070414 100%); }
+.fc-icon { background: radial-gradient(120% 80% at 50% 0%, #ffffff 0%, #f4efe4 45%, #ddd2b8 100%); }
+.fc-toty { background: radial-gradient(120% 75% at 50% 0%, #2a55ff 0%, #0c1f8a 50%, #050b3a 100%); }
+.fc-ucl { background: radial-gradient(120% 75% at 50% 0%, #23408f 0%, #0b1c5c 50%, #030a26 100%); }
+.fc-tots { background: radial-gradient(120% 75% at 50% 0%, #1fb6d6 0%, #0b4f86 50%, #041a33 100%); }
+.fc-hero { background: radial-gradient(120% 75% at 50% 0%, #c21d3c 0%, #5a0a1a 55%, #1a0207 100%); }
+.fc-future { background: radial-gradient(120% 75% at 50% 0%, #6a1fb0 0%, #2a0a52 55%, #0b0218 100%); }
 
 /* Rotating light rays behind the player (epic and above) */
 .rays {
