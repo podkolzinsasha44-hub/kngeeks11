@@ -78,13 +78,17 @@ function Decor({ tier }: { tier: Tier }) {
   );
 }
 
-/** The real photo, faded into the card; a silhouette in club colours without one. */
+/** The real photo, faded into the card; a silhouette in club colours without one. Transfermarkt portraits are
+ *  cropped close to the head, so the box keeps their proportions (0.77) and only the head with a bit of neck shows. */
 function Photo({ p, team, size, style, fade, onError, err }: { p: Player; team: Team | null; size: 'original' | 'big' | 'header'; style: CSSProperties; fade: string; onError: () => void; err: boolean }) {
-  const src = photoUrl(p, size);
+  // A missing high-resolution portrait falls back to the usual one before the silhouette.
+  const [small, setSmall] = useState(false);
+  const src = photoUrl(p, small ? 'big' : size);
+  const fail = () => (size === 'original' && !small ? setSmall(true) : onError());
   return (
     <div className="absolute" style={style}>
       {src && !err ? (
-        <img src={src} alt="" onError={onError} draggable={false} loading="lazy" className="w-full h-full object-cover object-top"
+        <img src={src} alt="" onError={fail} draggable={false} loading="lazy" className="w-full h-full object-cover object-top"
           style={{ maskImage: fade, WebkitMaskImage: fade, maskComposite: 'intersect', WebkitMaskComposite: 'source-in' }} />
       ) : (
         <div className="absolute inset-x-[8%] bottom-0 top-[18%]"><Silhouette p={p} color={clubAccent(team)} /></div>
@@ -160,7 +164,7 @@ export function PlayerCard({ p, L, width = 260, interactive = true }: { p: Playe
           <Shield tier={tier} w={W} h={H} pad={Math.max(3, W * 0.016)}>
             <Decor tier={tier} />
             <Photo p={p} team={t} size="original" err={imgErr} onError={() => setImgErr(true)} fade={fade}
-              style={{ left: '24%', right: '3%', top: '6%', height: '53%' }} />
+              style={{ left: '33%', width: '50%', top: '11%', aspectRatio: '0.77' }} />
             {look.fx === 3 && <motion.div className="absolute inset-0 foil pointer-events-none" style={{ ['--fx' as string]: foilX }} />}
             {look.fx === 3 && SPARKLES.map(([x, y, d], i) => <span key={i} className="sparkle" style={{ left: `${x}%`, top: `${y}%`, animationDelay: `${d}s`, transform: 'scale(0)' }} />)}
             <motion.div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(circle at var(--gx) 0%, rgba(255,255,255,0.22), transparent 55%)', ['--gx' as string]: glareX }} />
@@ -235,7 +239,7 @@ export function PitchCard({ p, L, team, width, rating, role, selected, unavailab
     >
       <Shield tier={tier} w={W} h={H} pad={look.fx >= 2 ? 2.5 : 2} className={cx(unavailable && 'grayscale opacity-70')}>
         <Decor tier={tier} />
-        <Photo p={p} team={team} size="header" err={err} onError={() => setErr(true)} fade={fade} style={{ left: '28%', right: '2%', top: '7%', height: '55%' }} />
+        <Photo p={p} team={team} size="header" err={err} onError={() => setErr(true)} fade={fade} style={{ left: '36%', width: '56%', top: '9%', aspectRatio: '0.77' }} />
         {look.fx === 3 && <><span className="sparkle" style={{ left: '70%', top: '10%', width: 8, height: 8 }} /><span className="sparkle" style={{ left: '14%', top: '50%', width: 7, height: 7, animationDelay: '1.2s' }} /></>}
         {/* rating and position */}
         <span className="absolute flex flex-col items-center leading-none z-10" style={{ left: '8%', top: '13%', width: W * 0.3 }}>
