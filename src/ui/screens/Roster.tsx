@@ -304,15 +304,22 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
 
       {sel && (
         <div className="fixed dock-x z-30 px-3" style={{ bottom: 'calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 10px)' }}>
-          <div className="glass-strong rounded-3xl p-2.5 pl-4 flex items-center gap-2 max-w-[560px] mx-auto shadow-2xl">
-            <div className="flex-1 min-w-0">
-              <div className="font-display uppercase tracking-wide text-[15px] truncate">{selP ? dispName(selP) : 'Свободное место'}</div>
-              <div className="text-[12px] text-muted truncate">Нажмите на другого игрока — они поменяются местами</div>
+          <div className="glass-strong rounded-3xl p-2.5 max-w-[560px] mx-auto shadow-2xl">
+            <div className="flex items-center gap-2 pl-1.5">
+              <div className="flex-1 min-w-0">
+                <div className="font-display uppercase tracking-wide text-[15px] truncate">{selP ? dispName(selP) : 'Свободное место'}</div>
+                <div className="text-[12px] text-muted truncate">Нажмите на другого игрока — они поменяются местами</div>
+              </div>
+              <Button size="sm" variant="ghost" onClick={() => setSel(null)}>✕</Button>
             </div>
-            {selP && sel.zone === 'xi' && <Button size="sm" variant={pinnedIds.has(selP.id) ? 'primary' : 'glass'} onClick={() => { togglePin(selP.id); setSel(null); }}>{pinnedIds.has(selP.id) ? '📌 Открепить' : '📌 Закрепить'}</Button>}
-            {selP && <Button size="sm" onClick={() => { const id = selP.id; setSel(null); push('player', { id }); }}>Профиль</Button>}
-            {sel.zone === 'xi' && <Button size="sm" onClick={() => { setPick(sel.i); setSel(null); }}>Кто лучше?</Button>}
-            <Button size="sm" variant="ghost" onClick={() => setSel(null)}>✕</Button>
+            {/* A second row: on a narrow phone every action keeps its full label. */}
+            {selP && (
+              <div className="flex gap-2 mt-2">
+                {sel.zone === 'xi' && <Button size="sm" full className="!px-2" variant={pinnedIds.has(selP.id) ? 'primary' : 'glass'} onClick={() => { togglePin(selP.id); setSel(null); }}>{pinnedIds.has(selP.id) ? '📌 Открепить' : '📌 Закрепить'}</Button>}
+                <Button size="sm" full className="!px-2" onClick={() => { const id = selP.id; setSel(null); push('player', { id }); }}>Профиль</Button>
+                {sel.zone === 'xi' && <Button size="sm" full className="!px-2" onClick={() => { setPick(sel.i); setSel(null); }}>Кто лучше?</Button>}
+              </div>
+            )}
           </div>
         </div>
       )}
