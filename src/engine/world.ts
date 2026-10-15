@@ -13,6 +13,7 @@ import { scheduleLeague } from './schedule';
 import { emptyRecord } from './standings';
 import { initUclFromWorld, makeExt, type UclWorld } from './ucl';
 import { fillYouth } from './youth';
+import { fadePotential } from './progression';
 import type { KeeperAttrs, League, LeagueId, OutfieldAttrs, Player, Role, Settings, Team } from './types';
 import { addDays, ageOn, money, posOfRole, seasonLabel } from './util';
 
@@ -69,6 +70,15 @@ export function upgradeSave(L: League, world: WorldJson) {
   attachLeagues(L, world);
   attachUcl(L, world);
   if (L.v < 3) { modelledValues(L); L.v = 3; }
+  // Saves from before the potential faded with age: as if it had faded every season since 24.
+  if (!L.flags['pot:fade']) {
+    for (const p of Object.values(L.players)) {
+      if (p.st === 'RET') continue;
+      const age = ageOn(p.bd, L.date);
+      for (let a = Math.max(24, age - 5); a <= age; a++) fadePotential(p, a);
+    }
+    L.flags['pot:fade'] = true;
+  }
 }
 
 /** The Second League (divisions A and B) has no market values in the sources: there the value is the model (rating, age, potential,

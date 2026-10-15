@@ -16,7 +16,7 @@ import { autoRenew, renewalCases } from '../src/engine/renewals';
 import { offerView, saleView, sellAdvice, valueOutlook } from '../src/engine/sale';
 import { buyerCeiling, purchaseOf, releasePlayer, respondOffer, saleBlock, setListed } from '../src/engine/transfers';
 import { modelValue, raiseWageBudget, WAGE_SWAP, wageBill, wageFor } from '../src/engine/contracts';
-import type { League } from '../src/engine/types';
+import type { League, Player } from '../src/engine/types';
 import { newCareer, restoreRealPlayers, upgradeSave, type WorldJson } from '../src/engine/world';
 import { editYouthPlayer } from '../src/engine/youth';
 import { createPlayer, genPlayer } from '../src/engine/gen';
@@ -25,7 +25,7 @@ import { intlDaily, updateRanking } from '../src/engine/intl';
 import { addDays, ageOn } from '../src/engine/util';
 import { initPlayoffs } from '../src/engine/cup';
 import { recovery, startUpgrade, trainingGrowth, upgradeCost, weeklyTraining, facility } from '../src/engine/club';
-import { developPlayer, keepAge } from '../src/engine/progression';
+import { developPlayer, fadePotential, keepAge } from '../src/engine/progression';
 import { loanBlock, loanOut, loanTargets, loanedOut } from '../src/engine/loans';
 import { returnLoans } from '../src/engine/transfers';
 import { rollover } from '../src/engine/offseason';
@@ -706,6 +706,25 @@ describe('any player agrees to come (setting)', () => {
     // Other clubs see him as before.
     const other = Object.values(L.teams).find((t) => t.lg === 'RPL' && t.id !== 'KRA')!;
     expect(interest(L, star, other)).toBeLessThan(0.35);
+  });
+});
+
+describe('potential fades with age', () => {
+  it('a 28-year-old does not keep a potential he cannot reach; the forecast counts the club\'s training', () => {
+    const p = { ovr: 73, pot: 94 } as Player;
+    for (let a = 24; a <= 28; a++) fadePotential(p, a);
+    expect(p.pot).toBeLessThanOrEqual(77);
+    fadePotential(p, 29);
+    expect(p.pot).toBe(73);
+    const young = { ovr: 60, pot: 85 } as Player;
+    fadePotential(young, 21);
+    expect(young.pot).toBe(85);
+    // Hard training and a better training ground make the forecast of a youngster higher.
+    const L = career('ZEN');
+    const kid = squad(L, 'ZEN').filter((x) => ageOn(x.bd, L.date) <= 21 && x.pot >= x.ovr + 6)[0];
+    const normal = valueOutlook(L, kid).path.at(-1)!.ovr;
+    L.teams.ZEN.training = { int: 'hard', focus: 'balanced' };
+    expect(valueOutlook(L, kid).path.at(-1)!.ovr).toBeGreaterThan(normal);
   });
 });
 

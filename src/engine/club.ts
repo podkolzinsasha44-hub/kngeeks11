@@ -54,13 +54,21 @@ export function weeklyTraining(L: League) {
   }
 }
 
+const trainWeight = (age: number) => (age <= 21 ? 1 : age <= 24 ? 0.8 : age <= 28 ? 0.5 : 0.35);
+
 /** Extra yearly growth (rating points) from the season's training; younger players gain most. */
 export function trainingGrowth(L: League, p: Player): number {
   if (!p.trn) return 0;
-  const age = ageOn(p.bd, L.date);
-  const w = age <= 21 ? 1 : age <= 24 ? 0.8 : age <= 28 ? 0.5 : 0.35;
   // About 46 weeks of training in a season.
-  return Math.max(-1, Math.min(1.6, p.trn / 46)) * w;
+  return Math.max(-1, Math.min(1.6, p.trn / 46)) * trainWeight(ageOn(p.bd, L.date));
+}
+
+/** What a full season of the user's current training (load and training ground) adds at this age: the forecast. */
+export function trainingPerSeason(L: League, age: number): number {
+  const t = L.teams[L.user];
+  if (!t) return 0;
+  const week = INTENSITY[trainingOf(t).int].grow + (facility(t, 'train') - 2) * 0.25;
+  return Math.max(-1, Math.min(1.6, week)) * trainWeight(age);
 }
 
 /** Attributes the club's training emphasised this season. */

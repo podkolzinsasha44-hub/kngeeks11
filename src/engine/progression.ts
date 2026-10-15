@@ -22,6 +22,16 @@ export function keepAge(L: League, p: Player) {
   if (bmd === md || (bmd === "02-29" && !leap && md === "03-01")) p.bd = `${Number(p.bd.slice(0, 4)) + 1}-${bmd}`;
 }
 
+/**
+ * Unrealised potential fades with age: the curve gives little growth after 24 and none from 29, so a 28-year-old
+ * of 73 does not keep a "potential 94" he will never reach. Each season from 24 a third of the gap goes; from 29 the
+ * potential is what he is.
+ */
+export function fadePotential(p: Player, age: number) {
+  if (age >= 29) p.pot = p.ovr;
+  else if (age >= 24 && p.pot > p.ovr) p.pot = Math.max(p.ovr, Math.round(p.pot - (p.pot - p.ovr) / 3));
+}
+
 /** Expected yearly change of the overall rating by age (before potential and playing time). */
 export function curve(age: number, keeper: boolean) {
   const a = keeper ? age - 2 : age;
@@ -97,6 +107,7 @@ export function developAll(L: League, season: number) {
     // A player who does not age keeps his level too (his birthday moves on in `keepAge`).
     if (ageless(L, p)) { p.yth = false; continue; }
     const d = developPlayer(L, p, season);
+    fadePotential(p, ageOn(p.bd, L.date));
     p.hist.push([season, p.ovr]);
     if (p.hist.length > 12) p.hist.shift();
     p.yth = false;
@@ -120,23 +131,27 @@ export function shouldRetire(L: League, p: Player) {
  * The expected rating over the next seasons: the same age curve and room below the potential as `developPlayer`,
  * without the luck of a season (no noise, a regular's minutes for a starter). [ovr now, after 1 season, …].
  */
-export function expectedOvr(p: Player, age: number, seasons: number, regular: boolean): number[] {
+export function expectedOvr(p: Player, age: number, seasons: number, regular: boolean, training: (age: number) => number = () => 0): number[] {
   const keeper = p.pos === 'G';
-  let ovr = p.ovr;
+  let ovr = p.ovr, pot = p.pot;
   const out = [ovr];
   for (let k = 1; k <= seasons; k++) {
     const a = age + k - 1;
     let d = curve(a, keeper);
     if (d > 0) {
-      d *= clamp((p.pot - ovr) / 6, 0, 1.6) * (0.45 + 0.55 * (regular ? 1 : 0.4)) * (1 + (p.pers.prof - 10) * 0.025);
+      d *= clamp((pot - ovr) / 6, 0, 1.6) * (0.45 + 0.55 * (regular ? 1 : 0.4)) * (1 + (p.pers.prof - 10) * 0.025);
       if (p.dev === 'E' && a <= 21) d *= 1.25;
       if (p.dev === 'L' && a <= 21) d *= 0.75;
-      if (p.dev === 'L' && a >= 23 && a <= 27 && p.pot > ovr) d += 0.6;
+      if (p.dev === 'L' && a >= 23 && a <= 27 && pot > ovr) d += 0.6;
     } else {
       d *= 1 - (p.pers.prof - 10) * 0.02;
       if (p.dev === 'E' && a >= 30) d *= 1.2;
     }
-    ovr = clamp(ovr + d, 30, 99);
+    ovr = clamp(ovr + d + training(a), 30, 99);
+    // The same fading of the unrealised potential as at the rollover.
+    const q = { ovr: Math.round(ovr), pot } as Player;
+    fadePotential(q, a + 1);
+    pot = q.pot;
     out.push(ovr);
   }
   return out;

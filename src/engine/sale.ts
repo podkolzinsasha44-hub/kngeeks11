@@ -6,6 +6,7 @@
 // No randomness: the same state gives the same advice.
 import { askingWage, interest, modelValue, wageBill } from './contracts';
 import { expectedOvr } from './progression';
+import { trainingPerSeason } from './club';
 import { FORMATIONS, planned, slotRating, squad } from './lineup';
 import { lossWithout, NEED, renewalCases } from './renewals';
 import { askingPrice, buyerCeiling, purchaseOf, saleBlock, wouldStart } from './transfers';
@@ -198,8 +199,8 @@ export function valueOutlook(L: League, p: Player, seasons = 6): ValueOutlook {
     : b ? { kind: b.fee ? 'bought' : 'free', fee: b.fee, from: b.from, date: b.date }
     : !p.real ? { kind: 'academy', fee: 0, from: null, date: null }
     : { kind: 'start', fee: 0, from: null, date: null };
-  const regular = me.lineup.xi.includes(p.id);
-  const ovrs = expectedOvr(p, age, seasons, regular);
+  // As the card says: he plays in the eleven and trains with the user's current load and training ground.
+  const ovrs = expectedOvr(p, age, seasons, true, (a) => trainingPerSeason(L, a));
   const path = ovrs.map((ovr, k) => {
     const date = k ? `${L.season + k}-07-01` : L.date;
     const q = { ...p, ovr: Math.round(ovr), c: null };
