@@ -71,7 +71,12 @@ async function call(url: string, init?: RequestInit): Promise<{ fields?: Fields;
     if (/database.*does not exist/i.test(t)) throw new CloudError('В проекте Firebase не создана база Firestore (см. README)', 'setup');
     return null;
   }
-  if (r.status === 403) throw new CloudError('Firestore не пускает: не выложены правила доступа (см. README)', 'setup');
+  if (r.status === 403) {
+    // Google answers 403 both when the rules say no and when Firestore is not switched on in the project at all.
+    const t = await r.text();
+    if (/SERVICE_DISABLED|has not been used|is disabled|database.*does not exist/i.test(t)) throw new CloudError('В проекте Firebase не создана база Firestore: Firebase Console → Databases and storage → Firestore → Create database', 'setup');
+    throw new CloudError('Firestore не пускает: не выложены правила доступа (Firestore → Rules, см. README)', 'setup');
+  }
   if (r.status === 400 || r.status === 409 || r.status === 412) {
     const t = await r.text();
     if (/FAILED_PRECONDITION|ALREADY_EXISTS|NOT_FOUND/i.test(t)) throw new CloudError('Карьера в комнате изменилась на другом устройстве', 'conflict');
