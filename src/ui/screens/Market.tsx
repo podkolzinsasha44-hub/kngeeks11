@@ -7,7 +7,7 @@ import { LEAGUES, LEAGUE_IDS, windowOpen } from '../../engine/leagues';
 import { foreignLeft, purchaseOf, respondOffer, saleBlock, setListed } from '../../engine/transfers';
 import { wageBill } from '../../engine/contracts';
 import { FORMATIONS, teamPower } from '../../engine/lineup';
-import type { League, Player, Pos, TransferOffer } from '../../engine/types';
+import type { League, Player, Pos, Role, TransferOffer } from '../../engine/types';
 import { Button, Card, Chips, cx, Empty, Pill, SectionTitle, Segmented } from '../components/kit';
 import { Icon, Screen, Sheet } from '../components/shell';
 import { PlayerRow, TeamBadge } from '../components/media';
@@ -39,9 +39,14 @@ export function Market({ params }: { params: Record<string, unknown> }) {
   );
 }
 
+const LINE_ROLES: Record<Exclude<Pos, 'G'>, Role[]> = { D: ['CB', 'LB', 'RB'], M: ['DM', 'CM', 'AM', 'LM', 'RM'], F: ['LW', 'RW', 'ST'] };
+
 function Search({ L, free }: { L: League; free: boolean }) {
   const me = L.teams[L.user];
-  const [pos, setPos] = useKeep<'all' | Pos>('market.pos', 'all');
+  const [pos, setPosRaw] = useKeep<'all' | Pos>('market.pos', 'all');
+  // A position inside the line (ЛВ, ЦП…): players who play there, naturally or as their second position.
+  const [role, setRole] = useKeep<'all' | Role>('market.role', 'all');
+  const setPos = (v: 'all' | Pos) => { setPosRaw(v); setRole('all'); };
   // Several leagues at once; empty = all of them. 'ext' = clubs outside the simulated leagues.
   const [lgs, setLgs] = useKeep<string[]>('market.lgs', []);
   const [sort, setSort] = useKeep<'ovr' | 'pot' | 'val' | 'age'>('market.sort', 'ovr');
@@ -60,6 +65,7 @@ function Search({ L, free }: { L: League; free: boolean }) {
       if (p.team === L.user || p.st === 'RET') continue;
       if (free ? p.st !== 'FA' : p.st !== 'ACT') continue;
       if (pos !== 'all' && p.pos !== pos) continue;
+      if (role !== 'all' && p.role !== role && !p.alt?.includes(role)) continue;
       if (!free && lgs.length && !lgs.includes(p.team ? L.teams[p.team].lg : 'ext')) continue;
       if (afford && p.val > me.budget) continue;
       if (u23 && playerAge(L, p) > 23) continue;
@@ -73,7 +79,7 @@ function Search({ L, free }: { L: League; free: boolean }) {
     }
     const by = { ovr: (p: Player) => -p.ovr, pot: (p: Player) => -p.pot, val: (p: Player) => -p.val, age: (p: Player) => playerAge(L, p) }[sort];
     return { list: out.sort((a, b) => by(a) - by(b) || b.ovr - a.ovr), deals };
-  }, [L, L.date, ver, pos, lgs, sort, q, afford, u23, free, me.budget, can]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [L, L.date, ver, pos, role, lgs, sort, q, afford, u23, free, me.budget, can]); // eslint-disable-line react-hooks/exhaustive-deps
   // Only the search and the position stay on screen: the rest of the filters live in a sheet, so the
   // list starts in the upper half of the phone.
   const [sheet, setSheet] = useState(false);
@@ -100,6 +106,9 @@ function Search({ L, free }: { L: League; free: boolean }) {
         </button>
       </div>
       <Chips value={pos} onChange={setPos} options={[{ v: 'all', label: 'Все амплуа' }, ...(['G', 'D', 'M', 'F'] as Pos[]).map((v) => ({ v, label: POS_RU[v] }))]} />
+      {pos !== 'all' && pos !== 'G' && (
+        <div className="mt-2"><Chips value={role} onChange={setRole} options={[{ v: 'all', label: `Все: ${POS_RU[pos]}` }, ...LINE_ROLES[pos].map((v) => ({ v, label: ROLE_RU[v] }))]} /></div>
+      )}
       <div className="flex gap-2 mt-2 items-center flex-wrap">
         {active.map((a) => (
           <button key={a.label} onClick={a.off} className="press hit h-8 pl-3 pr-2 rounded-full glass text-[13px] flex items-center gap-1" aria-label={`Убрать фильтр ${a.label}`}>{a.label}<span className="text-muted text-[15px] leading-none">×</span></button>
