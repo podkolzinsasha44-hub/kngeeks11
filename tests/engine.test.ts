@@ -17,15 +17,15 @@ import { offerView, saleView, sellAdvice } from '../src/engine/sale';
 import { buyerCeiling, purchaseOf, releasePlayer, respondOffer, saleBlock, setListed } from '../src/engine/transfers';
 import { modelValue, raiseWageBudget, WAGE_SWAP, wageBill, wageFor } from '../src/engine/contracts';
 import type { League } from '../src/engine/types';
-import { newCareer, upgradeSave, type WorldJson } from '../src/engine/world';
+import { newCareer, restoreRealPlayers, upgradeSave, type WorldJson } from '../src/engine/world';
 import { editYouthPlayer } from '../src/engine/youth';
 import { createPlayer } from '../src/engine/gen';
 import { addExtras } from '../src/engine/extras';
 import { intlDaily, updateRanking } from '../src/engine/intl';
-import { addDays } from '../src/engine/util';
+import { addDays, ageOn } from '../src/engine/util';
 import { initPlayoffs } from '../src/engine/cup';
 import { recovery, startUpgrade, trainingGrowth, upgradeCost, weeklyTraining, facility } from '../src/engine/club';
-import { developPlayer } from '../src/engine/progression';
+import { developPlayer, keepAge } from '../src/engine/progression';
 import { loanBlock, loanOut, loanTargets, loanedOut } from '../src/engine/loans';
 import { returnLoans } from '../src/engine/transfers';
 import { rollover } from '../src/engine/offseason';
@@ -608,6 +608,56 @@ describe('players added at the owner\'s request', () => {
     addExtras(L);
     expect(Object.values(L.players).filter((x) => x.extra === 'zhidkikh').length).toBe(1);
     expect(p.team).toBeNull();
+  });
+});
+
+describe('real players do not age (setting)', () => {
+  it('outside the user\'s club a real player keeps his age and level and does not retire; in it he ages', () => {
+    const L = career('ZEN');
+    L.settings.ageless = true;
+    const yamal = L.players[937958];
+    const mine = squad(L, 'ZEN').filter((p) => p.real && p.c && p.c.until > L.season + 2).sort((a, b) => b.ovr - a.ovr)[0];
+    const old = Object.values(L.players).filter((p) => p.real && p.team && p.team !== 'ZEN' && p.c && p.c.until > L.season + 2).sort((a, b) => ageOn(b.bd, L.date) - ageOn(a.bd, L.date))[0];
+    const before = { y: ageOn(yamal.bd, L.date), yo: yamal.ovr, m: ageOn(mine.bd, L.date), o: ageOn(old.bd, L.date) };
+    // A whole year day by day (the daily birthday check), with the rollover on June 20.
+    for (let i = 0; i < 366; i++) {
+      L.date = addDays(L.date, 1);
+      for (const p of [yamal, mine, old]) keepAge(L, p);
+      expect(ageOn(yamal.bd, L.date)).toBe(before.y);
+      if (L.date.slice(5) === '06-20') rollover(L);
+    }
+    expect(yamal.ovr).toBe(before.yo);
+    expect(ageOn(old.bd, L.date)).toBe(before.o);
+    expect(old.st).not.toBe('RET');
+    // The user's own player is a year older, as always.
+    expect(ageOn(mine.bd, L.date)).toBe(before.m + 1);
+  });
+
+  it('switched on years later, brings every real player back to his 2026 age and level, retired ones too', () => {
+    const L = career('ZEN');
+    const yamal = L.players[937958];
+    const age0 = ageOn(yamal.bd, L.date), ovr0 = yamal.ovr;
+    const mine = squad(L, 'ZEN')[0];
+    const mineBd = mine.bd;
+    // Twelve seasons later: Yamal has aged, an old star retired and was dropped from the save, another retired.
+    L.season += 12; L.date = `${L.season}-07-13`;
+    yamal.ovr = 70;
+    const gone = Object.values(L.players).find((p) => p.real && p.team === 'RMA')!;
+    const goneId = gone.id;
+    delete L.players[goneId];
+    const ret = Object.values(L.players).find((p) => p.real && p.team && L.teams[p.team].lg === 'GER')!;
+    Object.assign(ret, { st: 'RET', team: null, c: null, retired: L.season - 1 });
+    touchSquads();
+    L.settings.ageless = true;
+    const r = restoreRealPlayers(L, world);
+    expect(r.back).toBeGreaterThanOrEqual(2);
+    expect(ageOn(yamal.bd, L.date)).toBe(age0);
+    expect(yamal.ovr).toBe(ovr0);
+    expect(L.players[goneId]).toBeTruthy();
+    expect(L.players[goneId].st === 'ACT' || L.players[goneId].st === 'FA').toBe(true);
+    expect(ret.st).not.toBe('RET');
+    // The user's own players are not touched.
+    expect(mine.bd).toBe(mineBd);
   });
 });
 

@@ -10,7 +10,7 @@ import { squad, touchSquads } from './lineup';
 import { PRESIDENT } from './names';
 import { pushMsg, pushNews } from './news';
 import { evaluateSeason, ownerGoalFor, ownerReact, targetPlace } from './owner';
-import { developAll, shouldRetire } from './progression';
+import { ageless, developAll, shouldRetire } from './progression';
 import { int } from './rng';
 import { scheduleLeague } from './schedule';
 import { emptyRecord, sortedTeams } from './standings';
@@ -153,7 +153,7 @@ export function rollover(L: League) {
       p.lastClub = p.team;
       p.team = null; p.c = null; p.st = 'FA'; p.listed = false; p.wantsOut = false;
       p.joined = season + 1;
-    } else if (p.st === 'FA' && (p.joined ?? 0) <= season) {
+    } else if (p.st === 'FA' && (p.joined ?? 0) <= season && !ageless(L, p)) {
       // A full season without a club: the career is over (or continues below the level of the game).
       p.st = 'RET'; p.retired = season;
       continue;

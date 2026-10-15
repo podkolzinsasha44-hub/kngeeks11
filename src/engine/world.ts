@@ -1,10 +1,10 @@
 // Builds a new career from the data snapshot (public/data/world.json).
 import { aiLineup, updateStrategies } from './ai';
-import { modelValue } from './contracts';
+import { modelValue, wageFor } from './contracts';
 import { initCup } from './cup';
 import { initIntl, setNations } from './intl';
 import { LEAGUES, LEAGUE_IDS, leagueDates, transferWindows } from './leagues';
-import { emptyLineup, touchSquads } from './lineup';
+import { emptyLineup, squad, touchSquads } from './lineup';
 import { PRESIDENT } from './names';
 import { pushMsg, pushNews } from './news';
 import { ownerGoalFor } from './owner';
@@ -104,7 +104,8 @@ function attachPhotos(L: League, world: WorldJson) {
   for (const p of Object.values(L.players)) {
     if (p.img || !p.real) continue;
     const w = byId.get(p.id);
-    if (w?.im) p.img = photoFile(w);
+    // Photos added to the world later (fnl.pro or Transfermarkt) reach saves already under way.
+    if (w?.im || w?.iu) p.img = photoFile(w);
   }
 }
 
@@ -213,3 +214,41 @@ export function newCareer(world: WorldJson, o: NewCareerOpts): League {
 }
 
 export const ageOf = (p: Player, L: League) => ageOn(p.bd, L.date);
+
+/**
+ * Switching on "real players do not age": every real player who is not the user's goes back to his age and level at
+ * the start of the game (Yamal is as young as in 2026 again). Retired ones — even those already dropped from the
+ * save — come back: to their real club when it has room, otherwise as free agents. Players of the user's club and
+ * his loans are not touched. Returns how many came back.
+ */
+export function restoreRealPlayers(L: League, world: WorldJson): { back: number; reset: number } {
+  const shift = L.season - Number(world.start.slice(0, 4));
+  let back = 0, reset = 0;
+  const room = (id: string) => !!L.teams[id] && id !== L.user && L.teams[id].lg !== 'U17' && squad(L, id).length < 40;
+  for (const w of world.players) {
+    const was = L.players[w.id];
+    if (was && (was.team === L.user || was.loan?.from === L.user)) continue;
+    const fresh = expandPlayer(w, L.season);
+    const p = was ?? fresh;
+    const lg = (id: string | null | undefined) => (id && L.teams[id] ? L.teams[id].lg : null);
+    if (!was || p.st === 'RET') {
+      back++;
+      p.retired = undefined;
+      if (!was) L.players[w.id] = p;
+      p.ext = undefined; p.loan = undefined; p.listed = false; p.wantsOut = false;
+      if (w.t && room(w.t)) { p.team = w.t; p.st = 'ACT'; }
+      else if (w.x) { p.team = null; p.ext = w.x; p.st = 'ACT'; }
+      else { p.team = null; p.st = 'FA'; }
+      p.c = p.st === 'ACT' ? { wage: Math.max(w.w, wageFor(fresh.ovr, lg(p.team))), until: L.season + 2, signed: L.season } : null;
+      p.joined = L.season;
+      if (p.team && !p.teams.includes(p.team)) p.teams.push(p.team);
+    } else reset++;
+    p.bd = `${Number(w.bd.slice(0, 4)) + shift}${w.bd.slice(4)}`;
+    p.r = fresh.r; p.ovr = fresh.ovr; p.pot = fresh.pot;
+    p.inj = null; p.susp = 0; p.fit = 100;
+    p.val = modelValue(p, L.date, lg(p.team));
+  }
+  touchSquads();
+  for (const t of Object.values(L.teams)) if (t.id !== L.user) aiLineup(L, t);
+  return { back, reset };
+}

@@ -5,6 +5,23 @@ import { next, normal } from './rng';
 import type { KeeperAttrs, League, OutfieldAttrs, Player } from './types';
 import { W_ROLE, ageOn, calcOvr, clamp } from './util';
 
+/**
+ * "Real players do not age" (`settings.ageless`): a real player who is not the user's (nor on loan from him) keeps his
+ * age and level from season to season and does not retire.
+ */
+export function ageless(L: League, p: Player) {
+  return !!L.settings.ageless && p.real && p.st !== 'RET' && p.team !== L.user && p.loan?.from !== L.user;
+}
+
+/** On his birthday a player who does not age is born a year later: his age stays the same all year round. */
+export function keepAge(L: League, p: Player) {
+  if (!ageless(L, p)) return;
+  const md = L.date.slice(5), y = Number(L.date.slice(0, 4));
+  const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  const bmd = p.bd.slice(5);
+  if (bmd === md || (bmd === "02-29" && !leap && md === "03-01")) p.bd = `${Number(p.bd.slice(0, 4)) + 1}-${bmd}`;
+}
+
 /** Expected yearly change of the overall rating by age (before potential and playing time). */
 function curve(age: number, keeper: boolean) {
   const a = keeper ? age - 2 : age;
@@ -77,6 +94,8 @@ export function developAll(L: League, season: number) {
   for (const id in L.players) {
     const p = L.players[id];
     if (p.st === 'RET') continue;
+    // A player who does not age keeps his level too (his birthday moves on in `keepAge`).
+    if (ageless(L, p)) { p.yth = false; continue; }
     const d = developPlayer(L, p, season);
     p.hist.push([season, p.ovr]);
     if (p.hist.length > 12) p.hist.shift();
@@ -88,6 +107,7 @@ export function developAll(L: League, season: number) {
 
 /** Retirement: old players without a club, or simply at the end of the road. */
 export function shouldRetire(L: League, p: Player) {
+  if (ageless(L, p)) return false;
   const age = ageOn(p.bd, L.date);
   const lim = p.pos === 'G' ? 38 : 35;
   if (age < lim - 2) return false;

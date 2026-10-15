@@ -14,6 +14,7 @@ import { renewalCases, renewNow, VERDICT_RU, type RenewalCase, type Verdict } fr
 import { groupOrder, nationPower } from '../../engine/intl';
 import { LEAGUES, foreignLimit, isForeign, transferWindows } from '../../engine/leagues';
 import { squad } from '../../engine/lineup';
+import { restoreRealPlayers } from '../../engine/world';
 import { ownerGoalFor } from '../../engine/owner';
 import type { IntlGame, League, Message, Tournament } from '../../engine/types';
 import { Button, Card, cx, Divider, Empty, Meter, Pill, Row, SectionTitle, Segmented } from '../components/kit';
@@ -317,7 +318,17 @@ export function SettingsScreen() {
         <T k="hideMedia" label="Скрыть соцсети в новостях" /><Divider />
         <T k="noFiring" label="Без увольнения" sub="Доверие руководства считается, но уволить вас нельзя" /><Divider />
         <T k="intlRussia" label="Россия в турнирах FIFA и UEFA" sub="Сборная на ЧМ и Евро, чемпион РПЛ — в Лиге чемпионов (со следующего сезона). В реальности отстранены с 2022 года" /><Divider />
-        <T k="noForeignLimit" label="Без лимита на легионеров" sub="Сколько угодно легионеров в заявке и на поле, во Второй лиге тоже. Для всех клубов одинаково. В реальности — лимит Минспорта" />
+        <T k="noForeignLimit" label="Без лимита на легионеров" sub="Сколько угодно легионеров в заявке и на поле, во Второй лиге тоже. Для всех клубов одинаково. В реальности — лимит Минспорта" /><Divider />
+        <Row onClick={async () => {
+          const on = !s.ageless;
+          const world = on ? await useGame.getState().loadWorld() : null;
+          let r = { back: 0, reset: 0 };
+          act((L) => { L.settings.ageless = on; if (world) r = restoreRealPlayers(L, world); });
+          toast(on ? `Реальные игроки снова в возрасте и форме 2026 года${r.back ? `, вернулись из завершивших карьеру: ${r.back}` : ''}` : 'Все игроки снова стареют', 'good');
+        }}>
+          <div className="flex-1"><div className="text-[15.5px]">Реальные игроки не стареют</div><div className="text-[12.5px] text-muted">Звёзды других клубов остаются в возрасте и уровне 2026 года и не уходят на пенсию — их всегда можно купить. Попав в ваш клуб, игрок начинает стареть как обычно. При включении все реальные игроки возвращаются к возрасту 2026 года, завершившие карьеру — в свои клубы или в свободные агенты</div></div>
+          <Switch on={!!s.ageless} />
+        </Row>
       </Card>
       <SectionTitle>Травмы и карточки</SectionTitle>
       <Segmented value={s.incidents ?? 'less'} onChange={(v) => act(() => { s.incidents = v; })} options={(Object.keys(INCIDENTS) as Incidents[]).map((v) => ({ v, label: INCIDENTS[v].label }))} />

@@ -413,6 +413,11 @@ export interface Settings {
   incidents?: Incidents;
   /** No limit on foreign players in the Russian leagues, for every club alike (the real rule is on by default). */
   noForeignLimit?: boolean;
+  /**
+   * Real players outside the user's club keep their age and level and do not retire ("Реальные игроки не стареют");
+   * once in the user's club they age as usual. Generated players age always.
+   */
+  ageless?: boolean;
 }
 
 export interface Scouting {

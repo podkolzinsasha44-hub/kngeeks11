@@ -19,6 +19,7 @@ import type { Game, League, LeagueId, OutfieldAttrs, Player, Team } from './type
 import { addDays, clamp, dispName, dow } from './util';
 import { autoRenew, renewalCases, VERDICT_RU } from './renewals';
 import { staffLineup } from './bestxi';
+import { keepAge } from './progression';
 import { absenceText, dateRu, injure } from './medical';
 import { dailyClub, recovery, weeklyTraining } from './club';
 import { club, onUclGame, rosterOf, UCL } from './ucl';
@@ -205,8 +206,10 @@ function applyGame(L: League, g: Game, box: MatchBox) {
 
 function daily(L: League) {
   const back: Player[] = [];
+  const keep = !!L.settings.ageless;
   for (const id in L.players) {
     const p = L.players[id];
+    if (keep) keepAge(L, p);
     if (p.inj) {
       p.inj.days--;
       if (p.inj.days <= 0) {
