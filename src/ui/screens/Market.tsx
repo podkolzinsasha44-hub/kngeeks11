@@ -39,6 +39,9 @@ export function Market({ params }: { params: Record<string, unknown> }) {
   );
 }
 
+const AGE_LO = 15, AGE_HI = 40;
+const ageLabel = (a: number, b: number) => (a <= AGE_LO && b >= AGE_HI ? 'любой' : a <= AGE_LO ? `до ${b}` : b >= AGE_HI ? `от ${a}` : a === b ? `${a}` : `${a}–${b}`);
+
 const LINE_ROLES: Record<Exclude<Pos, 'G'>, Role[]> = { D: ['CB', 'LB', 'RB'], M: ['DM', 'CM', 'AM', 'LM', 'RM'], F: ['LW', 'RW', 'ST'] };
 
 function Search({ L, free }: { L: League; free: boolean }) {
@@ -52,7 +55,9 @@ function Search({ L, free }: { L: League; free: boolean }) {
   const [sort, setSort] = useKeep<'ovr' | 'pot' | 'val' | 'age'>('market.sort', 'ovr');
   const [q, setQ] = useKeep('market.q', '');
   const [afford, setAfford] = useKeep('market.afford', false);
-  const [u23, setU23] = useKeep('market.u23', false);
+  // Age range of the search: 15 and 40 are the open ends ("any").
+  const [ageMin, setAgeMin] = useKeep('market.ageMin', AGE_LO);
+  const [ageMax, setAgeMax] = useKeep('market.ageMax', AGE_HI);
   // On by default: only players who would join the club now, for the money it has.
   const [can, setCan] = useKeep('market.can', true);
   const ver = useGame((st) => st.ver);
@@ -68,7 +73,10 @@ function Search({ L, free }: { L: League; free: boolean }) {
       if (role !== 'all' && p.role !== role && !p.alt?.includes(role)) continue;
       if (!free && lgs.length && !lgs.includes(p.team ? L.teams[p.team].lg : 'ext')) continue;
       if (afford && p.val > me.budget) continue;
-      if (u23 && playerAge(L, p) > 23) continue;
+      if (ageMin > AGE_LO || ageMax < AGE_HI) {
+        const a = playerAge(L, p);
+        if (a < ageMin || a > ageMax) continue;
+      }
       if (s && !`${p.fn} ${p.ln} ${p.ru ?? ''}`.toLowerCase().includes(s)) continue;
       if (can) {
         const d = dealFor(L, p, me);
@@ -79,7 +87,7 @@ function Search({ L, free }: { L: League; free: boolean }) {
     }
     const by = { ovr: (p: Player) => -p.ovr, pot: (p: Player) => -p.pot, val: (p: Player) => -p.val, age: (p: Player) => playerAge(L, p) }[sort];
     return { list: out.sort((a, b) => by(a) - by(b) || b.ovr - a.ovr), deals };
-  }, [L, L.date, ver, pos, role, lgs, sort, q, afford, u23, free, me.budget, can]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [L, L.date, ver, pos, role, lgs, sort, q, afford, ageMin, ageMax, free, me.budget, can]); // eslint-disable-line react-hooks/exhaustive-deps
   // Only the search and the position stay on screen: the rest of the filters live in a sheet, so the
   // list starts in the upper half of the phone.
   const [sheet, setSheet] = useState(false);
@@ -91,7 +99,7 @@ function Search({ L, free }: { L: League; free: boolean }) {
     ...(free ? [] : lgs.map((v) => ({ label: LGS.find((x) => x.v === v)?.label ?? v, off: () => setLgs((x) => x.filter((y) => y !== v)) }))),
     sort !== 'ovr' && { label: `↓ ${SORTS.find((x) => x.v === sort)!.label}`, off: () => setSort('ovr') },
     !free && afford && { label: 'По карману', off: () => setAfford(false) },
-    u23 && { label: 'До 23 лет', off: () => setU23(false) },
+    (ageMin > AGE_LO || ageMax < AGE_HI) && { label: `Возраст ${ageLabel(ageMin, ageMax)}`, off: () => { setAgeMin(AGE_LO); setAgeMax(AGE_HI); } },
     can && { label: 'Можно подписать', off: () => setCan(false) },
   ].filter(Boolean) as { label: string; off: () => void }[];
   const toggle = (on: boolean, set: (v: boolean) => void, label: string) => (
@@ -131,7 +139,21 @@ function Search({ L, free }: { L: League; free: boolean }) {
         <div className="flex flex-wrap gap-2">
           {toggle(can, setCan, 'Можно подписать сейчас')}
           {!free && toggle(afford, setAfford, `По карману (до ${money(me.budget)})`)}
-          {toggle(u23, setU23, 'До 23 лет')}
+        </div>
+        <div className="flex items-center justify-between mt-5 mb-1">
+          <span className="text-[12px] uppercase tracking-wider text-muted">Возраст</span>
+          <span className="num text-[18px]">{ageLabel(ageMin, ageMax)}</span>
+        </div>
+        <label className="flex items-center gap-3 text-[13px] text-muted">от
+          <input type="range" min={AGE_LO} max={AGE_HI} value={ageMin} onChange={(e) => { const v = Number(e.target.value); setAgeMin(v); if (ageMax < v) setAgeMax(v); }} className="flex-1 h-11 accent-[var(--accent)]" aria-label="Возраст от" />
+        </label>
+        <label className="flex items-center gap-3 text-[13px] text-muted">до
+          <input type="range" min={AGE_LO} max={AGE_HI} value={ageMax} onChange={(e) => { const v = Number(e.target.value); setAgeMax(v); if (ageMin > v) setAgeMin(v); }} className="flex-1 h-11 accent-[var(--accent)]" aria-label="Возраст до" />
+        </label>
+        <div className="flex flex-wrap gap-2 mt-1">
+          {([[AGE_LO, 21, 'до 21'], [AGE_LO, 23, 'до 23'], [AGE_LO, 26, 'до 26'], [24, 29, '24–29'], [30, AGE_HI, 'от 30'], [AGE_LO, AGE_HI, 'любой']] as const).map(([a, b, l]) => (
+            <button key={l} onClick={() => { setAgeMin(a); setAgeMax(b); }} className={cx('press hit h-8 px-3 rounded-full text-[13px] border', ageMin === a && ageMax === b ? 'bg-white text-[#05070d] border-white' : 'glass')}>{l}</button>
+          ))}
         </div>
         <div className="text-[12px] text-muted mt-2 leading-snug">«Можно подписать» — игрок готов к разговору с клубом{free ? '' : ', окно открыто, цена клуба в пределах бюджета'}, а его зарплата помещается в зарплатный бюджет и лимит легионеров. Справа — {free ? 'зарплата, которую он попросит' : 'цена клуба и зарплата'}.</div>
         <div className="flex gap-2 mt-6">
