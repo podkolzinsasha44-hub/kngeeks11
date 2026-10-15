@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 
 export function Sparkline({ values, width = 120, height = 36, color = 'var(--accent)', labels }: { values: number[]; width?: number; height?: number; color?: string; labels?: string[] }) {
   if (values.length < 2) return <div className="text-muted text-[12px]">недостаточно данных</div>;
@@ -45,29 +45,77 @@ export function Momentum({ bins, home, away }: { bins: number[]; home: string; a
   );
 }
 
-/** Football pitch background; children are drawn in a 105×68 coordinate system. */
+/** Football pitch under floodlights: mowed stripes, grain, glowing lines, goals with nets. Children are drawn in the
+ * 105×68 coordinates of the field (inside the lines). */
 export function PitchSvg({ children, className, vertical, stretch }: { children?: ReactNode; className?: string; vertical?: boolean; stretch?: boolean }) {
-  const lines = (
-    <g fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="0.35">
-      <rect x="0.5" y="0.5" width="104" height="67" />
-      <line x1="52.5" y1="0.5" x2="52.5" y2="67.5" />
-      <circle cx="52.5" cy="34" r="9.15" />
-      <rect x="0.5" y="13.85" width="16.5" height="40.3" />
-      <rect x="88" y="13.85" width="16.5" height="40.3" />
-      <rect x="0.5" y="24.85" width="5.5" height="18.3" />
-      <rect x="99" y="24.85" width="5.5" height="18.3" />
-      <path d="M17 26.7a9.15 9.15 0 010 14.6M88 26.7a9.15 9.15 0 000 14.6" />
-      <circle cx="11" cy="34" r="0.4" fill="#fff" /><circle cx="94" cy="34" r="0.4" fill="#fff" /><circle cx="52.5" cy="34" r="0.4" fill="#fff" />
-    </g>
-  );
-  const stripes = Array.from({ length: 10 }, (_, i) => <rect key={i} x={i * 10.5} y="0" width="10.5" height="68" fill={i % 2 ? '#1c7a41' : '#1f8748'} />);
+  const id = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const u = (k: string) => `url(#${k}${id})`;
+  const W = vertical ? 68 : 105, H = vertical ? 105 : 68;
+  // The field sits inside a strip of grass, where the goals stand.
+  const M = 0.95;
+  const field = `translate(${(105 * (1 - M)) / 2} ${(68 * (1 - M)) / 2}) scale(${M})`;
+  const turn = vertical ? 'translate(68 0) rotate(90)' : undefined;
+  const goal = (x: number) => <rect x={x} y="30.34" width="2" height="7.32" fill={u('net')} stroke="#fff" strokeWidth="0.32" />;
   return (
-    <svg viewBox={vertical ? '0 0 68 105' : '0 0 105 68'} preserveAspectRatio={stretch ? 'none' : undefined} className={className} style={{ borderRadius: 18, display: 'block' }}>
-      <g transform={vertical ? 'translate(68 0) rotate(90)' : undefined}>
-        {stripes}
-        {lines}
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio={stretch ? 'none' : undefined} className={className} style={{ borderRadius: 18, display: 'block' }}>
+      <defs>
+        <linearGradient id={`grass${id}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#2a8a43" /><stop offset="0.5" stopColor="#23803c" /><stop offset="1" stopColor="#1a6a31" />
+        </linearGradient>
+        <pattern id={`net${id}`} width="0.55" height="0.55" patternUnits="userSpaceOnUse">
+          <rect width="0.55" height="0.55" fill="rgba(0,0,0,0.25)" />
+          <path d="M0 0L0.55 0.55M0.55 0L0 0.55" stroke="rgba(255,255,255,0.55)" strokeWidth="0.06" />
+        </pattern>
+        {/* Grass grain: streaky noise along the mowing, laid over the stripes. */}
+        <filter id={`grain${id}`} x="0" y="0" width="100%" height="100%">
+          <feTurbulence type="fractalNoise" baseFrequency="2.2 0.3" numOctaves="2" seed="7" />
+          <feColorMatrix type="saturate" values="0" />
+        </filter>
+        <filter id={`glow${id}`} x="-5%" y="-5%" width="110%" height="110%">
+          <feGaussianBlur stdDeviation="0.45" />
+        </filter>
+        <radialGradient id={`flood${id}`} cx="0.5" cy="0.5" r="0.75">
+          <stop offset="0" stopColor="#fff" stopOpacity="0.1" /><stop offset="0.45" stopColor="#fff" stopOpacity="0.03" /><stop offset="1" stopColor="#000" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id={`vig${id}`} cx="0.5" cy="0.5" r="0.72">
+          <stop offset="0.55" stopColor="#000" stopOpacity="0" /><stop offset="1" stopColor="#000" stopOpacity="0.42" />
+        </radialGradient>
+        <radialGradient id={`lamp${id}`} cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stopColor="#fffbe8" stopOpacity="0.16" /><stop offset="1" stopColor="#fffbe8" stopOpacity="0" />
+        </radialGradient>
+        <g id={`lines${id}`} fill="none" stroke="#fff" strokeWidth="0.34">
+          <rect x="0" y="0" width="105" height="68" />
+          <line x1="52.5" y1="0" x2="52.5" y2="68" />
+          <circle cx="52.5" cy="34" r="9.15" />
+          <rect x="0" y="13.84" width="16.5" height="40.32" />
+          <rect x="88.5" y="13.84" width="16.5" height="40.32" />
+          <rect x="0" y="24.84" width="5.5" height="18.32" />
+          <rect x="99.5" y="24.84" width="5.5" height="18.32" />
+          <path d="M16.5 26.69A9.15 9.15 0 0 1 16.5 41.31M88.5 26.69A9.15 9.15 0 0 0 88.5 41.31" />
+          <path d="M1 0A1 1 0 0 1 0 1M104 0A1 1 0 0 0 105 1M105 67A1 1 0 0 0 104 68M0 67A1 1 0 0 1 1 68" />
+          <g fill="#fff" stroke="none"><circle cx="11" cy="34" r="0.32" /><circle cx="94" cy="34" r="0.32" /><circle cx="52.5" cy="34" r="0.42" /></g>
+        </g>
+      </defs>
+      <g transform={turn}>
+        <rect width="105" height="68" fill={u('grass')} />
+        {/* Mowing: light and dark bands across the pitch, the halfway line on a border between them. */}
+        {Array.from({ length: 14 }, (_, i) => <rect key={i} x={i * 7.5} y="0" width="7.5" height="68" fill={i % 2 ? '#000' : '#fff'} opacity={i % 2 ? 0.085 : 0.06} />)}
+        {Array.from({ length: 6 }, (_, i) => <rect key={i} x="0" y={i * 11.34} width="105" height="11.34" fill="#fff" opacity={i % 2 ? 0 : 0.018} />)}
+        <rect width="105" height="68" filter={u('grain')} opacity="0.16" style={{ mixBlendMode: 'overlay' }} />
+        {/* Worn grass in front of the goals. */}
+        <ellipse cx="5" cy="34" rx="5" ry="6" fill="#6b5a2a" opacity="0.1" /><ellipse cx="100" cy="34" rx="5" ry="6" fill="#6b5a2a" opacity="0.1" />
+        <g transform={field}>
+          <use href={`#lines${id}`} filter={u('glow')} opacity="0.55" />
+          <use href={`#lines${id}`} opacity="0.88" />
+          {goal(-2)}{goal(105)}
+        </g>
       </g>
-      {children}
+      {/* Floodlights: a bright middle, four lamp pools in the corners, darker edges. */}
+      <rect width={W} height={H} fill={u('flood')} />
+      {[[0, 0], [W, 0], [0, H], [W, H]].map(([x, y], i) => <ellipse key={i} cx={x} cy={y} rx={W * 0.45} ry={H * 0.32} fill={u('lamp')} />)}
+      <rect width={W} height={H} fill={u('vig')} />
+      <rect x="0.15" y="0.15" width={W - 0.3} height={H - 0.3} rx="2" fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="0.3" />
+      {children && <g transform={turn}><g transform={field}>{children}</g></g>}
     </svg>
   );
 }

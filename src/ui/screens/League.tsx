@@ -12,6 +12,7 @@ import { UCL_TABS, UclView, uclDefaultTab, type UclTab } from './Ucl';
 import { Button, Card, Chips, cx, Empty, Pill, SectionTitle, Segmented } from '../components/kit';
 import { Screen } from '../components/shell';
 import { PlayerRow, TeamBadge } from '../components/media';
+import { TeamPitch } from '../components/Formation';
 import { clubLabel, dateShort, dispName, dowRu, money, ROLE_RU, seasonLabel } from '../format';
 import { nationName } from '../../engine/intl';
 import { useKeep } from '../keep';
@@ -187,12 +188,16 @@ export function TeamScreen({ params }: { params: Record<string, unknown> }) {
   return (
     <Screen title={t.ru} subtitle={sub}>
       <Card className="mt-1 relative overflow-hidden" pad={false}>
-        <div className="absolute inset-0 opacity-60" style={{ background: `linear-gradient(120deg, color-mix(in oklab, ${t.primary} 55%, transparent), transparent 65%)` }} />
-        <div className="relative p-4 flex items-center gap-3">
-          <TeamBadge team={t} size={56} />
+        <div className="absolute inset-0" style={{ background: `linear-gradient(125deg, color-mix(in oklab, ${t.primary} 62%, transparent) 0%, color-mix(in oklab, ${t.primary} 18%, transparent) 55%, color-mix(in oklab, ${t.secondary} 14%, transparent) 100%)` }} />
+        {/* The crest, large and faint, behind the header. */}
+        <div className="absolute -right-8 -top-6 opacity-[0.13] rotate-[-12deg] pointer-events-none"><TeamBadge team={t} size={170} /></div>
+        <div className="absolute inset-x-0 top-0 h-px" style={{ background: `linear-gradient(90deg, transparent, color-mix(in oklab, ${t.secondary} 70%, white 30%), transparent)` }} />
+        <div className="relative p-4 flex items-center gap-3.5">
+          <div className="shrink-0 drop-shadow-[0_6px_14px_rgba(0,0,0,.55)]"><TeamBadge team={t} size={60} /></div>
           <div className="flex-1 min-w-0">
-            <div className="font-display uppercase text-[22px] leading-tight truncate">{t.ru}</div>
-            <div className="text-[12.5px] text-ink/80 truncate">Тренер: {t.coach.name} · {t.stadium} ({t.cap.toLocaleString('ru-RU')})</div>
+            <div className="title-grad font-display uppercase text-[24px] leading-tight truncate">{t.ru}</div>
+            <div className="text-[12.5px] text-ink/80 truncate">Тренер: {t.coach.name}</div>
+            <div className="text-[12px] text-ink/60 truncate">🏟 {t.stadium} · {t.cap.toLocaleString('ru-RU')}</div>
           </div>
         </div>
         <div className="relative grid grid-cols-4 gap-2 px-4 pb-4">
@@ -201,7 +206,13 @@ export function TeamScreen({ params }: { params: Record<string, unknown> }) {
       </Card>
       {t.lg === 'U17' && <Button variant="primary" full className="mt-3" onClick={() => push('youth', { id: t.id })}>Редактировать состав и название</Button>}
       {t.trophies.length > 0 && <div className="flex gap-1.5 flex-wrap mt-2">{t.trophies.slice(-6).map((x, i) => <Pill key={i} color="#e8c26a">{x}</Pill>)}</div>}
-      <SectionTitle>Стартовый состав ({t.lineup.form})</SectionTitle>
+      <div className="lg:grid lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)] lg:gap-8 lg:items-start">
+      <div className="lg:sticky lg:top-2">
+      <SectionTitle>Стартовый состав · {t.lineup.form}</SectionTitle>
+      <TeamPitch L={L} t={t} />
+      </div>
+      <div className="min-w-0">
+      <SectionTitle>Основа в сезоне</SectionTitle>
       <Card pad={false} className="overflow-hidden">
         {t.lineup.xi.map((id, i) => L.players[id] && <PlayerRow key={id} dense p={L.players[id]} sub={<>{ROLE_RU[roles[i]]} · {L.players[id].stats[key]?.gp ?? 0} матч., {L.players[id].stats[key]?.g ?? 0} гол., оценка {avgRating(L.players[id].stats[key]).toFixed(1)}</>} />)}
       </Card>
@@ -210,10 +221,12 @@ export function TeamScreen({ params }: { params: Record<string, unknown> }) {
       <SectionTitle>Матчи</SectionTitle>
       <Card pad={false} className="overflow-hidden">{games.slice(Math.max(0, games.findIndex((g) => !g.played) - 4)).slice(0, 10).map((g) => <GameRow key={g.id} L={L} g={g} />)}</Card>
       <div className="text-muted text-[12px] mt-2 px-1">{dispName(sq[0] ?? L.players[t.lineup.xi[0]])} — сильнейший игрок клуба.</div>
+      </div>
+      </div>
     </Screen>
   );
 }
 
 function Mini({ l, v }: { l: string; v: string }) {
-  return <div className="rounded-xl bg-black/25 px-2 py-1.5 text-center"><div className="num text-[15px] leading-tight truncate">{v}</div><div className="text-[9.5px] uppercase tracking-wider text-muted">{l}</div></div>;
+  return <div className="rounded-xl bg-black/30 border border-white/[0.07] shadow-[inset_0_1px_0_rgba(255,255,255,.06)] px-2 py-1.5 text-center"><div className="num text-[15px] leading-tight truncate">{v}</div><div className="text-[9.5px] uppercase tracking-wider text-muted">{l}</div></div>;
 }

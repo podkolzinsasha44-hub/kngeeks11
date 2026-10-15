@@ -14,9 +14,9 @@ export function Button({
 }) {
   const sizes = { sm: 'hit h-9 px-3.5 text-[14px] rounded-xl', md: 'h-11 px-4 text-[15px] rounded-2xl', lg: 'h-[52px] px-5 text-[17px] rounded-2xl' };
   const variants: Record<BtnVariant, string> = {
-    primary: 'accent-bg text-white shadow-[0_8px_28px_-8px_var(--accent)] font-semibold',
-    gold: 'bg-[linear-gradient(135deg,#fff1c2,#e8c26a_45%,#a8812f)] text-[#1a1306] font-semibold shadow-[0_8px_28px_-10px_#e8c26a]',
-    good: 'bg-[linear-gradient(135deg,#5ef0b0,#22b97a)] text-[#04170e] font-semibold',
+    primary: 'accent-bg text-white shadow-[inset_0_1px_0_rgba(255,255,255,.35),0_8px_28px_-8px_var(--accent)] font-semibold',
+    gold: 'bg-[linear-gradient(135deg,#fff1c2,#e8c26a_45%,#a8812f)] text-[#1a1306] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,.6),0_8px_28px_-10px_#e8c26a]',
+    good: 'bg-[linear-gradient(135deg,#5ef0b0,#22b97a)] text-[#04170e] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,.45),0_8px_24px_-10px_#3ddc97]',
     glass: 'glass text-ink font-medium',
     ghost: 'text-ink/80 font-medium',
     danger: 'bg-bad/15 text-bad border border-bad/30 font-semibold',
@@ -43,7 +43,10 @@ export function Card({ children, className, onClick, pad = true }: { children: R
 export function SectionTitle({ children, right, className }: { children: ReactNode; right?: ReactNode; className?: string }) {
   return (
     <div className={cx('flex items-end justify-between px-1 mb-2.5 mt-6', className)}>
-      <h3 className="font-display uppercase tracking-[0.12em] text-[13px] text-muted">{children}</h3>
+      <h3 className="flex items-center gap-2 font-display uppercase tracking-[0.13em] text-[13px] text-ink/70">
+        <span className="w-[3px] h-3.5 rounded-full accent-bg shadow-[0_0_10px_var(--accent)] shrink-0" />
+        {children}
+      </h3>
       {right}
     </div>
   );
@@ -110,7 +113,7 @@ export function Ovr({ v, size = 36, className }: { v: number; size?: number; cla
   return (
     <div
       className={cx('num flex items-center justify-center rounded-xl shrink-0 font-semibold', className)}
-      style={{ width: size, height: size, fontSize: size * 0.48, color: c, background: `color-mix(in oklab, ${c} 14%, transparent)`, boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${c} 35%, transparent)` }}
+      style={{ width: size, height: size, fontSize: size * 0.48, color: c, background: `linear-gradient(160deg, color-mix(in oklab, ${c} 26%, transparent), color-mix(in oklab, ${c} 7%, transparent))`, boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${c} 38%, transparent), inset 0 1px 0 rgba(255,255,255,.12), 0 4px 14px -6px color-mix(in oklab, ${c} 60%, transparent)`, textShadow: `0 0 12px color-mix(in oklab, ${c} 45%, transparent)` }}
     >
       {v}
     </div>

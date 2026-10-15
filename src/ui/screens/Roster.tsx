@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useGame, useL } from '../../store/game';
 import { useNav } from '../../store/nav';
 import { foreignOnPitch } from '../../engine/ai';
@@ -6,12 +6,12 @@ import { bestLineups, staffLineup, type ShapeOption } from '../../engine/bestxi'
 import { wageBill } from '../../engine/contracts';
 import { foreignLimit, isForeign } from '../../engine/leagues';
 import { BENCH_SIZE, FORMATIONS, FORMATION_IDS, applyBackups, available, lineupValid, setCover, slotRating, squad, teamPower, teamStrength } from '../../engine/lineup';
-import type { FormationId, League, Player, Pos, Role, Tactic, Team } from '../../engine/types';
+import type { FormationId, League, Player, Pos, Tactic, Team } from '../../engine/types';
 import { Button, Card, Chips, cx, Ovr, Pill, SectionTitle, Segmented } from '../components/kit';
 import { Screen, Sheet } from '../components/shell';
 import { PlayerRow, StatusDots } from '../components/media';
 import { EmptyCard, PitchCard } from '../components/PlayerCard';
-import { PitchSvg } from '../components/charts';
+import { cardXY, Pitch, usePitchBox } from '../components/Formation';
 import { dispName, dispShort, fitColor, money, playerAge, POS_FULL, ROLE_RU } from '../format';
 import { useKeep } from '../keep';
 import { loanedOut } from '../../engine/loans';
@@ -69,22 +69,6 @@ function SquadList({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
   );
 }
 
-/** Where the cards stand on the portrait pitch: [left, top] as fractions; own goal at the bottom. */
-function cardXY(form: FormationId): [number, number][] {
-  const roles = FORMATIONS[form];
-  const count = (r: Role) => roles.filter((x) => x === r).length;
-  const fullBacks = roles.includes('LB') || roles.includes('RB');
-  const spread = (n: number, tight: boolean) => (n === 1 ? [0.5] : n === 2 ? (tight ? [0.37, 0.63] : [0.32, 0.68]) : tight ? [0.3, 0.5, 0.7] : [0.22, 0.5, 0.78]);
-  const Y: Record<Role, number> = { GK: 0.915, CB: 0.755, LB: 0.715, RB: 0.715, DM: 0.585, CM: 0.455, LM: 0.435, RM: 0.435, AM: 0.33, LW: 0.215, RW: 0.215, ST: 0.105 };
-  const X: Partial<Record<Role, number>> = { GK: 0.5, LB: 0.105, RB: 0.895, LM: 0.105, RM: 0.895, LW: 0.14, RW: 0.86 };
-  const seen: Partial<Record<Role, number>> = {};
-  return roles.map((r) => {
-    if (X[r] != null) return [X[r]!, Y[r]];
-    const k = (seen[r] = (seen[r] ?? 0) + 1) - 1;
-    return [spread(count(r), r === 'CB' ? fullBacks : r === 'ST')[k] ?? 0.5, Y[r]];
-  });
-}
-
 type Zone = 'xi' | 'bench' | 'res';
 interface Sel { zone: Zone; i: number; id: number | null }
 
@@ -96,16 +80,7 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
   const [pick, setPick] = useState<number | null>(null);
   /** Starter whose backup is being chosen. */
   const [backFor, setBackFor] = useState<number | null>(null);
-  const box = useRef<HTMLDivElement>(null);
-  const [w, setW] = useState(358);
-  useEffect(() => {
-    const el = box.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setW(el.clientWidth));
-    ro.observe(el);
-    setW(el.clientWidth);
-    return () => ro.disconnect();
-  }, []);
+  const { box, cardW } = usePitchBox();
   const ln = t.lineup;
   const roles = FORMATIONS[ln.form];
   const xy = useMemo(() => cardXY(ln.form), [ln.form]);
@@ -115,7 +90,6 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
   const s = teamStrength(L, t);
   const inXI = new Set(ln.xi), onBench = new Set(ln.bench);
   const reserves = sq.filter((p) => !inXI.has(p.id) && !onBench.has(p.id)).sort((a, b) => b.ovr - a.ovr);
-  const cardW = Math.max(54, Math.min(84, w * 0.176));
   const manual = <T,>(fn: () => T) => {
     if (t.lineup.auto) toast('Ручной состав: штаб больше не меняет его сам. Чтобы игрок оставался в основе при автосоставе — закрепите его 📌', 'info');
     return act(() => { t.lineup.auto = false; return fn(); });
@@ -261,9 +235,7 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
       <div className="lg:hidden">{controls}</div>
       <div className="lg:grid lg:grid-cols-[minmax(0,440px)_minmax(0,1fr)] lg:gap-8 lg:items-start">
       <div className="lg:sticky lg:top-2">
-      <div ref={box} className="relative w-full max-w-[520px] mx-auto overflow-hidden rounded-[18px]" style={{ aspectRatio: '68 / 110' }}>
-        <PitchSvg vertical stretch className="absolute inset-0 w-full h-full" />
-        <div className="absolute inset-0" style={{ background: 'radial-gradient(120% 70% at 50% 0%, rgba(255,255,255,.10), transparent 60%), linear-gradient(180deg, transparent 70%, rgba(0,0,0,.22))' }} />
+      <Pitch box={box}>
         {roles.map((r, i) => {
           const p = L.players[ln.xi[i]];
           const style = { left: `${xy[i][0] * 100}%`, top: `${xy[i][1] * 100}%` };
@@ -275,7 +247,7 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
             </div>
           );
         })}
-      </div>
+      </Pitch>
       </div>
       <div className="min-w-0">
       <div className="hidden lg:block">{controls}</div>

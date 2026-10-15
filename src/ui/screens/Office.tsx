@@ -62,12 +62,12 @@ export function Office() {
       {/* Hero */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-4 pt-1 pb-4">
         <div className="relative shrink-0">
-          <div className="absolute inset-0 blur-2xl opacity-60 rounded-full" style={{ background: t.primary }} />
-          <span className="relative block"><TeamBadge team={t} size={72} /></span>
+          <div className="absolute inset-0 blur-2xl opacity-70 rounded-full scale-125" style={{ background: t.primary }} />
+          <span className="relative block drop-shadow-[0_8px_16px_rgba(0,0,0,.55)]"><TeamBadge team={t} size={76} /></span>
         </div>
         <div className="min-w-0">
           <div className="text-[12px] uppercase tracking-[0.16em] text-muted truncate">{phaseLabel(L)} · {seasonLabel(L.season)}</div>
-          <div className="font-display uppercase text-[26px] leading-none mt-1 truncate">{t.ru}</div>
+          <div className="title-grad font-display uppercase text-[30px] leading-none mt-1 truncate">{t.ru}</div>
           <div className="text-[14px] text-muted mt-1.5">
             {t.rec.gp ? <><span className="num text-ink text-[16px]">{recordStr(t)}</span> · {t.rec.pts} оч. · {place}-е место, {cfg.short}</> : <>Сезон ещё не начался · {cfg.short}</>}
           </div>
@@ -86,8 +86,18 @@ export function Office() {
       )}
 
       {ng && opp && odds && (
-        <div className="relative rounded-[28px] overflow-hidden p-[1px]" style={{ background: 'linear-gradient(135deg, var(--accent), rgba(255,255,255,0.08) 40%, rgba(255,255,255,0.03))' }}>
-          <div className="relative rounded-[27px] p-4 overflow-hidden" style={{ background: `linear-gradient(120deg, color-mix(in oklab, var(--team) 55%, #070b14), #070b14 55%, color-mix(in oklab, ${opp.primary} 40%, #070b14))` }}>
+        <div className="match-rim relative rounded-[28px] overflow-hidden p-[1px] shadow-[0_24px_50px_-24px_rgba(0,0,0,.9)]">
+          <div className="relative rounded-[27px] p-4 overflow-hidden" style={{ background: `linear-gradient(120deg, color-mix(in oklab, ${club(L, ng.h).primary} 50%, #070b14), #070b14 52%, color-mix(in oklab, ${club(L, ng.a).primary} 45%, #070b14))` }}>
+            {/* Pitch markings and floodlight behind the fixture. */}
+            <svg viewBox="0 0 340 300" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden>
+              <defs>
+                <radialGradient id="mc-light" cx="0.5" cy="0" r="0.8"><stop offset="0" stopColor="#fff" stopOpacity="0.16" /><stop offset="1" stopColor="#fff" stopOpacity="0" /></radialGradient>
+              </defs>
+              <rect width="340" height="300" fill="url(#mc-light)" />
+              <g fill="none" stroke="#fff" strokeOpacity="0.05" strokeWidth="1.2">
+                <line x1="170" y1="-10" x2="170" y2="310" /><circle cx="170" cy="150" r="62" />
+              </g>
+            </svg>
             <div className="flex items-center justify-between gap-2 text-[11.5px] uppercase tracking-[0.14em] text-white/70">
               <span className="truncate">{isLeague(ng.comp) ? `Следующий матч · ${ng.rd}-й тур` : gameLabel(ng)}</span>
               <span className="shrink-0">{dowRu(ng.day)}, {dateShort(ng.day)}</span>
@@ -96,11 +106,17 @@ export function Office() {
               <Side id={ng.h} />
               <div className="flex flex-col items-center min-w-0">
                 <div className="font-display text-[13px] text-white/60 uppercase tracking-widest">{home ? 'дома' : 'в гостях'}</div>
-                <div className="num text-[34px] leading-none mt-1">{Math.round((home ? odds.h : odds.a) * 100)}%</div>
+                <div className="title-grad num text-[40px] leading-none mt-1 drop-shadow-[0_2px_12px_rgba(0,0,0,.5)]">{Math.round((home ? odds.h : odds.a) * 100)}%</div>
                 <div className="text-[11px] text-white/60 mt-0.5">шанс победы</div>
                 <div className="text-[11px] text-white/50 mt-1 whitespace-nowrap tnum">ничья {Math.round(odds.d * 100)}% · xG {odds.xgH.toFixed(1)}:{odds.xgA.toFixed(1)}</div>
               </div>
               <Side id={ng.a} />
+            </div>
+            {/* Home win, draw, away win. */}
+            <div className="relative flex h-1.5 rounded-full overflow-hidden mt-3 bg-white/10 gap-[2px]">
+              <div style={{ width: `${odds.h * 100}%`, background: `color-mix(in oklab, ${club(L, ng.h).primary} 70%, white 30%)` }} />
+              <div style={{ width: `${odds.d * 100}%` }} className="bg-white/35" />
+              <div style={{ width: `${odds.a * 100}%`, background: `color-mix(in oklab, ${club(L, ng.a).primary} 70%, white 30%)` }} />
             </div>
             <div className="text-[11.5px] text-white/55 mt-3 leading-snug text-center">Шансы — {400} прогонов матчевого движка с вашими одиннадцатью и составом соперника.</div>
             <div className="flex gap-2 mt-3">
@@ -255,8 +271,11 @@ function Side({ id }: { id: string }) {
   const push = useNav((s) => s.push);
   const t = club(L, id);
   return (
-    <button onClick={() => push('team', { id })} className="press flex flex-col items-center w-24 min-w-0">
-      <TeamBadge team={t} size={58} />
+    <button onClick={() => push('team', { id })} className="press relative flex flex-col items-center w-24 min-w-0">
+      <span className="relative block">
+        <span className="absolute inset-0 blur-xl opacity-50 rounded-full scale-110" style={{ background: t.primary }} />
+        <span className="relative block drop-shadow-[0_6px_12px_rgba(0,0,0,.5)]"><TeamBadge team={t} size={62} /></span>
+      </span>
       <div className="font-display uppercase text-[14px] mt-1.5 truncate max-w-full">{t.ru}</div>
       <div className="text-[11.5px] text-white/60 tnum">{t.rec.gp ? recordStr(t) : `сила ${teamPower(L, t).toFixed(0)}`}</div>
     </button>

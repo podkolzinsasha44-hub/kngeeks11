@@ -94,7 +94,7 @@ export function Screen({
             <div className="w-2" />
           )}
           <div className="flex-1 min-w-0">
-            {!large && title && <div className="font-display uppercase tracking-wide text-[18px] lg:text-[22px] truncate leading-tight">{title}</div>}
+            {!large && title && <div className="title-grad font-display uppercase tracking-wide text-[18px] lg:text-[22px] truncate leading-tight">{title}</div>}
             {!large && subtitle && <div className="text-[12px] lg:text-[13px] text-muted truncate leading-tight">{subtitle}</div>}
           </div>
           <div className="flex items-center gap-1 pr-1">{right}</div>
@@ -102,10 +102,10 @@ export function Screen({
         {headerExtra && <div className="lg:max-w-[1240px] lg:mx-auto lg:px-4 w-full">{headerExtra}</div>}
       </header>
       <main ref={mainRef} className={cx('scroll flex-1', !noPad && 'px-4 lg:px-10', className)} onScroll={(e) => { const y = e.currentTarget.scrollTop; setScrolled(y > 6); if (routeKey) saveScroll(routeKey, y); }}>
-        <div className="md:max-w-[720px] md:mx-auto lg:max-w-[1180px]">
+        <div className="stagger md:max-w-[720px] md:mx-auto lg:max-w-[1180px]">
         {large && (
           <div className="pt-1 pb-3">
-            <div className="font-display uppercase text-[30px] lg:text-[40px] leading-none tracking-wide">{title}</div>
+            <div className="title-grad font-display uppercase text-[30px] lg:text-[40px] leading-none tracking-wide">{title}</div>
             {subtitle && <div className="text-muted text-[14px] mt-1.5">{subtitle}</div>}
           </div>
         )}
@@ -136,9 +136,13 @@ export function TabBar({ badges }: { badges: Partial<Record<Tab, number>> }) {
           const active = t.id === tab;
           return (
             <button key={t.id} onClick={() => setTab(t.id)} className="press relative flex-1 flex flex-col items-center justify-center gap-0.5" aria-label={t.label}>
-              {active && <motion.div layoutId="tab-glow" className="absolute top-0 w-10 h-[3px] rounded-b-full accent-bg" transition={{ type: 'spring', stiffness: 500, damping: 40 }} />}
-              <Icon name={t.icon} size={24} className={active ? 'accent-text' : 'text-muted'} />
-              <span className={cx('text-[10.5px] font-medium', active ? 'text-ink' : 'text-muted')}>{t.label}</span>
+              {active && (
+                <motion.div layoutId="tab-glow" className="absolute inset-x-1.5 top-1 bottom-1 rounded-2xl" style={{ background: 'radial-gradient(70% 60% at 50% 30%, color-mix(in oklab, var(--accent) 24%, transparent), transparent 75%)' }} transition={{ type: 'spring', stiffness: 500, damping: 40 }}>
+                  <div className="absolute left-1/2 -translate-x-1/2 -top-1 w-9 h-[3px] rounded-b-full accent-bg shadow-[0_0_12px_var(--accent)]" />
+                </motion.div>
+              )}
+              <Icon name={t.icon} size={24} className={cx('relative transition-transform duration-300', active ? 'accent-text -translate-y-px drop-shadow-[0_0_8px_var(--accent)]' : 'text-muted')} />
+              <span className={cx('relative text-[10.5px] font-medium', active ? 'text-ink' : 'text-muted')}>{t.label}</span>
               {!!badges[t.id] && (
                 <span className="absolute top-1.5 left-1/2 ml-2.5 min-w-[17px] h-[17px] px-1 rounded-full bg-bad text-white text-[10.5px] font-semibold flex items-center justify-center">{badges[t.id]}</span>
               )}

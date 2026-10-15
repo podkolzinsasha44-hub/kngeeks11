@@ -150,7 +150,7 @@ function Actions({ L, p }: { L: League; p: Player }) {
   if (!mine && p.st === 'ACT' && p.loan?.from !== L.user) {
     btns.push(L.negotiations[p.id]?.kind === 'transfer' && L.negotiations[p.id].status === 'open'
       ? <Button key="talk" variant="good" onClick={() => push('negotiate', { id: p.id })}>Клубы договорились — к контракту</Button>
-      : <Button key="bid" variant="primary" onClick={() => setBid(true)} icon={<Icon name="swap" size={16} />}>Сделать предложение</Button>);
+      : <Button key="bid" variant="primary" onClick={() => setBid(true)} icon={<Icon name="swap" size={16} />}>Предложение</Button>);
     // A swap: only with clubs of the game's leagues (not with guests from outside them).
     if (p.team && L.teams[p.team]) btns.push(<Button key="swapbtn" onClick={() => setSwap(true)}>Обмен</Button>);
   }

@@ -18,7 +18,7 @@ export default function App() {
   if (!L) {
     return (
       <>
-        <div className="arena" />
+        <div className="arena"><div className="beams" /></div>
         <Menu />
         <Toasts />
       </>
@@ -46,7 +46,7 @@ function GameShell() {
   const mood = month === 12 || month <= 2 ? 'winter' : '';
   return (
     <>
-      <div className="arena" data-mood={mood} />
+      <div className="arena" data-mood={mood}><div className="beams" /></div>
       <div className="fixed top-0 bottom-0 bottom-edge right-0 overflow-hidden" style={{ left: 'var(--side-w)' }}>
         <AnimatePresence initial={false} custom={dir} mode="popLayout">
           <motion.div
