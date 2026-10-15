@@ -6,7 +6,9 @@
     <meta name="theme-color" content="#05070d" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- Not black-translucent: since iOS 26.1 (again in iOS 27, WebKit bug 301994) a translucent home-screen app is laid
+         out shorter than the screen, leaving a dead band under the tab bar. With "black" the app starts under the status bar. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="Football GM" />
     <meta name="format-detection" content="telephone=no" />
     <meta name="description" content="Футбольный менеджер: реальные клубы и игроки РПЛ и топ-лиг Европы сезона 2026/27, трансферы, расстановка и честный матчевый движок." />

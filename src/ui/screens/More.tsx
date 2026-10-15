@@ -196,6 +196,21 @@ function WageRaise() {
   );
 }
 
+/** Sizes of the window as the device reports them: what a bug report about the layout needs. */
+function ScreenInfo() {
+  const [v, setV] = useState('');
+  useEffect(() => {
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;visibility:hidden;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)';
+    document.body.appendChild(probe);
+    const cs = getComputedStyle(probe);
+    const standalone = window.matchMedia('(display-mode: standalone)').matches;
+    setV(`окно ${window.innerWidth}×${window.innerHeight} · экран ${screen.width}×${screen.height} · отступы ${parseInt(cs.paddingTop)}/${parseInt(cs.paddingBottom)} · ${standalone ? 'с экрана «Домой»' : 'браузер'}`);
+    probe.remove();
+  }, []);
+  return <div className="text-[11px] text-faint mt-4 px-1 tnum">Экран: {v}</div>;
+}
+
 export function HistoryScreen() {
   const L = useL();
   const t = L.teams[L.user];
@@ -316,6 +331,7 @@ export function SettingsScreen() {
         <Button full onClick={() => exportFile(L)}>Экспорт в файл</Button>
       </div>
       <div className="text-[12px] text-muted mt-2 px-1">Игра сохраняется автоматически в памяти устройства. Экспорт в файл — страховка на случай очистки данных браузера.</div>
+      <ScreenInfo />
     </Screen>
   );
 }

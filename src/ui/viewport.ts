@@ -13,12 +13,10 @@ const typing = () => {
 
 export function installViewportFix() {
   if (!standalone()) return;
+  // The tallest height seen outside typing is the app's real height (the status bar is not ours: style "black").
   let full = window.innerHeight;
-  // In portrait the app should cover the whole screen; if a re-measure does not get there, iOS shows the status bar
-  // on its own (no bug to fix) and only the tallest height seen is trusted from then on.
-  let screenFull = true;
   const portrait = () => window.innerHeight >= window.innerWidth;
-  const expected = () => Math.max(full, screenFull && portrait() ? window.screen.height : 0);
+  const expected = () => full;
 
   const remeasure = () => {
     if (typing() || !portrait() || expected() - window.innerHeight <= 4) return;
@@ -31,7 +29,6 @@ export function installViewportFix() {
     void root.offsetHeight;
     root.style.display = '';
     for (const [el, top] of scrolled) el.scrollTop = top;
-    if (expected() - window.innerHeight > 4) screenFull = false;
     full = Math.max(full, window.innerHeight);
   };
   const soon = () => { setTimeout(remeasure, 150); setTimeout(remeasure, 500); };
