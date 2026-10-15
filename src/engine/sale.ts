@@ -4,10 +4,11 @@
 // offer it says accept / ask for more / refuse, and how much to ask: the club's ceiling is the same
 // formula respondOffer uses, so the suggested counter does not scare the buyer away.
 // No randomness: the same state gives the same advice.
-import { askingWage, interest, wageBill } from './contracts';
+import { askingWage, interest, modelValue, wageBill } from './contracts';
+import { expectedOvr } from './progression';
 import { FORMATIONS, planned, slotRating, squad } from './lineup';
 import { lossWithout, NEED, renewalCases } from './renewals';
-import { askingPrice, buyerCeiling, saleBlock, wouldStart } from './transfers';
+import { askingPrice, buyerCeiling, purchaseOf, saleBlock, wouldStart } from './transfers';
 import type { League, Player, Role, TransferOffer } from './types';
 import { ageOn, dispName, floorMoney, MIN_VALUE, money, roundMoney } from './util';
 
@@ -169,4 +170,57 @@ export function sellAdvice(L: League, limit = 8): SellPick[] {
   // Players who would otherwise leave for free first, then those who bring the most money.
   const rank = (x: SellPick) => (x.view.min <= Math.max(x.p.val, MIN_VALUE) * 0.55 ? 0 : 1);
   return out.sort((a, b) => rank(a) - rank(b) || Math.max(b.best, b.view.min) - Math.max(a.best, a.view.min)).slice(0, limit);
+}
+
+export interface ValueOutlook {
+  /** How the user's club got him: a fee (0 = free), or from its own academy, or he was there from the start. */
+  origin: { kind: 'bought' | 'free' | 'academy' | 'start' | 'made'; fee: number; from: string | null; date: string | null };
+  /** Market value now and the gain over what the club paid (null when nothing was paid and nothing is known). */
+  now: number;
+  gain: number | null;
+  /** Expected market value now ([0]) and at each coming summer transfer window: its year, age then, rating, value. */
+  path: { summer: number; age: number; ovr: number; value: number }[];
+  /** Index in `path` of the highest value. */
+  peak: number;
+  advice: string;
+}
+
+/**
+ * Where the price of one of the user's players is heading: the expected rating by age (the same curve as the
+ * yearly development) priced by the same model as the market (`modelValue`, the user's league), with the contract
+ * assumed renewed. Says when selling brings the most. No randomness.
+ */
+export function valueOutlook(L: League, p: Player, seasons = 6): ValueOutlook {
+  const me = L.teams[L.user];
+  const age = ageOn(p.bd, L.date);
+  const b = purchaseOf(L, p);
+  const origin: ValueOutlook['origin'] = p.made || p.extra ? { kind: 'made', fee: 0, from: b?.from ?? null, date: null }
+    : b ? { kind: b.fee ? 'bought' : 'free', fee: b.fee, from: b.from, date: b.date }
+    : !p.real ? { kind: 'academy', fee: 0, from: null, date: null }
+    : { kind: 'start', fee: 0, from: null, date: null };
+  const regular = me.lineup.xi.includes(p.id);
+  const ovrs = expectedOvr(p, age, seasons, regular);
+  const path = ovrs.map((ovr, k) => {
+    const date = k ? `${L.season + k}-07-01` : L.date;
+    const q = { ...p, ovr: Math.round(ovr), c: null };
+    return { summer: L.season + k, age: k ? ageOn(p.bd, date) : age, ovr: Math.round(ovr), value: k ? modelValue(q, date, me.lg) : Math.max(p.val, MIN_VALUE) };
+  });
+  let peak = 0;
+  path.forEach((x, k) => { if (x.value > path[peak].value * 1.03) peak = k; });
+  const now = path[0].value;
+  const gain = origin.kind === 'start' ? null : now - origin.fee;
+  const yearsLeft = p.c ? p.c.until - L.season - 1 : 0;
+  const next = path[1]?.value ?? now;
+  let advice: string;
+  if (peak === 0) {
+    const drop = Math.round((1 - next / now) * 100);
+    advice = drop >= 5
+      ? `Цена на пике сейчас: к следующему лету она упадёт примерно на ${drop}% (в ${age + 1} лет рейтинг уже идёт вниз). Выгоднее продать в ближайшее окно.`
+      : 'Цена сейчас примерно на пике и в ближайший год почти не изменится: продавать можно в любое окно, тянуть дольше двух сезонов невыгодно.';
+  } else {
+    const x = path[peak];
+    advice = `Цена будет расти ещё ${peak === 1 ? 'сезон' : peak < 5 ? `${peak} сезона` : `${peak} сезонов`}: к лету ${x.summer} (в ${x.age} лет, рейтинг ≈ ${x.ovr}) — около ${money(x.value)}. Выгоднее всего продавать тогда, в летнее окно ${x.summer} года.`;
+  }
+  if (yearsLeft <= 1 && p.c) advice += ` Контракт до лета ${p.c.until}: ${yearsLeft <= 0 ? 'игрок уйдёт бесплатно, если не продлить' : 'за год до конца контракта цена падает на 20%'} — продлите его или продавайте сейчас.`;
+  return { origin, now, gain, path, peak, advice };
 }

@@ -4,7 +4,7 @@ import { matchesRu } from '../components/Medical';
 import { loanBlock, loanOut, loanTargets } from '../../engine/loans';
 import { useMemo, useState } from 'react';
 import { renewalCases, VERDICT_RU } from '../../engine/renewals';
-import { saleView } from '../../engine/sale';
+import { saleView, valueOutlook, type ValueOutlook } from '../../engine/sale';
 import { RenewalSheet, VERDICT_COLOR } from './More';
 import { useGame, useL } from '../../store/game';
 import { playerClub } from '../../engine/ucl';
@@ -282,8 +282,10 @@ function ContractTab({ L, p, team }: { L: League; p: Player; team: League['teams
   const rc = useMemo(() => (p.team === L.user ? renewalCases(L).find((c) => c.p.id === p.id) ?? null : null), [L, p, ver]); // eslint-disable-line react-hooks/exhaustive-deps
   const [open, setOpen] = useState(false);
   const sv = useMemo(() => (p.team === L.user && !p.loan ? saleView(L, p) : null), [L, p, ver]); // eslint-disable-line react-hooks/exhaustive-deps
+  const vo = useMemo(() => (p.team === L.user && !p.loan ? valueOutlook(L, p) : null), [L, p, ver]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <>
+      {vo && <ValueCard vo={vo} />}
       {rc && (
         <Card className="mt-3" onClick={() => setOpen(true)}>
           <div className="flex items-center gap-2">
@@ -334,6 +336,44 @@ function ContractTab({ L, p, team }: { L: League; p: Player; team: League['teams
         {p.c && !p.c.real && <div className="text-[11.5px] text-faint mt-2">Зарплата — модель по рейтингу и лиге: реальные суммы не публикуются.</div>}
       </Card>
     </>
+  );
+}
+
+/** What the club paid for him, what he is worth and when his price peaks. */
+function ValueCard({ vo }: { vo: ValueOutlook }) {
+  const o = vo.origin;
+  const how = o.kind === 'bought' ? `Куплен за ${money(o.fee)}${o.from ? ` у «${o.from.replace(/^«|»$/g, '')}»` : ''}${o.date ? ` · ${dateRu(o.date)}` : ''}`
+    : o.kind === 'free' ? `Подписан свободным агентом — бесплатно${o.date ? ` · ${dateRu(o.date)}` : ''}`
+    : o.kind === 'academy' ? 'Воспитанник академии — бесплатно'
+    : o.kind === 'made' ? `Пришёл из академии${o.from ? ` («${o.from}»)` : ''} — бесплатно`
+    : 'В клубе с начала карьеры';
+  const max = Math.max(...vo.path.map((x) => x.value));
+  return (
+    <Card className="mt-3">
+      <div className="text-[11px] uppercase tracking-wider text-muted">Покупка и выгода</div>
+      <div className="text-[14.5px] font-medium mt-1">{how}</div>
+      <div className="grid grid-cols-3 gap-2 mt-2">
+        <Mini label="Заплатили" value={o.kind === 'start' ? '—' : money(o.fee)} />
+        <Mini label="Стоит сейчас" value={money(vo.now)} />
+        <Mini label="Выгода" value={vo.gain == null ? '—' : `${vo.gain >= 0 ? '+' : '−'}${money(Math.abs(vo.gain))}`} color={vo.gain == null ? undefined : vo.gain >= 0 ? '#3ddc97' : '#ff5a5f'} />
+      </div>
+      <div className="text-[11px] uppercase tracking-wider text-muted mt-3">Прогноз стоимости, €</div>
+      <div className="flex items-end gap-1.5 mt-1.5 h-[92px]">
+        {vo.path.map((x, k) => (
+          <div key={k} className="flex-1 min-w-0 flex flex-col items-center justify-end h-full">
+            <div className="text-[10px] text-muted tnum truncate w-full text-center">{x.value >= 1e6 ? `${x.value >= 1e7 ? Math.round(x.value / 1e6) : (x.value / 1e6).toFixed(1).replace('.', ',')}м` : `${Math.round(x.value / 1e3)}к`}</div>
+            <div className={cx('w-full rounded-t-md', k === vo.peak ? 'bg-good' : 'bg-white/20')} style={{ height: `${Math.max(4, (x.value / max) * 56)}px` }} />
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-1.5 mt-1">
+        {vo.path.map((x, k) => (
+          <div key={k} className={cx('flex-1 min-w-0 text-center text-[10px] leading-tight', k === vo.peak ? 'text-good font-semibold' : 'text-muted')}>{k ? x.summer : 'сейчас'}<br />{x.age} л.</div>
+        ))}
+      </div>
+      <div className="text-[13px] mt-2.5 leading-snug">{vo.advice}</div>
+      <div className="text-[11px] text-faint mt-1.5 leading-snug">Прогноз — ожидаемое развитие по возрасту и потенциалу, если игрок в основе и контракт продлён; реальный сезон может пойти лучше или хуже.</div>
+    </Card>
   );
 }
 

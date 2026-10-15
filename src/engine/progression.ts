@@ -23,7 +23,7 @@ export function keepAge(L: League, p: Player) {
 }
 
 /** Expected yearly change of the overall rating by age (before potential and playing time). */
-function curve(age: number, keeper: boolean) {
+export function curve(age: number, keeper: boolean) {
   const a = keeper ? age - 2 : age;
   if (a <= 18) return 3.4;
   if (a <= 20) return 2.6;
@@ -114,4 +114,30 @@ export function shouldRetire(L: League, p: Player) {
   if (!p.team && !p.ext && age >= lim - 1) return true;
   const pr = age >= lim + 3 ? 0.85 : age >= lim + 1 ? 0.5 : age >= lim ? 0.28 : 0.08;
   return next() < pr * (p.ovr >= 78 ? 0.5 : 1);
+}
+
+/**
+ * The expected rating over the next seasons: the same age curve and room below the potential as `developPlayer`,
+ * without the luck of a season (no noise, a regular's minutes for a starter). [ovr now, after 1 season, …].
+ */
+export function expectedOvr(p: Player, age: number, seasons: number, regular: boolean): number[] {
+  const keeper = p.pos === 'G';
+  let ovr = p.ovr;
+  const out = [ovr];
+  for (let k = 1; k <= seasons; k++) {
+    const a = age + k - 1;
+    let d = curve(a, keeper);
+    if (d > 0) {
+      d *= clamp((p.pot - ovr) / 6, 0, 1.6) * (0.45 + 0.55 * (regular ? 1 : 0.4)) * (1 + (p.pers.prof - 10) * 0.025);
+      if (p.dev === 'E' && a <= 21) d *= 1.25;
+      if (p.dev === 'L' && a <= 21) d *= 0.75;
+      if (p.dev === 'L' && a >= 23 && a <= 27 && p.pot > ovr) d += 0.6;
+    } else {
+      d *= 1 - (p.pers.prof - 10) * 0.02;
+      if (p.dev === 'E' && a >= 30) d *= 1.2;
+    }
+    ovr = clamp(ovr + d, 30, 99);
+    out.push(ovr);
+  }
+  return out;
 }

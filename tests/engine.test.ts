@@ -13,13 +13,13 @@ import { dealFor, transferAdvice } from '../src/engine/advice';
 import { aiLineup, foreignOnPitch } from '../src/engine/ai';
 import { bestLineups, lineupOptions, staffLineup } from '../src/engine/bestxi';
 import { autoRenew, renewalCases } from '../src/engine/renewals';
-import { offerView, saleView, sellAdvice } from '../src/engine/sale';
+import { offerView, saleView, sellAdvice, valueOutlook } from '../src/engine/sale';
 import { buyerCeiling, purchaseOf, releasePlayer, respondOffer, saleBlock, setListed } from '../src/engine/transfers';
 import { modelValue, raiseWageBudget, WAGE_SWAP, wageBill, wageFor } from '../src/engine/contracts';
 import type { League } from '../src/engine/types';
 import { newCareer, restoreRealPlayers, upgradeSave, type WorldJson } from '../src/engine/world';
 import { editYouthPlayer } from '../src/engine/youth';
-import { createPlayer } from '../src/engine/gen';
+import { createPlayer, genPlayer } from '../src/engine/gen';
 import { addExtras } from '../src/engine/extras';
 import { intlDaily, updateRanking } from '../src/engine/intl';
 import { addDays, ageOn } from '../src/engine/util';
@@ -598,7 +598,7 @@ describe('players added at the owner\'s request', () => {
     expect(p.role).toBe('LW');
     expect(p.ovr).toBeGreaterThanOrEqual(95);
     expect(p.pot).toBe(99);
-    expect(L.season - Number(p.bd.slice(0, 4))).toBe(18);
+    expect(ageOn(p.bd, L.date)).toBe(18);
     expect(p.img).toBe('./players/zhidkikh.jpg');
     expect(fs.existsSync(path.join(__dirname, '..', 'public', 'players', 'zhidkikh.jpg'))).toBe(true);
     const n = Object.keys(L.players).length;
@@ -658,6 +658,33 @@ describe('real players do not age (setting)', () => {
     expect(ret.st).not.toBe('RET');
     // The user's own players are not touched.
     expect(mine.bd).toBe(mineBd);
+  });
+});
+
+describe('value outlook of the user\'s players', () => {
+  it('a young talent peaks later, a veteran now; the price paid and the gain are shown', () => {
+    const L = career('ZEN');
+    const sq = squad(L, 'ZEN');
+    const young = sq.filter((p) => ageOn(p.bd, L.date) <= 21 && p.pot >= p.ovr + 6)[0];
+    const old = sq.filter((p) => ageOn(p.bd, L.date) >= 31 && p.pos !== 'G')[0];
+    expect(young && old).toBeTruthy();
+    const y = valueOutlook(L, young);
+    expect(y.peak).toBeGreaterThan(0);
+    expect(y.path[y.peak].value).toBeGreaterThan(y.now);
+    expect(y.origin.kind).toBe('start');
+    const o = valueOutlook(L, old);
+    expect(o.peak).toBe(0);
+    expect(o.path[3].value).toBeLessThan(o.now);
+    // A boy of the academy came for free.
+    expect(valueOutlook(L, genPlayer(L, { team: L.teams.ZEN, age: 17 })).origin.kind).toBe('academy');
+    const made = createPlayer(L, { fn: 'А', ln: 'Б', role: 'CM', foot: 'R', year: L.season - 17, ovr: 60, pot: 85, past: [{ club: 'Академия', years: 2 }] });
+    if (typeof made === 'string') throw new Error(made);
+    expect(valueOutlook(L, made).origin).toMatchObject({ kind: 'made', fee: 0, from: 'Академия' });
+    // A bought player: the fee and the gain over it.
+    old.bought = { fee: 1_000_000, date: L.date, from: 'Тест' };
+    const b = valueOutlook(L, old);
+    expect(b.origin).toMatchObject({ kind: 'bought', fee: 1_000_000 });
+    expect(b.gain).toBe(b.now - 1_000_000);
   });
 });
 

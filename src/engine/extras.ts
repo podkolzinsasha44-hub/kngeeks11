@@ -21,8 +21,11 @@ export function addExtras(L: League) {
   for (const e of EXTRAS) {
     const flag = `extra:${e.key}`;
     if (L.flags[flag]) continue;
-    const p = createPlayer(L, { ...e, year: L.season - e.age });
+    const year = Number(L.date.slice(0, 4)) - e.age;
+    const p = createPlayer(L, { ...e, year });
     if (typeof p === 'string') continue; // a full squad: tried again on the next load
+    // Exactly his age today: the birthday of this year is already behind.
+    p.bd = `${year}-01-01`;
     p.made = undefined;
     p.extra = e.key;
     L.flags[flag] = true;
