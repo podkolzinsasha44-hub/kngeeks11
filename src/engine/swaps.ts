@@ -129,3 +129,9 @@ export function acceptSwapOffer(L: League, club: Team, mine: Player, swap: { giv
 }
 
 export const swapCashText = (club: Team, cash: number) => (cash > 0 ? `«${club.ru}» доплачивает вам ${money(cash)}` : cash < 0 ? `вы доплачиваете ${money(-cash)}` : 'без доплаты');
+
+/** A regular of the user's eleven: a starter, a pinned player or one who is out for now. Clubs offer no swaps for them. */
+export function userRegular(L: League, p: Player): boolean {
+  const ln = L.teams[L.user]?.lineup;
+  return !!ln && (ln.xi.includes(p.id) || !!ln.pinned?.includes(p.id) || Object.values(ln.cover ?? {}).includes(p.id));
+}

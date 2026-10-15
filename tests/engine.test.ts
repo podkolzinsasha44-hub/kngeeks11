@@ -8,7 +8,7 @@ import { gameOdds, quickOdds, ratingOf, sideOf } from '../src/engine/projection'
 import { seedState, useState_ } from '../src/engine/rng';
 import { advanceDay, applyLive, lastUserBox, nextUserGame, startLive } from '../src/engine/season';
 import { askingPrice, HAGGLE_ROUNDS, negotiate, sellerFloor, userBid } from '../src/engine/transfers';
-import { proposeSwap, swapFor, swapWorth } from '../src/engine/swaps';
+import { proposeSwap, swapFor, swapWorth, userRegular } from '../src/engine/swaps';
 import { canRegister, interest, startTalks } from '../src/engine/contracts';
 import { dealFor, transferAdvice } from '../src/engine/advice';
 import { aiLineup, foreignOnPitch } from '../src/engine/ai';
@@ -787,6 +787,16 @@ describe('swaps', () => {
       expect(proposeSwap(L2.L, L2.target.id, [star.id], -extra).status).toBe('accepted');
       expect(L2.me.budget).toBe(b0 + extra);
     }
+  });
+  it('clubs offer no swaps for regulars of the user\'s eleven', () => {
+    const { L, mine } = setup();
+    const ln = L.teams.ZEN.lineup;
+    const starter = L.players[ln.xi[1]];
+    const bench = mine.find((p) => !ln.xi.includes(p.id))!;
+    expect(userRegular(L, starter)).toBe(true);
+    expect(userRegular(L, bench)).toBe(false);
+    ln.pinned = [bench.id];
+    expect(userRegular(L, bench)).toBe(true);
   });
   it('no swaps with the window closed', () => {
     const { L, target, mine } = setup();

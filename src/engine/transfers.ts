@@ -4,7 +4,7 @@ import { canRegister, interest, offerContract, signContract, startTalks, wageBil
 import { foreignLimit, isForeign, windowOpen } from './leagues';
 import { FORMATIONS, autoLineup, available, slotRating, squad, touchSquads } from './lineup';
 import { staffLineup } from './bestxi';
-import { acceptSwapOffer, swapCashText, swapFor } from './swaps';
+import { acceptSwapOffer, swapCashText, swapFor, userRegular } from './swaps';
 import { pushMsg, pushNews, social } from './news';
 import { avgRating, seasonTotal } from './stats';
 import { hash01, int, next, pick, shuffle } from './rng';
@@ -212,7 +212,8 @@ function offersToUser(L: League) {
     const off: TransferOffer = { id: L.nextMsgId++, date: L.date, player: p.id, from: buyer.id, to: L.user, fee, status: 'pending', expires: addDays(L.date, 6) };
     // Some clubs offer one of their players instead of the full fee, with money for the difference either way.
     // Decided by a hash of the offer, not the shared stream of chance: the world's other events stay as they were.
-    const swap = hash01(off.id, p.id) < 0.35 ? swapFor(L, buyer, p, fee) : null;
+    // Nobody offers a swap for a regular of the user's eleven (a starter, one out for now, or a pinned one).
+    const swap = !userRegular(L, p) && hash01(off.id, p.id) < 0.35 ? swapFor(L, buyer, p, fee) : null;
     if (swap) off.swap = swap;
     L.offers.push(off);
     const q = swap ? L.players[swap.give[0]] : null;
