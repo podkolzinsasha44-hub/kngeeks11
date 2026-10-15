@@ -53,7 +53,7 @@ export function Segmented<T extends string>({ value, options, onChange, classNam
   return (
     <div className={cx('glass rounded-2xl p-1 flex relative', options.length >= 5 ? 'gap-0.5' : 'gap-1', className)}>
       {options.map((o) => (
-        <button key={o.v} onClick={() => onChange(o.v)} className={cx('hit h-9 rounded-xl font-medium press', options.length >= 5 ? 'flex-auto px-1 text-[12.5px] tracking-[-0.01em]' : 'flex-1 text-[14px]')}>
+        <button key={o.v} onClick={() => onChange(o.v)} className={cx('hit h-9 rounded-xl font-medium press', options.length >= 5 ? 'flex-auto px-1 text-[12.5px] tracking-[-0.01em] whitespace-nowrap' : 'flex-1 text-[14px]')}>
           {value === o.v && (
             <motion.div layoutId={`seg-${options.map((x) => x.v).join('')}`} className="absolute inset-0 rounded-xl bg-white/12 border border-white/10" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />
           )}

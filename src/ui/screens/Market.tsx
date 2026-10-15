@@ -15,24 +15,26 @@ import { dateLong, dateShort, dispName, money, moneyStep, playerAge, POS_RU, ROL
 import { surname } from '../components/PlayerCard';
 import { useKeep } from '../keep';
 
-type TabId = 'search' | 'advice' | 'free' | 'offers' | 'list' | 'log';
+type TabId = 'search' | 'advice' | 'free' | 'offers' | 'swaps' | 'list' | 'log';
 
 export function Market({ params }: { params: Record<string, unknown> }) {
   const L = useL();
   const [tab, setTab] = useKeep<TabId>('market.tab', (params.tab as TabId) ?? 'search');
   const me = L.teams[L.user];
-  const incoming = L.offers.filter((o) => o.to === L.user && o.status === 'pending');
+  const incoming = L.offers.filter((o) => o.to === L.user && o.status === 'pending' && !o.swap);
+  const swaps = L.offers.filter((o) => o.to === L.user && o.status === 'pending' && o.swap);
   const fl = foreignLeft(L, me);
   return (
     <Screen
       title="Рынок"
       subtitle={`${windowOpen(L) ? 'Окно открыто' : 'Окно закрыто'} · бюджет ${money(me.budget)}${fl != null ? ` · мест для легионеров: ${Math.max(0, fl)}` : ''}`}
-      headerExtra={<div className="px-4 pb-2"><Segmented value={tab} onChange={setTab} options={[{ v: 'search', label: 'Поиск' }, { v: 'advice', label: 'Советы' }, { v: 'free', label: 'Без клуба' }, { v: 'offers', label: `Сделки${incoming.length ? ` · ${incoming.length}` : ''}` }, { v: 'list', label: '★' }, { v: 'log', label: 'Лента' }]} /></div>}
+      headerExtra={<div className="px-4 pb-2"><Segmented value={tab} onChange={setTab} options={[{ v: 'search', label: 'Поиск' }, { v: 'advice', label: 'Советы' }, { v: 'free', label: 'Агенты' }, { v: 'offers', label: `Сделки${incoming.length ? ` · ${incoming.length}` : ''}` }, { v: 'swaps', label: `Обмены${swaps.length ? ` · ${swaps.length}` : ''}` }, { v: 'list', label: '★' }, { v: 'log', label: 'Лента' }]} /></div>}
     >
       {tab === 'search' && <Search L={L} free={false} />}
       {tab === 'advice' && <AdviceTab L={L} />}
       {tab === 'free' && <Search L={L} free />}
       {tab === 'offers' && <Offers L={L} />}
+      {tab === 'swaps' && <Swaps L={L} />}
       {tab === 'list' && <Shortlist L={L} />}
       {tab === 'log' && <Log L={L} />}
     </Screen>
@@ -228,11 +230,30 @@ function SwapOfferCard({ L, o }: { L: League; o: TransferOffer }) {
   );
 }
 
+/** Swaps: the ones clubs offer for the user's players, and how to offer one. */
+function Swaps({ L }: { L: League }) {
+  const offers = L.offers.filter((o) => o.to === L.user && o.status === 'pending' && o.swap);
+  return (
+    <>
+      <Card className="mt-1 text-[13px] leading-snug">
+        <div className="font-semibold text-[14.5px] mb-0.5">🔄 Обмены</div>
+        Чтобы предложить обмен, откройте профиль игрока другого клуба → «Обмен»: до трёх своих игроков и доплата в любую сторону. Клубы тоже иногда предлагают обмен за ваших игроков — такие предложения появляются здесь, игру они не останавливают.
+      </Card>
+      {offers.length ? (
+        <>
+          <SectionTitle>Предлагают вам</SectionTitle>
+          {offers.map((o) => <SwapOfferCard key={o.id} L={L} o={o} />)}
+        </>
+      ) : <Empty icon="🔄" title="Предложений обмена нет" text="Клубы предлагают обмены в трансферные окна — чаще за игроков, выставленных на трансфер." />}
+    </>
+  );
+}
+
 function Offers({ L }: { L: League }) {
   const act = useGame((s) => s.act);
   const toast = useGame((s) => s.toast);
   const push = useNav((s) => s.push);
-  const incoming = L.offers.filter((o) => o.to === L.user && o.status === 'pending');
+  const incoming = L.offers.filter((o) => o.to === L.user && o.status === 'pending' && !o.swap);
   const talks = Object.values(L.negotiations).filter((n) => n.team === L.user && n.status === 'open');
   const mine = L.offers.filter((o) => o.from === L.user && o.status === 'countered');
   const [asking, setAsking] = useState<TransferOffer | null>(null);
@@ -242,7 +263,6 @@ function Offers({ L }: { L: League }) {
       {incoming.length > 0 && <SectionTitle className="!mt-2">Предложения по вашим игрокам</SectionTitle>}
       {incoming.map((o) => {
         const p = L.players[o.player], from = L.teams[o.from];
-        if (o.swap) return <SwapOfferCard key={o.id} L={L} o={o} />;
         const v = offerView(L, o);
         const block = saleBlock(p);
         const [title, color] = OFFER_VERDICT[v.verdict === 'reject' && v.keep ? 'keep' : v.verdict];

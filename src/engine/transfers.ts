@@ -223,7 +223,8 @@ function offersToUser(L: League) {
         : `«${buyer.ru}» предлагает ${money(fee)} за ${dispName(p)} (оценка рынка — ${money(p.val)}). Предложение действует до ${off.expires.slice(8)}.${off.expires.slice(5, 7)}.`,
       ref: { type: 'offer', id: off.id },
     });
-    L.stops.push('offer');
+    // A swap waits in its own tab and does not stop the simulation; a money offer does.
+    if (!swap) L.stops.push('offer');
     made++;
   }
 }

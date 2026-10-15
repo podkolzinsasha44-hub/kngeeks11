@@ -80,7 +80,7 @@ export function InboxScreen({ params }: { params: Record<string, unknown> }) {
     setOpen(null);
     if (!m.ref) return;
     if (m.ref.type === 'player') nav.push('player', { id: m.ref.id });
-    else if (m.ref.type === 'offer') nav.go('market', undefined, { tab: 'offers' });
+    else if (m.ref.type === 'offer') nav.go('market', undefined, { tab: L.offers.find((o) => o.id === m.ref!.id)?.swap ? 'swaps' : 'offers' });
     else if (m.ref.type === 'screen') { if (m.ref.id === 'roster') nav.go('roster', undefined, { tab: 'lineup' }); else if (m.ref.id === 'ucl') openUcl(); else nav.go('more', String(m.ref.id)); }
   };
   return (
