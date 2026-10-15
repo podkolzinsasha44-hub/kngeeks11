@@ -300,7 +300,7 @@ export function SettingsScreen() {
   const save = useGame((s) => s.save);
   const toast = useGame((s) => s.toast);
   const s = L.settings;
-  const T = ({ k, label, sub }: { k: 'sound' | 'stopOnUserGames' | 'watchGames' | 'hideMedia' | 'noFiring' | 'intlRussia' | 'autoRenew' | 'noForeignLimit'; label: string; sub?: string }) => (
+  const T = ({ k, label, sub }: { k: 'sound' | 'stopOnUserGames' | 'watchGames' | 'hideMedia' | 'noFiring' | 'intlRussia' | 'autoRenew' | 'noForeignLimit' | 'anyoneJoins'; label: string; sub?: string }) => (
     <Row onClick={() => act(() => { s[k] = !isOn(s, k); })}>
       <div className="flex-1"><div className="text-[15.5px]">{label}</div>{sub && <div className="text-[12.5px] text-muted">{sub}</div>}</div>
       <Switch on={isOn(s, k)} />
@@ -319,6 +319,7 @@ export function SettingsScreen() {
         <T k="noFiring" label="Без увольнения" sub="Доверие руководства считается, но уволить вас нельзя" /><Divider />
         <T k="intlRussia" label="Россия в турнирах FIFA и UEFA" sub="Сборная на ЧМ и Евро, чемпион РПЛ — в Лиге чемпионов (со следующего сезона). В реальности отстранены с 2022 года" /><Divider />
         <T k="noForeignLimit" label="Без лимита на легионеров" sub="Сколько угодно легионеров в заявке и на поле, во Второй лиге тоже. Для всех клубов одинаково. В реальности — лимит Минспорта" /><Divider />
+        <T k="anyoneJoins" label="Любой игрок согласен перейти" sub="Звёзды не отказываются из-за уровня вашего клуба. Клуб игрока всё равно просит свою цену, а игрок — зарплату своего уровня (её может не хватить в лимите зарплат)" /><Divider />
         <Row onClick={async () => {
           const on = !s.ageless;
           const world = on ? await useGame.getState().loadWorld() : null;

@@ -418,6 +418,8 @@ export interface Settings {
    * once in the user's club they age as usual. Generated players age always.
    */
   ageless?: boolean;
+  /** Any player agrees to talk to the user's club whatever its level (he still asks his fee and wage). */
+  anyoneJoins?: boolean;
 }
 
 export interface Scouting {

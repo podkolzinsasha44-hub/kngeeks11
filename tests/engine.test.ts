@@ -688,6 +688,23 @@ describe('value outlook of the user\'s players', () => {
   });
 });
 
+describe('any player agrees to come (setting)', () => {
+  it('a star of a top club talks to a modest club of the user only when it is on', () => {
+    const L = career('KRA');
+    const me = L.teams.KRA;
+    me.budget = 2e9; me.wageBudget = 2e9;
+    const star = Object.values(L.players).filter((p) => p.team && L.teams[p.team].lg !== 'RPL' && !p.loan).sort((a, b) => b.ovr - a.ovr)[0];
+    expect(interest(L, star, me)).toBeLessThan(0.35);
+    expect(userBid(L, star.id, star.val * 3).text).toMatch(/не рассматривает/);
+    L.settings.anyoneJoins = true;
+    expect(interest(L, star, me)).toBeGreaterThanOrEqual(0.5);
+    expect(userBid(L, star.id, star.val * 3).status).toBe('accepted');
+    // Other clubs see him as before.
+    const other = Object.values(L.teams).find((t) => t.lg === 'RPL' && t.id !== 'KRA')!;
+    expect(interest(L, star, other)).toBeLessThan(0.35);
+  });
+});
+
 describe('foreign players setting', () => {
   it('switched off, no Russian league limits foreigners in the squad or on the pitch', () => {
     const L = career('ZEN');

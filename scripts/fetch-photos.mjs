@@ -104,7 +104,9 @@ for (const p of missing()) {
   if (p.id < 9_000_000 || p.id >= 20_000_000 || !p.bd) continue;
   const html = await get(`${TM}/schnellsuche/ergebnis/schnellsuche?query=${encodeURIComponent(`${p.fn ?? ''} ${p.ln}`.trim())}`, { pause: 1200 });
   const ids = [...new Set([...html.matchAll(/\/[a-z0-9-]+\/profil\/spieler\/(\d+)/g)].map((m) => Number(m[1])))].slice(0, 6);
-  for (const id of ids) {
+  for (const [k, id] of ids.entries()) {
+    // When the game knows only the year of birth, only the first hit of the search is trusted.
+    if (p.ab && k > 0) break;
     const prof = await get(`${TM}/x/profil/spieler/${id}`, { pause: 1200 });
     const bd = birth(prof);
     // The exact date of birth, or only the year when the game itself knows no more.
