@@ -77,7 +77,7 @@ npm run data:build
 Сохранение комнаты хранится в Firestore того же проекта (`src/persistence/cloud.ts`, без SDK, через REST): сжатое и разбитое на части по 900 КБ. Один раз в Firebase Console:
 
 1. Build → Firestore Database → Create database (любой регион, режим production).
-2. Правила доступа из `firestore.rules`: их выкладывает тот же шаг деплоя, если у ключа сервисного аккаунта есть роль **Firebase Rules Admin** (Google Cloud Console → IAM → ключ `github-action-…` → добавить роль). Без роли — скопируйте содержимое `firestore.rules` во вкладку Rules базы и нажмите Publish.
+2. Правила доступа из `firestore.rules`. Проще всего — вручную: Firebase Console → Firestore Database → вкладка **Rules** → заменить всё содержимым `firestore.rules` → **Publish** (один раз; правила меняются редко). Автоматически их выкладывает тот же шаг деплоя, если у ключа сервисного аккаунта (Google Cloud Console → IAM → `github-action-…`) есть две роли: **Firebase Rules Admin** и **Service Usage Consumer** — без второй деплой падает с `403 Permission denied to get service [firestore.googleapis.com]`.
 
 Бесплатного тарифа Spark хватает: одна синхронизация — 2–4 записи и 1–3 МБ. Проект определяется сам (адрес `*.web.app` или `/__/firebase/init.json`); для своего домена или локальной разработки — переменная сборки `VITE_FIREBASE_PROJECT`.
 
