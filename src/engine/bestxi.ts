@@ -2,7 +2,7 @@
 // tuned on the same strength the match engine plays with (teamPower), and the shapes are ranked.
 import { fixForeign } from './ai';
 import { foreignLimit, isForeign } from './leagues';
-import { FORMATIONS, FORMATION_IDS, available, bestTaker, bestXI, familiarity, pickBench, pinsFor, squad, teamPower, teamStrength, type Strength } from './lineup';
+import { FORMATIONS, FORMATION_IDS, applyBackups, available, bestTaker, bestXI, familiarity, keepChoices, pickBench, pinsFor, squad, teamPower, teamStrength, type Strength } from './lineup';
 import type { FormationId, League, Lineup, Player, Role, Team } from './types';
 
 export interface ShapeOption {
@@ -65,7 +65,7 @@ export function lineupOptions(L: League, t: Team, forms: FormationId[] = FORMATI
     const lineup: Lineup = {
       form, xi: [...xi], bench: pickBench(pool, starters).map((p) => p.id), auto: t.lineup.auto,
       pen: bestTaker(starters), cap: t.lineup.cap != null && xi.includes(t.lineup.cap) ? t.lineup.cap : undefined,
-      ...(pins.size ? { pinned: [...pins] } : {}),
+      ...keepChoices(t.lineup),
     };
     const off = starters.map((p, i) => ({ p, slot: roles[i], fam: familiarity(p, roles[i]) })).filter((x) => x.fam < 1);
     const weakest = Math.min(...starters.filter((p) => p.pos !== 'G').map((p) => p.ovr));
@@ -77,12 +77,46 @@ export function lineupOptions(L: League, t: Team, forms: FormationId[] = FORMATI
 }
 
 /**
- * The staff put out the best line-up in the user's formation: the same search as "best line-up", pinned players
- * kept. Used whenever the staff pick the team (`lineup.auto`): after every day, so an injury is covered at once.
+ * The line-up as the search must take it: named backups in the slots of starters who are out (`applyBackups`), and
+ * every stand-in kept like a pinned player while his regular cannot play. Works on a copy.
+ */
+function withStandIns(L: League, t: Team): { team: Team; cover: Record<number, number> } {
+  const ln: Lineup = { ...t.lineup, xi: [...t.lineup.xi], bench: [...t.lineup.bench], cover: { ...t.lineup.cover } };
+  const team = { ...t, lineup: ln };
+  applyBackups(L, team);
+  const cover: Record<number, number> = {};
+  for (const [sub, reg] of Object.entries(ln.cover ?? {})) {
+    const r = L.players[reg];
+    if (ln.xi.includes(Number(sub)) && r && r.team === t.id && r.st === 'ACT' && !available(r)) cover[Number(sub)] = reg;
+  }
+  ln.pinned = [...new Set([...(ln.pinned ?? []), ...Object.keys(cover).map(Number)])];
+  return { team, cover };
+}
+
+/**
+ * "Best line-up" for the user's club: `lineupOptions` with the user's choices — pinned players in the eleven, and a
+ * named backup instead of a starter who is out (he stays until the regular can play).
+ */
+export function bestLineups(L: League, t: Team, forms: FormationId[] = FORMATION_IDS): { options: ShapeOption[]; current: number } {
+  const { team, cover } = withStandIns(L, t);
+  const { options } = lineupOptions(L, team, forms);
+  for (const o of options) {
+    const ln: Lineup = { ...o.lineup, ...keepChoices(t.lineup), auto: t.lineup.auto };
+    if (!t.lineup.pinned?.length) delete ln.pinned;
+    const kept = Object.entries(cover).filter(([sub]) => ln.xi.includes(Number(sub)));
+    if (kept.length) ln.cover = Object.fromEntries(kept);
+    o.lineup = ln;
+  }
+  return { options, current: teamPower(L, t) };
+}
+
+/**
+ * The staff put out the best line-up in the user's formation (`bestLineups`). Used whenever the staff pick the team
+ * (`lineup.auto`): after every day, so an injury or a red card is covered at once.
  */
 export function staffLineup(L: League, t: Team) {
-  const o = lineupOptions(L, t, [t.lineup.form]).options[0];
+  const o = bestLineups(L, t, [t.lineup.form]).options[0];
   if (!o || o.lineup.xi.length < 11) return;
   const pen = t.lineup.pen != null && o.lineup.xi.includes(t.lineup.pen) ? t.lineup.pen : o.lineup.pen;
-  t.lineup = { ...o.lineup, auto: t.lineup.auto, pen };
+  t.lineup = { ...o.lineup, pen };
 }

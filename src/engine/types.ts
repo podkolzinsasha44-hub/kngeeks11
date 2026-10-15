@@ -165,6 +165,11 @@ export interface Lineup {
    * formation stays the same). A pinned player who cannot play is skipped and comes back once he can.
    */
   pinned?: number[];
+  /**
+   * Backups the user named: starter id -> the player who takes his slot while he is injured or suspended
+   * (`applyBackups` in lineup.ts). The backup may be weaker today — the user's call, e.g. a talent to develop.
+   */
+  backups?: Record<number, number>;
 }
 
 export interface Record_ {

@@ -11,7 +11,7 @@ import { negotiate, userBid } from '../src/engine/transfers';
 import { canRegister, interest, startTalks } from '../src/engine/contracts';
 import { dealFor, transferAdvice } from '../src/engine/advice';
 import { aiLineup, foreignOnPitch } from '../src/engine/ai';
-import { lineupOptions, staffLineup } from '../src/engine/bestxi';
+import { bestLineups, lineupOptions, staffLineup } from '../src/engine/bestxi';
 import { autoRenew, renewalCases } from '../src/engine/renewals';
 import { offerView, saleView, sellAdvice } from '../src/engine/sale';
 import { buyerCeiling, purchaseOf, releasePlayer, respondOffer, saleBlock, setListed } from '../src/engine/transfers';
@@ -450,6 +450,55 @@ describe('auto line-up', () => {
     const before = [...t.lineup.xi];
     advanceDay(L);
     expect(t.lineup.xi).toEqual(before);
+  });
+});
+
+describe('named backups', () => {
+  const setup = (auto: boolean) => {
+    const L = career('ZEN');
+    const t = L.teams.ZEN;
+    t.lineup.auto = auto;
+    if (auto) staffLineup(L, t);
+    const slot = 6;
+    const starter = L.players[t.lineup.xi[slot]];
+    // A young reserve the staff would not pick on rating: the user wants him to play when the starter is out.
+    const backup = squad(L, t.id).filter((p) => available(p) && p.pos !== 'G' && !t.lineup.xi.includes(p.id) && !isForeign(p, t.country)).sort((a, b) => a.ovr - b.ovr)[0];
+    t.lineup.backups = { [starter.id]: backup.id };
+    return { L, t, slot, starter, backup };
+  };
+  for (const auto of [false, true]) {
+    it(`step in for an injured or suspended starter and give the slot back (${auto ? 'auto' : 'manual'} line-up)`, () => {
+      const { L, t, slot, starter, backup } = setup(auto);
+      const others = t.lineup.xi.filter((_, i) => i !== slot);
+      starter.inj = { type: 'test', days: 20, total: 20 };
+      const r = advanceDay(L);
+      expect(r.blocked).toBeFalsy();
+      expect(t.lineup.xi[slot]).toBe(backup.id);
+      if (!auto) expect(t.lineup.xi.filter((_, i) => i !== slot)).toEqual(others);
+      expect(lineupValid(L, t)).toBe(true);
+      // He stays while the starter is out, even though he is weaker.
+      advanceDay(L);
+      expect(t.lineup.xi[slot]).toBe(backup.id);
+      starter.inj = null;
+      advanceDay(L);
+      if (!auto) expect(t.lineup.xi[slot]).toBe(starter.id);
+      else expect(t.lineup.xi).toEqual(bestLineups(L, t, [t.lineup.form]).options[0].lineup.xi);
+      expect(t.lineup.backups).toEqual({ [starter.id]: backup.id });
+      // A red card works the same way.
+      starter.susp = 1;
+      advanceDay(L);
+      expect(t.lineup.xi).toContain(backup.id);
+      expect(t.lineup.xi).not.toContain(starter.id);
+    });
+  }
+
+  it('"best line-up" puts the backup in for a starter who is out', () => {
+    const { L, t, starter, backup } = setup(false);
+    starter.inj = { type: 'test', days: 20, total: 20 };
+    for (const o of bestLineups(L, t).options) {
+      expect(o.lineup.xi).toContain(backup.id);
+      expect(o.lineup.backups).toEqual({ [starter.id]: backup.id });
+    }
   });
 });
 

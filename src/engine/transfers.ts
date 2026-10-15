@@ -233,6 +233,7 @@ export function autoFixUserLineup(L: League) {
   const ok = (id: number) => L.players[id]?.team === t.id;
   t.lineup.bench = t.lineup.bench.filter(ok);
   if (t.lineup.pinned) t.lineup.pinned = t.lineup.pinned.filter(ok);
+  if (t.lineup.backups) for (const k in t.lineup.backups) if (!ok(Number(k)) || !ok(t.lineup.backups[k])) delete t.lineup.backups[k];
   if (t.lineup.auto) staffLineup(L, t);
 }
 

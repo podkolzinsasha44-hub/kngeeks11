@@ -183,7 +183,7 @@ export function autoLineup(L: League, team: Pick<Team, 'id' | 'lineup'>, roster?
   }
   const xi = best?.xi ?? [];
   const bench = pickBench(avail, xi);
-  team.lineup = { form: bf, xi: xi.map((p) => p.id), bench: bench.map((p) => p.id), auto: team.lineup?.auto ?? true, pen: bestTaker(xi), cap: team.lineup?.cap, ...(team.lineup?.pinned?.length ? { pinned: team.lineup.pinned } : {}) };
+  team.lineup = { form: bf, xi: xi.map((p) => p.id), bench: bench.map((p) => p.id), auto: team.lineup?.auto ?? true, pen: bestTaker(xi), cap: team.lineup?.cap, ...keepChoices(team.lineup) };
 }
 
 /**
@@ -206,7 +206,8 @@ export function validateLineup(L: League, team: Pick<Team, 'id' | 'lineup'>, ros
     const cands = all.filter((p) => available(p) && !used.has(p.id) && !ln.xi.includes(p.id)).sort((a, b) => slotRating(b, roles[i]) - slotRating(a, roles[i]));
     // Prefer someone already named on the bench when he fits about as well.
     const top = cands[0];
-    const sub = cands.find((p) => ln.bench.includes(p.id) && top && slotRating(p, roles[i]) >= slotRating(top, roles[i]) - 2) ?? top;
+    const named = id != null ? cands.find((p) => p.id === ln.backups?.[id]) : undefined;
+    const sub = named ?? cands.find((p) => ln.bench.includes(p.id) && top && slotRating(p, roles[i]) >= slotRating(top, roles[i]) - 2) ?? top;
     const old = id != null ? L.players[id] : null;
     if (sub) {
       ln.xi[i] = sub.id;
@@ -225,6 +226,33 @@ export function validateLineup(L: League, team: Pick<Team, 'id' | 'lineup'>, ros
   }
   if (ln.pen == null || !xiSet.has(ln.pen)) ln.pen = bestTaker(ln.xi.map((id) => L.players[id]).filter(Boolean));
   return notes;
+}
+
+/** What the user chose about his players and a rebuilt line-up keeps: pinned starters and named backups. */
+export function keepChoices(ln: Lineup | undefined): Pick<Lineup, 'pinned' | 'backups'> {
+  return { ...(ln?.pinned?.length ? { pinned: ln.pinned } : {}), ...(ln?.backups && Object.keys(ln.backups).length ? { backups: ln.backups } : {}) };
+}
+
+/**
+ * Starters who cannot play (injury, suspension) and have a named backup who can: the backup takes the slot and
+ * is recorded as a stand-in (`cover`), so the regular gets it back when he can play (`returnRegulars`).
+ */
+export function applyBackups(L: League, t: Pick<Team, 'id' | 'lineup'>): { out: Player; sub: Player }[] {
+  const ln = t.lineup;
+  const done: { out: Player; sub: Player }[] = [];
+  if (!ln.backups) return done;
+  const ok = (p: Player | undefined): p is Player => !!p && p.team === t.id && available(p);
+  ln.xi.forEach((id, i) => {
+    const p = L.players[id];
+    const b = L.players[ln.backups![id]];
+    if (!p || (p.team === t.id && available(p)) || !ok(b) || ln.xi.includes(b.id)) return;
+    ln.xi[i] = b.id;
+    if (p.team === t.id && p.st === 'ACT') setCover(ln, b.id, p.id);
+    ln.bench = ln.bench.filter((x) => x !== b.id);
+    done.push({ out: p, sub: b });
+  });
+  if (done.length && (ln.pen == null || !ln.xi.includes(ln.pen))) ln.pen = bestTaker(ln.xi.map((id) => L.players[id]).filter(Boolean));
+  return done;
 }
 
 /** Records that `sub` stands in for `regular`; a stand-in for a stand-in covers the original regular. */

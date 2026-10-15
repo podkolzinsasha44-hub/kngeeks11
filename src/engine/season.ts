@@ -6,7 +6,7 @@ import { weeklyMorale } from './events';
 import { genPlayer } from './gen';
 import { intlDaily } from './intl';
 import { LEAGUES, LEAGUE_IDS, foreignLimit, isLeague, rolloverDay, rulesOf, statKey, styleOf, windowOpen } from './leagues';
-import { FORMATIONS, lineupValid, returnRegulars, validateLineup } from './lineup';
+import { FORMATIONS, applyBackups, lineupValid, returnRegulars, validateLineup } from './lineup';
 import { createMatch, simulateMatch, type LiveMatch, type MatchBox, type MatchOpts } from './match';
 import { pushMsg, pushNews, social } from './news';
 import { rollover, endLeague } from './offseason';
@@ -46,6 +46,7 @@ function prepareUserLineup(L: League, t: Team, roster: Player[], date: string): 
     staffLineup(L, t);
     return true;
   }
+  applyBackups(L, t);
   const lim = foreignLimit(t.lg, L.season);
   const tooMany = lim ? foreignOnPitch(L, t) > lim[1] : false;
   if (lineupValid(L, t) && !tooMany) return true;
@@ -179,7 +180,7 @@ function applyGame(L: League, g: Game, box: MatchBox) {
     if (p.team === L.user) {
       pushMsg(L, {
         from: 'Медицинский штаб', kind: 'staff', title: `Травма: ${dispName(p)}`,
-        body: `${inj.type}. Ориентировочно ${absenceText(days)}, вернётся к ${dateRu(addDays(L.date, days))}.${!L.teams[L.user].lineup.xi.includes(p.id) ? '' : L.teams[L.user].lineup.auto ? '\n\nШтаб сам поставит лучший состав без него, а когда он поправится — вернёт в основу, если он сильнее.' : '\n\nОн в вашем стартовом составе: перед матчем замените его. Когда он поправится, штаб сам вернёт его на место.'}`,
+        body: `${inj.type}. Ориентировочно ${absenceText(days)}, вернётся к ${dateRu(addDays(L.date, days))}.${!L.teams[L.user].lineup.xi.includes(p.id) ? '' : L.players[L.teams[L.user].lineup.backups?.[p.id] ?? -1]?.team === L.user ? `\n\nВместо него выйдет дублёр ${dispName(L.players[L.teams[L.user].lineup.backups![p.id]])}, а когда он поправится — вернётся на своё место.` : L.teams[L.user].lineup.auto ? '\n\nШтаб сам поставит лучший состав без него, а когда он поправится — вернёт в основу, если он сильнее.' : '\n\nОн в вашем стартовом составе: перед матчем замените его. Когда он поправится, штаб сам вернёт его на место.'}`,
         ref: { type: 'player', id: p.id },
       });
       if (days >= 10 && p.ovr >= L.teams[L.user].lineup.xi.reduce((s, id) => s + (L.players[id]?.ovr ?? 0), 0) / 11 - 3) L.stops.push('injury');
@@ -219,6 +220,11 @@ function daily(L: League) {
   // A manual line-up: regulars who were out (injured or suspended) take their places back.
   const t = L.teams[L.user];
   const returned = t && !t.lineup.auto ? returnRegulars(L, t) : [];
+  // Named backups step in for starters who are out — a manual line-up stays ready for the next match.
+  const subbed = t && !t.lineup.auto ? applyBackups(L, t) : [];
+  for (const x of subbed) {
+    pushMsg(L, { from: 'Тренерский штаб', kind: 'staff', title: `${dispName(x.sub)} вместо ${dispName(x.out)}`, body: `${dispName(x.out)} не может играть (${x.out.team !== t!.id ? 'покинул клуб' : x.out.inj ? `травма, ещё ${x.out.inj.days} дн.` : 'дисквалификация'}), в старт выходит его дублёр ${dispName(x.sub)}.${x.out.team === t!.id ? ' Когда основной сможет играть, он вернётся на своё место.' : ''}`, ref: { type: 'player', id: x.sub.id } });
+  }
   for (const p of back) {
     const r = returned.find((x) => x.back === p);
     const inXI = t?.lineup.xi.includes(p.id);

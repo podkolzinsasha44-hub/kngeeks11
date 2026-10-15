@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useGame, useL } from '../../store/game';
 import { useNav } from '../../store/nav';
 import { foreignOnPitch } from '../../engine/ai';
-import { lineupOptions, staffLineup, type ShapeOption } from '../../engine/bestxi';
+import { bestLineups, staffLineup, type ShapeOption } from '../../engine/bestxi';
 import { wageBill } from '../../engine/contracts';
 import { foreignLimit, isForeign } from '../../engine/leagues';
-import { BENCH_SIZE, FORMATIONS, FORMATION_IDS, available, lineupValid, setCover, slotRating, squad, teamPower, teamStrength } from '../../engine/lineup';
+import { BENCH_SIZE, FORMATIONS, FORMATION_IDS, applyBackups, available, lineupValid, setCover, slotRating, squad, teamPower, teamStrength } from '../../engine/lineup';
 import type { FormationId, League, Player, Pos, Role, Tactic, Team } from '../../engine/types';
 import { Button, Card, Chips, cx, Ovr, Pill, SectionTitle, Segmented } from '../components/kit';
 import { Screen, Sheet } from '../components/shell';
@@ -89,6 +89,8 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
   const push = useNav((s) => s.push);
   const [sel, setSel] = useState<Sel | null>(null);
   const [pick, setPick] = useState<number | null>(null);
+  /** Starter whose backup is being chosen. */
+  const [backFor, setBackFor] = useState<number | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(358);
   useEffect(() => {
@@ -157,6 +159,18 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
       }
     });
   };
+  /** The backup steps in when the starter is injured or suspended; null removes him. */
+  const setBackup = (starter: number, backup: number | null) => {
+    act(() => {
+      const b = (t.lineup.backups ??= {});
+      if (backup == null) delete b[starter]; else b[starter] = backup;
+      if (!Object.keys(b).length) delete t.lineup.backups;
+      // A starter who is out already: his backup takes the slot now.
+      if (backup != null) applyBackups(L, t);
+    });
+    toast(backup == null ? `У ${dispShort(L.players[starter])} больше нет дублёра` : `${dispShort(L.players[backup])} — дублёр ${dispShort(L.players[starter])}: выйдет вместо него при травме или дисквалификации`, 'good');
+  };
+  const backups = Object.entries(ln.backups ?? {}).map(([s, b]) => [L.players[Number(s)], L.players[b]] as const).filter(([a, b]) => a && b && a.team === t.id && b.team === t.id);
   const pinnedIds = new Set(ln.pinned ?? []);
   const pinned = (ln.pinned ?? []).map((id) => L.players[id]).filter((p) => p && p.team === t.id);
   /** Pinned starters stay in the eleven when the staff picks the best line-up. */
@@ -220,6 +234,12 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
             <div className="text-muted mt-0.5">«Лучший состав» их не уберёт{pinned.some((p) => !available(p)) ? '; кто сейчас не может играть, вернётся в основу, когда сможет' : ''}.</div>
           </div>
           <Button size="sm" variant="ghost" onClick={() => act(() => { delete t.lineup.pinned; })}>Снять</Button>
+        </div>
+      )}
+      {backups.length > 0 && (
+        <div className="mb-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[12.5px] leading-snug">
+          <div>🔁 Дублёры: {backups.map(([a, b], k) => <span key={a.id}>{k > 0 && ', '}<b>{dispShort(a)}</b> → {dispShort(b)}</span>)}</div>
+          <div className="text-muted mt-0.5">Выйдут вместо основного при травме или красной карточке.</div>
         </div>
       )}
       {!ln.auto && covers.length > 0 && (
@@ -318,8 +338,9 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
             </div>
             {/* A second row: on a narrow phone every action keeps its full label. */}
             {selP && (
-              <div className="flex gap-2 mt-2">
+              <div className={cx('grid gap-2 mt-2', sel.zone === 'xi' ? 'grid-cols-2' : 'grid-cols-1')}>
                 {sel.zone === 'xi' && <Button size="sm" full className="!px-2" variant={pinnedIds.has(selP.id) ? 'primary' : 'glass'} onClick={() => { togglePin(selP.id); setSel(null); }}>{pinnedIds.has(selP.id) ? '📌 Открепить' : '📌 Закрепить'}</Button>}
+                {sel.zone === 'xi' && <Button size="sm" full className="!px-2" variant={ln.backups?.[selP.id] != null ? 'primary' : 'glass'} onClick={() => { setBackFor(selP.id); setSel(null); }}>{ln.backups?.[selP.id] != null && L.players[ln.backups[selP.id]] ? `🔁 ${dispShort(L.players[ln.backups[selP.id]])}` : '🔁 Дублёр'}</Button>}
                 <Button size="sm" full className="!px-2" onClick={() => { const id = selP.id; setSel(null); push('player', { id }); }}>Профиль</Button>
                 {sel.zone === 'xi' && <Button size="sm" full className="!px-2" onClick={() => { setPick(sel.i); setSel(null); }}>Кто лучше?</Button>}
               </div>
@@ -329,6 +350,7 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
       )}
 
       {bestOpen && <BestSheet L={L} t={t} onClose={() => setBestOpen(false)} />}
+      {backFor != null && L.players[backFor] && <BackupSheet L={L} t={t} sq={sq} starter={L.players[backFor]} onPick={(id) => { setBackup(backFor, id); setBackFor(null); }} onClose={() => setBackFor(null)} />}
       <Sheet open={pick != null} onClose={() => setPick(null)} title={pick != null ? `Позиция: ${ROLE_RU[roles[pick]]}` : ''} full>
         {pick != null && (
           <div className="flex flex-col">
@@ -354,11 +376,40 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
   );
 }
 
+/** Choosing who replaces a starter while he is injured or suspended: any player outside the eleven. */
+function BackupSheet({ L, t, sq, starter, onPick, onClose }: { L: League; t: Team; sq: Player[]; starter: Player; onPick: (id: number | null) => void; onClose: () => void }) {
+  const ln = t.lineup;
+  const i = ln.xi.indexOf(starter.id);
+  const role = i >= 0 ? FORMATIONS[ln.form][i] : starter.role;
+  const cur = ln.backups?.[starter.id];
+  const list = sq.filter((p) => p.id !== starter.id && (!ln.xi.includes(p.id) || p.id === cur)).sort((a, b) => slotRating(b, role) - slotRating(a, role));
+  return (
+    <Sheet open onClose={onClose} title={`Дублёр: ${dispShort(starter)}`} full>
+      <div className="text-[12.5px] text-muted mb-2 leading-snug">
+        Если {dispShort(starter)} ({ROLE_RU[role]}) получит травму или дисквалификацию, вместо него выйдет выбранный игрок — даже если рейтинг у него ниже. Когда основной сможет играть, он вернётся на место.
+      </div>
+      {cur != null && <Button full variant="danger" className="mb-2" onClick={() => onPick(null)}>Убрать дублёра</Button>}
+      <div className="flex flex-col">
+        {list.map((p) => (
+          <div key={p.id} onClick={() => onPick(p.id)} className={cx('press flex items-center gap-3 py-2 border-b border-white/5', !available(p) && 'opacity-45', p.id === cur && 'bg-white/5 rounded-xl')}>
+            <Ovr v={Math.round(slotRating(p, role))} size={38} />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5"><span className="truncate font-medium">{dispName(p)}</span><StatusDots p={p} /></div>
+              <div className="text-[12px] text-muted">{ROLE_RU[p.role]} · общий {p.ovr} · потенциал <span className={p.pot >= starter.pot ? 'text-good' : ''}>{p.pot}</span> · {playerAge(L, p)} лет</div>
+            </div>
+            {p.id === cur ? <span className="text-[11px] text-good">дублёр</span> : ln.bench.includes(p.id) ? <span className="text-[11px] text-muted">запас</span> : null}
+          </div>
+        ))}
+      </div>
+    </Sheet>
+  );
+}
+
 /** The staff try every formation with the strongest available players and rank them by the engine's power. */
 function BestSheet({ L, t, onClose }: { L: League; t: Team; onClose: () => void }) {
   const act = useGame((s) => s.act);
   const toast = useGame((s) => s.toast);
-  const { options, current } = useMemo(() => lineupOptions(L, t), [L, t]);
+  const { options, current } = useMemo(() => bestLineups(L, t), [L, t]);
   const pinned = (t.lineup.pinned ?? []).map((id) => L.players[id]).filter((p) => p && p.team === t.id);
   const [open, setOpen] = useState(0);
   const apply = (o: ShapeOption) => {
