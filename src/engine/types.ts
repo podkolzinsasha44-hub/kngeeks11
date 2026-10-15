@@ -146,6 +146,8 @@ export interface Player {
   custom?: boolean;
   /** Created by the user in his own save ("Создать игрока"): never part of the game's data. */
   made?: boolean;
+  /** A player added to every career at the owner's request (`extras.ts`), by key. */
+  extra?: string;
 }
 
 export interface Lineup {

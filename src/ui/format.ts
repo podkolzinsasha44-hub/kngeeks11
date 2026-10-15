@@ -123,7 +123,7 @@ export const fitColor = (f: number) => (f >= 85 ? '#3ddc97' : f >= 70 ? '#ffb547
 export const photoUrl = (p: Player, size: 'original' | 'big' | 'header' = 'header') =>
   // Second League players: a full URL of the league's own site; everyone else: the Transfermarkt CDN.
   // A player the user created carries his own photo (a data URL kept in the save).
-  p.img ? (p.img.startsWith('http') || p.img.startsWith('data:') ? p.img : `https://img.a.transfermarkt.technology/portrait/${size}/${p.img}?lm=1`) : null;
+  p.img ? (p.img.startsWith('http') || p.img.startsWith('data:') || p.img.startsWith('./') ? p.img : `https://img.a.transfermarkt.technology/portrait/${size}/${p.img}?lm=1`) : null;
 
 /** Scouts know their own players exactly; for others the potential is an estimate. */
 export function potLabel(L: League, p: Player) {

@@ -271,7 +271,7 @@ function Stats({ L, p }: { L: League; p: Player }) {
         ))}
         {!seasons.length && !p.h?.length && <div className="px-3 py-4 text-muted text-[13.5px]">Данных о матчах пока нет.</div>}
       </Card>
-      {!!p.h?.length && <div className="text-[11.5px] text-faint mt-1.5 px-1">{p.made ? 'Прошлые клубы указаны вами при создании игрока.' : 'Сезоны до 2026/27 — реальная статистика игрока во всех турнирах.'}</div>}
+      {!!p.h?.length && <div className="text-[11.5px] text-faint mt-1.5 px-1">{p.made ? 'Прошлые клубы указаны вами при создании игрока.' : p.extra ? 'Прошлые клубы — академии игрока.' : 'Сезоны до 2026/27 — реальная статистика игрока во всех турнирах.'}</div>}
     </>
   );
 }

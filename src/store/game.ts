@@ -3,6 +3,7 @@ import type { Game, League } from '../engine/types';
 import type { WorldJson, NewCareerOpts } from '../engine/world';
 import { upgradeSave, newCareer } from '../engine/world';
 import { advanceDay, lastUserBox } from '../engine/season';
+import { addExtras } from '../engine/extras';
 import { setNations } from '../engine/intl';
 import { saveLeague, loadLeague, requestPersistence } from '../persistence/db';
 import { useNav } from './nav';
@@ -97,6 +98,7 @@ export const useGame = create<GameState>((set, get) => ({
     const w = await get().loadWorld();
     await new Promise((r) => setTimeout(r, 30));
     const L = newCareer(w, opts);
+    addExtras(L);
     const id = `career-${Date.now()}`;
     applyTheme(L);
     useNav.getState().reset();
@@ -113,6 +115,7 @@ export const useGame = create<GameState>((set, get) => ({
       return false;
     }
     upgradeSave(L, get().world!);
+    addExtras(L);
     applyTheme(L);
     useNav.getState().reset();
     set({ L, saveId: id, loading: false, ver: get().ver + 1 });
@@ -122,6 +125,7 @@ export const useGame = create<GameState>((set, get) => ({
   setLeague: (L, id, opts) => {
     const w = get().world;
     if (w) upgradeSave(L, w);
+    addExtras(L);
     applyTheme(L);
     useNav.getState().reset();
     const saveId = id ?? `career-${Date.now()}`;

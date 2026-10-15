@@ -20,6 +20,7 @@ import type { League } from '../src/engine/types';
 import { newCareer, upgradeSave, type WorldJson } from '../src/engine/world';
 import { editYouthPlayer } from '../src/engine/youth';
 import { createPlayer } from '../src/engine/gen';
+import { addExtras } from '../src/engine/extras';
 import { intlDaily, updateRanking } from '../src/engine/intl';
 import { addDays } from '../src/engine/util';
 import { initPlayoffs } from '../src/engine/cup';
@@ -554,6 +555,30 @@ describe('international tournaments decades into a career', () => {
     T.games.push({ id: 999999, day: '2038-06-13', h: T.teams[0], a: undefined as unknown as string, stage: 'A' });
     playOut(L, '2038-06-13');
     expect(L.intl.history[0].year).toBe(2038);
+  });
+});
+
+describe('players added at the owner\'s request', () => {
+  it('join the user\'s club once, with their rating, age and photo, and are not re-added after a sale', () => {
+    const L = career('ORL');
+    addExtras(L);
+    const p = Object.values(L.players).find((x) => x.extra === 'zhidkikh')!;
+    expect(p).toBeTruthy();
+    expect(p.team).toBe('ORL');
+    expect(p.ru).toBe('Савелий Жидких');
+    expect(p.role).toBe('LW');
+    expect(p.ovr).toBeGreaterThanOrEqual(95);
+    expect(p.pot).toBe(99);
+    expect(L.season - Number(p.bd.slice(0, 4))).toBe(18);
+    expect(p.img).toBe('./players/zhidkikh.jpg');
+    expect(fs.existsSync(path.join(__dirname, '..', 'public', 'players', 'zhidkikh.jpg'))).toBe(true);
+    const n = Object.keys(L.players).length;
+    addExtras(L);
+    expect(Object.keys(L.players).length).toBe(n);
+    releasePlayer(L, p);
+    addExtras(L);
+    expect(Object.values(L.players).filter((x) => x.extra === 'zhidkikh').length).toBe(1);
+    expect(p.team).toBeNull();
   });
 });
 
