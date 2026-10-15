@@ -25,6 +25,7 @@ import { keepFor } from '../keep';
 import { surname } from '../components/PlayerCard';
 import { PlayerPhoto } from '../components/media';
 import { MedicalCard } from '../components/Medical';
+import { useCalm } from '../calm';
 
 export function Office() {
   const L = useL();
@@ -37,8 +38,9 @@ export function Office() {
   const xiKey = t.lineup.xi.join(',') + t.lineup.form + t.tactic;
   const opp = ng ? club(L, ng.h === L.user ? ng.a : ng.h) : null;
   // The odds come from the match engine itself, played with the two elevens as they stand now.
-  const odds = useMemo(() => (ng ? gameOdds(L, ng.h, ng.a, ng.comp, 400) : null), [ng?.id, xiKey, opp?.lineup.xi.join(','), L.date]); // eslint-disable-line react-hooks/exhaustive-deps
-  const so = useMemo(() => (L.comps[t.lg].phase !== 'done' ? seasonOdds(L, t.lg, 250)[t.id] : null), [L.date, xiKey, t.lg]); // eslint-disable-line react-hooks/exhaustive-deps
+  // During a simulation they follow only the next opponent, with fewer runs, and are played in full once it stops.
+  const odds = useCalm((quick) => (ng ? gameOdds(L, ng.h, ng.a, ng.comp, quick ? 100 : 400) : null), [xiKey, opp?.lineup.xi.join(','), L.date], [ng?.id]);
+  const so = useCalm(() => (L.comps[t.lg].phase !== 'done' ? seasonOdds(L, t.lg, 250)[t.id] : null), [L.date, xiKey, t.lg]);
   const home = ng?.h === L.user;
   const unread = unreadCount(L);
   const recent = teamGames(L, L.user).filter((g) => g.played).sort((a, b) => (a.day < b.day ? 1 : -1)).slice(0, 5);
@@ -287,7 +289,7 @@ function AdviceCard() {
   const L = useL();
   const ver = useGame((s) => s.ver);
   const go = useNav((s) => s.go);
-  const adv = useMemo(() => transferAdvice(L, 3), [L, ver]); // eslint-disable-line react-hooks/exhaustive-deps
+  const adv = useCalm(() => transferAdvice(L, 3), [L, ver]);
   const top = (adv.windowOpen ? adv.now[0] : adv.free[0]) ?? adv.free[0] ?? adv.now[0];
   if (!top) return null;
   const out = top.replaces != null ? L.players[top.replaces] : null;

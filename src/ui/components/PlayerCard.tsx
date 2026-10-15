@@ -1,6 +1,6 @@
 import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
 import { playerClub } from '../../engine/ucl';
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import type { League, Player, Role, Team } from '../../engine/types';
 import { useGame } from '../../store/game';
 import { ATTR_SHORT, cardOf, fitColor, money, photoUrl, playerAge, potLabel, ROLE_RU, TIERS, type Tier } from '../format';
@@ -99,10 +99,15 @@ function Photo({ p, team, size, style, fade, onError, err }: { p: Player; team: 
 
 export const surname = (p: Player) => (p.ru ?? p.ln).split(' ').slice(-1)[0];
 
-/** The shield: frame of the edition with the face inside; children are drawn on the face. */
-function Shield({ tier, w, h, pad, className, children }: { tier: Tier; w: number; h: number; pad: number; className?: string; children: ReactNode }) {
+/** Editions with a holographic frame, whose light runs around it on the big card. */
+const HOLO = new Set<Tier>(['epic', 'star', 'world', 'icon', 'toty', 'ucl', 'tots', 'hero', 'future']);
+
+/** The shield: frame of the edition with the face inside; children are drawn on the face. Only a `live` shield (the big
+ *  card) moves; small ones keep their look but stand still. */
+function Shield({ tier, w, h, pad, live, className, children }: { tier: Tier; w: number; h: number; pad: number; live?: boolean; className?: string; children: ReactNode }) {
   return (
-    <div className={cx('relative shield', `fr-${tier}`, className)} style={{ width: w, height: h }}>
+    <div className={cx('relative shield', `fr-${tier}`, !live && 'still', className)} style={{ width: w, height: h }}>
+      {live && HOLO.has(tier) && <div className={cx('fr-spin', `fr-${tier}`)} />}
       <div className={cx('absolute shield overflow-hidden', `fc-${tier}`)} style={{ inset: pad }}>
         {children}
         {LOOK[tier].fx >= 1 && <div className="absolute inset-0 pointer-events-none"><div className="shine w-full h-full" /></div>}
@@ -133,11 +138,20 @@ export function PlayerCard({ p, L, width = 260, interactive = true }: { p: Playe
   const tier = cardOf(L, p);
   const look = LOOK[tier];
   const [imgErr, setImgErr] = useState(false);
+  // The card moves only while it is on screen: scrolled away to the stats below, it stands still.
+  const box = useRef<HTMLDivElement>(null);
+  const [seen, setSeen] = useState(true);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setSeen(e.isIntersecting));
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
   const mx = useMotionValue(0), my = useMotionValue(0);
   const rx = useSpring(useTransform(my, [-1, 1], [9, -9]), { stiffness: 180, damping: 18 });
   const ry = useSpring(useTransform(mx, [-1, 1], [-11, 11]), { stiffness: 180, damping: 18 });
   const glareX = useTransform(mx, [-1, 1], ['0%', '100%']);
-  const foilX = useTransform(mx, [-1, 1], ['0%', '100%']);
   const W = width, H = Math.round(width * 1.4);
   const attrs = p.pos === 'G' ? ['ref', 'pos', 'han', 'kic', 'con', 'men'] : ['pac', 'sho', 'pas', 'dri', 'def', 'phy'];
   const r = p.r as unknown as Record<string, number>;
@@ -154,23 +168,28 @@ export function PlayerCard({ p, L, width = 260, interactive = true }: { p: Playe
 
   return (
     <div className="mx-auto w-fit flex flex-col items-center">
-      <div style={{ perspective: 900 }} onPointerMove={onMove} onPointerLeave={reset} onPointerUp={reset}>
+      <div ref={box} style={{ perspective: 900 }} onPointerMove={onMove} onPointerLeave={reset} onPointerUp={reset}>
         <motion.div
-          style={{ width: W, height: H, rotateX: rx, rotateY: ry, transformStyle: 'preserve-3d', filter: `drop-shadow(0 26px 30px rgba(0,0,0,.6))${look.fx >= 2 ? ` drop-shadow(0 0 18px color-mix(in oklab, ${glow} 45%, transparent))` : ''}` }}
+          className="relative"
+          style={{ width: W, height: H, rotateX: rx, rotateY: ry, transformStyle: 'preserve-3d' }}
           initial={{ opacity: 0, y: 20, scale: 0.96 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ type: 'spring', stiffness: 200, damping: 22 }}
         >
-          <Shield tier={tier} w={W} h={H} pad={Math.max(3, W * 0.016)}>
+          {/* The shadow and the glow are blurred shields of their own behind the card: a drop-shadow on the card itself
+              would be recomputed on every frame of its moving frame and foil. */}
+          <div aria-hidden className="absolute inset-0 pointer-events-none" style={{ filter: 'blur(15px)', transform: 'translateY(26px)', opacity: 0.6 }}><div className="shield w-full h-full bg-black" /></div>
+          {look.fx >= 2 && <div aria-hidden className="absolute inset-0 pointer-events-none" style={{ filter: 'blur(9px)', opacity: 0.45 }}><div className="shield w-full h-full" style={{ background: glow }} /></div>}
+          <Shield tier={tier} w={W} h={H} pad={Math.max(3, W * 0.016)} live={seen}>
             <Decor tier={tier} />
             <Photo p={p} team={t} size="original" err={imgErr} onError={() => setImgErr(true)} fade={fade}
               style={{ left: '33%', width: '50%', top: '11%', aspectRatio: '0.77' }} />
-            {look.fx === 3 && <motion.div className="absolute inset-0 foil pointer-events-none" style={{ ['--fx' as string]: foilX }} />}
+            {look.fx === 3 && <div className="foil pointer-events-none" />}
             {look.fx === 3 && SPARKLES.map(([x, y, d], i) => <span key={i} className="sparkle" style={{ left: `${x}%`, top: `${y}%`, animationDelay: `${d}s`, transform: 'scale(0)' }} />)}
             <motion.div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(circle at var(--gx) 0%, rgba(255,255,255,0.22), transparent 55%)', ['--gx' as string]: glareX }} />
             {/* rating, position, flag, club */}
             <div className="absolute flex flex-col items-center z-10" style={{ left: '9%', top: '11%', width: W * 0.2, ['--glow' as string]: glow }}>
-              <div className={cx('num leading-[0.9] font-semibold', look.fx >= 2 && 'glow-num')} style={{ fontSize: W * 0.19, color: look.num }}>{p.ovr}</div>
+              <div className={cx('num leading-[0.9] font-semibold', look.fx >= 2 && 'glow-num')} data-v={p.ovr} style={{ fontSize: W * 0.19, color: look.num }}>{p.ovr}</div>
               <div className="font-display font-semibold tracking-wide" style={{ fontSize: W * 0.07, color: look.ink, marginTop: W * 0.005 }}>{ROLE_RU[p.role]}</div>
               <span className="block" style={{ width: W * 0.13, height: 1, background: look.sub, opacity: 0.6, margin: `${W * 0.02}px 0` }} />
               <Flag code={p.ctry} size={Math.round(W * 0.075)} />

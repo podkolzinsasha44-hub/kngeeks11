@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useGame, useL } from '../../store/game';
 import { dealFor, transferAdvice, type Chance, type Deal, type Pick } from '../../engine/advice';
 import { offerView, sellAdvice, type SellPick } from '../../engine/sale';
 import { useNav } from '../../store/nav';
+import { useCalm } from '../calm';
 import { LEAGUES, LEAGUE_IDS, windowOpen } from '../../engine/leagues';
 import { foreignLeft, purchaseOf, respondOffer, saleBlock, setListed } from '../../engine/transfers';
 import { wageBill } from '../../engine/contracts';
@@ -63,7 +64,7 @@ function Search({ L, free }: { L: League; free: boolean }) {
   // On by default: only players who would join the club now, for the money it has.
   const [can, setCan] = useKeep('market.can', true);
   const ver = useGame((st) => st.ver);
-  const { list, deals } = useMemo(() => {
+  const { list, deals } = useCalm(() => {
     const out: Player[] = [];
     const deals = new Map<number, Deal>();
     const s = q.trim().toLowerCase();
@@ -89,7 +90,7 @@ function Search({ L, free }: { L: League; free: boolean }) {
     }
     const by = { ovr: (p: Player) => -p.ovr, pot: (p: Player) => -p.pot, val: (p: Player) => -p.val, age: (p: Player) => playerAge(L, p) }[sort];
     return { list: out.sort((a, b) => by(a) - by(b) || b.ovr - a.ovr), deals };
-  }, [L, L.date, ver, pos, role, lgs, sort, q, afford, ageMin, ageMax, free, me.budget, can]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [L, L.date, ver, me.budget], [pos, role, lgs, sort, q, afford, ageMin, ageMax, free, can]);
   // Only the search and the position stay on screen: the rest of the filters live in a sheet, so the
   // list starts in the upper half of the phone.
   const [sheet, setSheet] = useState(false);
@@ -425,8 +426,8 @@ function AdviceTab({ L }: { L: League }) {
   const ver = useGame((s) => s.ver);
   // A position the staff looks for (or all of them).
   const [role, setRole] = useKeep<'all' | Role>('advice.role', 'all');
-  const adv = useMemo(() => transferAdvice(L, role === 'all' ? 8 : 15, role === 'all' ? {} : { role }), [L, ver, role]); // eslint-disable-line react-hooks/exhaustive-deps
-  const sell = useMemo(() => sellAdvice(L), [L, ver]);
+  const adv = useCalm(() => transferAdvice(L, role === 'all' ? 8 : 15, role === 'all' ? {} : { role }), [L, ver], [role]);
+  const sell = useCalm(() => sellAdvice(L), [L, ver]);
   const me = L.teams[L.user];
   const weak = adv.weak;
   const weakP = weak?.player != null ? L.players[weak.player] : null;

@@ -82,13 +82,13 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
-/* Glass surfaces: a lit top edge and a soft shadow lift them off the arena. */
+/* Glass surfaces: a lit top edge and a soft shadow lift them off the arena. No backdrop blur: a screen holds dozens
+   of these over the smooth dark arena, where the blur is invisible, yet each one is an extra render pass on every
+   frame of a scroll or a transition. The few bars and sheets over moving content (.glass-strong) keep it. */
 .glass {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.022) 55%, rgba(255, 255, 255, 0.032));
   border: 1px solid rgba(255, 255, 255, 0.085);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.075), 0 16px 36px -24px rgba(0, 0, 0, 0.95);
-  -webkit-backdrop-filter: blur(22px) saturate(150%);
-  backdrop-filter: blur(22px) saturate(150%);
 }
 .glass-strong {
   background: linear-gradient(180deg, rgba(22, 30, 48, 0.86), rgba(9, 13, 22, 0.93));
@@ -117,17 +117,24 @@ button {
   0%, 55% { transform: translateX(-120%); }
   85%, 100% { transform: translateX(120%); }
 }
+/* Rotating holographic gradients turn a layer (done by the GPU) instead of animating the gradient angle, which
+   repaints the element on every frame. A conic gradient turned about its centre is the same picture. */
 .holo {
-  background: conic-gradient(from var(--holo-angle, 0deg), #ff8ad8, #7fd3ff, #9dffb0, #ffe27a, #ff8ad8);
-  animation: holo 6s linear infinite;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
 }
-@property --holo-angle {
-  syntax: "<angle>";
-  initial-value: 0deg;
-  inherits: false;
-}
-@keyframes holo {
-  to { --holo-angle: 360deg; }
+.holo::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: -1;
+  width: 160%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  background: conic-gradient(#ff8ad8, #7fd3ff, #9dffb0, #ffe27a, #ff8ad8);
+  animation: spin 6s linear infinite;
 }
 .text-gradient-gold {
   background: linear-gradient(180deg, #fff3c9 0%, #e8c26a 50%, #a8812f 100%);
@@ -237,7 +244,8 @@ button {
     radial-gradient(100% 40% at 50% 118%, color-mix(in oklab, var(--accent) 11%, transparent) 0%, transparent 70%),
     linear-gradient(180deg, #080c16 0%, #05070d 45%, #04060b 100%);
 }
-/* Floodlight beams from the two top corners, swaying slowly. */
+/* Floodlight beams from the two top corners. They stand still: a moving full-screen layer under the whole interface
+   kept the phone drawing frames non-stop. */
 .beams {
   position: absolute;
   inset: -12% -25% 25% -25%;
@@ -246,12 +254,6 @@ button {
     conic-gradient(from 193deg at 78% 0%, transparent 0deg, rgba(255, 255, 255, 0.03) 5deg, rgba(255, 255, 255, 0.05) 9deg, rgba(255, 255, 255, 0.03) 13deg, transparent 19deg);
   -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 80%);
   mask-image: linear-gradient(180deg, #000 0%, transparent 80%);
-  transform-origin: 50% 0;
-  animation: beams 16s ease-in-out infinite alternate;
-}
-@keyframes beams {
-  from { transform: rotate(-1.6deg); }
-  to { transform: rotate(1.6deg); }
 }
 .arena::after {
   content: "";
@@ -267,18 +269,19 @@ button {
   inset: 0;
   background: radial-gradient(90% 45% at 50% 0%, rgba(232, 194, 106, 0.22), transparent 70%);
 }
+/* Snow falls by moving a layer twice the period taller than the screen, not by repainting its background. */
 .arena[data-mood="winter"]::before {
   content: "";
   position: absolute;
-  inset: 0;
+  inset: -440px 0 0 0;
   opacity: 0.35;
   background-image: radial-gradient(1.5px 1.5px at 20% 30%, #fff, transparent), radial-gradient(1px 1px at 70% 20%, #fff, transparent), radial-gradient(1.5px 1.5px at 40% 70%, #fff, transparent), radial-gradient(1px 1px at 85% 60%, #fff, transparent), radial-gradient(1px 1px at 10% 85%, #fff, transparent);
   background-size: 220px 220px;
   animation: snow 18s linear infinite;
 }
 @keyframes snow {
-  from { background-position: 0 0; }
-  to { background-position: 0 440px; }
+  from { transform: translateY(0); }
+  to { transform: translateY(440px); }
 }
 
 @keyframes pulse-soft {
@@ -309,21 +312,41 @@ button {
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 140' preserveAspectRatio='none'%3E%3Cpath d='M0 13C5 13 9 10 11 4L38 4C43 4 46 2 50 0C54 2 57 4 62 4L89 4C91 10 95 13 100 13L100 103C100 109 97 112 91 115L56 135C52 137.5 48 137.5 44 135L9 115C3 112 0 109 0 103Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
 }
 
-/* Frames (the rim around the face). Rating editions are metal; rarer ones move. */
+/* Frames (the rim around the face). Rating editions are metal; rarer ones are holographic, and on the big card of the
+   profile their light runs around (.fr-spin, a turning layer inside the frame). */
 .fr-bronze { background: linear-gradient(150deg, #ffd2a8, #8a5330 40%, #e6a77a 62%, #5a3018); }
 .fr-silver { background: linear-gradient(150deg, #ffffff, #8f9bb0 40%, #f1f4f9 62%, #5d6778); }
 .fr-gold { background: linear-gradient(150deg, #fff6d2, #b8902f 40%, #fff0b8 62%, #7a5a18); }
 .fr-rare { background: linear-gradient(150deg, #fffbe6, #e0b23c 30%, #fff3b0 50%, #b8861c 70%, #fff3b0); }
-.fr-epic, .fr-star, .fr-world, .fr-icon, .fr-toty, .fr-ucl, .fr-tots, .fr-hero, .fr-future { animation: holo 6s linear infinite; }
-.fr-epic { background: conic-gradient(from var(--holo-angle, 0deg), #c58bff, #ff6ad5, #6a3df0, #c58bff); }
-.fr-star { background: conic-gradient(from var(--holo-angle, 0deg), #fff3c9, #c9a24b, #2a200a, #ffd76a, #fff3c9, #8a6a22, #2a200a, #fff3c9); }
-.fr-world { background: conic-gradient(from var(--holo-angle, 0deg), #ff8ad8, #7fd3ff, #9dffb0, #ffe27a, #ff8ad8); animation-duration: 3.5s; }
-.fr-icon { background: conic-gradient(from var(--holo-angle, 0deg), #fffaf0, #d9b45a, #fff6dc, #b38a2e, #fffaf0); animation-duration: 8s; }
-.fr-toty { background: conic-gradient(from var(--holo-angle, 0deg), #ffe9a6, #c9a24b, #1d3cff, #ffe9a6, #8a6a22, #1d3cff, #ffe9a6); }
-.fr-ucl { background: conic-gradient(from var(--holo-angle, 0deg), #ffffff, #8fb4ff, #0b1c5c, #ffffff, #8fb4ff, #0b1c5c, #ffffff); }
-.fr-tots { background: conic-gradient(from var(--holo-angle, 0deg), #7dfff0, #1aa6c9, #0b3f6e, #e9d58a, #7dfff0); }
-.fr-hero { background: conic-gradient(from var(--holo-angle, 0deg), #ffd36e, #ff3d5a, #5a0a1a, #ffd36e, #ff3d5a, #ffd36e); }
-.fr-future { background: conic-gradient(from var(--holo-angle, 0deg), #a6ff4d, #ff4fd8, #3b0b6e, #a6ff4d); animation-duration: 4s; }
+.fr-epic { background: conic-gradient(#c58bff, #ff6ad5, #6a3df0, #c58bff); }
+.fr-star { background: conic-gradient(#fff3c9, #c9a24b, #2a200a, #ffd76a, #fff3c9, #8a6a22, #2a200a, #fff3c9); }
+.fr-world { background: conic-gradient(#ff8ad8, #7fd3ff, #9dffb0, #ffe27a, #ff8ad8); }
+.fr-icon { background: conic-gradient(#fffaf0, #d9b45a, #fff6dc, #b38a2e, #fffaf0); }
+.fr-toty { background: conic-gradient(#ffe9a6, #c9a24b, #1d3cff, #ffe9a6, #8a6a22, #1d3cff, #ffe9a6); }
+.fr-ucl { background: conic-gradient(#ffffff, #8fb4ff, #0b1c5c, #ffffff, #8fb4ff, #0b1c5c, #ffffff); }
+.fr-tots { background: conic-gradient(#7dfff0, #1aa6c9, #0b3f6e, #e9d58a, #7dfff0); }
+.fr-hero { background: conic-gradient(#ffd36e, #ff3d5a, #5a0a1a, #ffd36e, #ff3d5a, #ffd36e); }
+.fr-future { background: conic-gradient(#a6ff4d, #ff4fd8, #3b0b6e, #a6ff4d); }
+/* A square over the diagonal of the 1 : 1.4 shield, turning about its centre. */
+.fr-spin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 180%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  animation: spin 6s linear infinite;
+}
+.fr-spin.fr-world { animation-duration: 3.5s; }
+.fr-spin.fr-icon { animation-duration: 8s; }
+.fr-spin.fr-future { animation-duration: 4s; }
+/* Small cards (pitch, bench, lists) keep every colour and decoration but stand still: a team sheet holds twenty of
+   them, and each moving one kept the phone redrawing. */
+.still *,
+.still *::before,
+.still *::after {
+  animation: none !important;
+}
 
 /* Faces: light metal for bronze, silver, gold and the legends (dark text on them), deep colours for the rest. */
 .fc-bronze { background: linear-gradient(160deg, #f2c29b 0%, #c7895c 35%, #a8693f 70%, #8a5330 100%); }
@@ -348,17 +371,20 @@ button {
   mask-image: radial-gradient(circle, #000 0%, transparent 65%);
 }
 
-/* Holographic foil of the icon cards: follows the tilt (--fx is set from the pointer). */
+/* Holographic foil of the icon cards: a band 2.5 times the card slides across it (moved as a layer, not repainted). */
 .foil {
+  position: absolute;
+  left: 0;
+  top: -75%;
+  width: 250%;
+  height: 250%;
   background: linear-gradient(115deg, transparent 20%, rgba(255, 138, 216, 0.35) 35%, rgba(127, 211, 255, 0.35) 45%, rgba(157, 255, 176, 0.3) 55%, rgba(255, 226, 122, 0.3) 65%, transparent 80%);
-  background-size: 250% 250%;
-  background-position: var(--fx, 50%) 50%;
   mix-blend-mode: color-dodge;
   animation: foil 6s ease-in-out infinite alternate;
 }
 @keyframes foil {
-  from { background-position: 0% 50%; }
-  to { background-position: 100% 50%; }
+  from { transform: translateX(0); }
+  to { transform: translateX(-60%); }
 }
 
 /* Sparkles of legend and icon cards */
@@ -376,11 +402,25 @@ button {
   50% { opacity: 1; transform: scale(1) rotate(45deg); }
 }
 
-/* Breathing glow of the rating on epic and above */
-.glow-num { animation: glow-num 2.6s ease-in-out infinite; }
+/* Breathing glow of the rating on epic and above: a stronger glow behind the number (data-v) fades in and out, so
+   only its opacity changes and the text shadow is not redrawn on every frame. */
+.glow-num {
+  position: relative;
+  isolation: isolate;
+  text-shadow: 0 0 10px var(--glow, #fff6);
+}
+.glow-num::after {
+  content: attr(data-v);
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  color: transparent;
+  text-shadow: 0 0 22px var(--glow, #fff), 0 0 4px var(--glow, #fff);
+  animation: glow-num 2.6s ease-in-out infinite;
+}
 @keyframes glow-num {
-  0%, 100% { text-shadow: 0 0 10px var(--glow, #fff6); }
-  50% { text-shadow: 0 0 22px var(--glow, #fff), 0 0 4px var(--glow, #fff); }
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
 }
 
 /* ------------------------------------------------------------------ desktop */
@@ -435,8 +475,19 @@ button {
     0 0 80px -18px rgba(52, 190, 96, 0.45);
 }
 
-/* The next-match card: a rim of light running around it. */
+/* The next-match card: a rim of light running around it (a turning layer under the card's face). */
 .match-rim {
-  background: conic-gradient(from var(--holo-angle, 0deg), var(--accent), rgba(255, 255, 255, 0.06) 25%, rgba(255, 255, 255, 0.03) 50%, color-mix(in oklab, var(--accent) 50%, white) 70%, rgba(255, 255, 255, 0.06) 85%, var(--accent));
-  animation: holo 9s linear infinite;
+  isolation: isolate;
+}
+.match-rim::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: -1;
+  width: 160%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  background: conic-gradient(var(--accent), rgba(255, 255, 255, 0.06) 25%, rgba(255, 255, 255, 0.03) 50%, color-mix(in oklab, var(--accent) 50%, white) 70%, rgba(255, 255, 255, 0.06) 85%, var(--accent));
+  animation: spin 9s linear infinite;
 }

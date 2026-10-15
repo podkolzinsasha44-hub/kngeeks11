@@ -23,6 +23,7 @@ import { PlayerCard } from '../components/PlayerCard';
 import { Sparkline } from '../components/charts';
 import { ATTR_RU, clubLabel, dispName, fitColor, FOOT_RU, money, moneyStep, nationName, ovrColor, playerAge, potLabel, ROLE_FULL, ROLE_RU, seasonLabel } from '../format';
 import { useKeep } from '../keep';
+import { useCalm } from '../calm';
 
 const OUT: (keyof OutfieldAttrs)[] = ['pac', 'sho', 'pas', 'dri', 'att', 'def', 'phy', 'hea', 'sta', 'dis'];
 const KEEP: (keyof KeeperAttrs)[] = ['ref', 'pos', 'han', 'kic', 'con', 'men'];
@@ -286,8 +287,8 @@ function ContractTab({ L, p, team }: { L: League; p: Player; team: League['teams
   const ver = useGame((s) => s.ver);
   const rc = useMemo(() => (p.team === L.user ? renewalCases(L).find((c) => c.p.id === p.id) ?? null : null), [L, p, ver]); // eslint-disable-line react-hooks/exhaustive-deps
   const [open, setOpen] = useState(false);
-  const sv = useMemo(() => (p.team === L.user && !p.loan ? saleView(L, p) : null), [L, p, ver]); // eslint-disable-line react-hooks/exhaustive-deps
-  const vo = useMemo(() => (p.team === L.user && !p.loan ? valueOutlook(L, p) : null), [L, p, ver]); // eslint-disable-line react-hooks/exhaustive-deps
+  const sv = useCalm(() => (p.team === L.user && !p.loan ? saleView(L, p) : null), [L, ver], [p]);
+  const vo = useCalm(() => (p.team === L.user && !p.loan ? valueOutlook(L, p) : null), [L, ver], [p]);
   return (
     <>
       {vo && <ValueCard vo={vo} />}

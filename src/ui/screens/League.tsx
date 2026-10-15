@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useL } from '../../store/game';
 import { useNav } from '../../store/nav';
+import { useCalm } from '../calm';
 import { LEAGUES, LEAGUE_IDS, statKey } from '../../engine/leagues';
 import { FORMATIONS, teamPower } from '../../engine/lineup';
 import { seasonOdds } from '../../engine/projection';
@@ -50,7 +51,7 @@ function Table({ L, lg }: { L: League; lg: LeagueId }) {
   const push = useNav((s) => s.push);
   const table = sortedTeams(L, lg);
   const cfg = LEAGUES[lg];
-  const odds = useMemo(() => (L.comps[lg].phase === 'regular' ? seasonOdds(L, lg, 200) : null), [L.date, lg]); // eslint-disable-line react-hooks/exhaustive-deps
+  const odds = useCalm(() => (L.comps[lg].phase === 'regular' ? seasonOdds(L, lg, 200) : null), [L.date], [lg]);
   const n = table.length;
   const up = cfg.up ? cfg.promote ?? 0 : 1, upPO = cfg.up ? cfg.promotePO ?? 0 : cfg.top - 1;
   const zone = (i: number) => (i < up ? '#e8c26a' : i < up + upPO ? '#3ddc97' : i >= n - cfg.relegate && cfg.relegate ? '#ff5a5f' : i >= n - cfg.relegate - cfg.playoff && cfg.playoff ? '#ffb547' : 'transparent');

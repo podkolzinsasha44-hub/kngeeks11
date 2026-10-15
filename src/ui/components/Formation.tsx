@@ -41,7 +41,8 @@ export function usePitchBox() {
 export function Pitch({ box, children }: { box: RefObject<HTMLDivElement | null>; children?: ReactNode }) {
   return (
     <div ref={box} className="pitch-frame relative w-full max-w-[520px] mx-auto overflow-hidden rounded-[18px]" style={{ aspectRatio: '68 / 110' }}>
-      <PitchSvg vertical stretch className="absolute inset-0 w-full h-full" />
+      {/* A layer of its own: the grass grain filter is drawn once, not again whenever a card on top changes. */}
+      <div className="absolute inset-0" style={{ willChange: 'transform' }}><PitchSvg vertical stretch className="w-full h-full" /></div>
       {children}
     </div>
   );

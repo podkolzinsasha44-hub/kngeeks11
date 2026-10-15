@@ -143,6 +143,7 @@ export const useGame = create<GameState>((set, get) => ({
     const sim: SimState = { mode, running: true, from: L.date, target, days: 0, results: [], last: null };
     set({ sim });
     let budgetStart = performance.now();
+    let shown = budgetStart;
     // "Watch the match" goes straight to the game: offers and injuries on the way wait in the inbox.
     const stopSet = opts?.watch ? ALWAYS : mode === 'event' || mode === 'week' || mode === 'game' || mode === 'day' ? EVENT : ALWAYS;
     let reason: string | null = null;
@@ -180,7 +181,11 @@ export const useGame = create<GameState>((set, get) => ({
       if (mode === 'date' && target && L.date >= target) break;
       if (sim.days > 400) break;
       if (performance.now() - budgetStart > 34) {
-        set({ sim: { ...sim }, ver: get().ver + 1 });
+        // Showing the progress re-renders the screen: a few times a second is enough, the rest of the time goes to the days.
+        if (performance.now() - shown > 150) {
+          set({ sim: { ...sim }, ver: get().ver + 1 });
+          shown = performance.now();
+        }
         await new Promise((r) => setTimeout(r, 0));
         budgetStart = performance.now();
       }
