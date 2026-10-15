@@ -11,7 +11,7 @@ import { negotiate, userBid } from '../src/engine/transfers';
 import { canRegister, interest, startTalks } from '../src/engine/contracts';
 import { dealFor, transferAdvice } from '../src/engine/advice';
 import { aiLineup, foreignOnPitch } from '../src/engine/ai';
-import { lineupOptions } from '../src/engine/bestxi';
+import { lineupOptions, staffLineup } from '../src/engine/bestxi';
 import { autoRenew, renewalCases } from '../src/engine/renewals';
 import { offerView, saleView, sellAdvice } from '../src/engine/sale';
 import { buyerCeiling, purchaseOf, releasePlayer, respondOffer, saleBlock, setListed } from '../src/engine/transfers';
@@ -408,6 +408,48 @@ describe('pinned players', () => {
     L.players[reserve.id].inj = null;
     aiLineup(L, t, undefined, true);
     expect(t.lineup.xi).toContain(reserve.id);
+  });
+});
+
+describe('auto line-up', () => {
+  it('after every day the staff put out the best eleven in the user\'s formation, pinned players kept', () => {
+    const L = career('ZEN');
+    const t = L.teams.ZEN;
+    t.lineup.auto = true;
+    t.lineup.form = '4-4-2';
+    staffLineup(L, t);
+    const best = lineupOptions(L, t, ['4-4-2']).options[0];
+    expect(t.lineup.xi).toEqual(best.lineup.xi);
+    const pinned = t.lineup.xi[5];
+    t.lineup.pinned = [pinned];
+    // A starter gets hurt: the next day he is out of the eleven without the user doing anything.
+    const hurt = L.players[t.lineup.xi[2]];
+    hurt.inj = { type: 'test', days: 20, total: 20 };
+    advanceDay(L);
+    expect(t.lineup.form).toBe('4-4-2');
+    expect(t.lineup.xi).not.toContain(hurt.id);
+    expect(t.lineup.xi).toContain(pinned);
+    expect(lineupValid(L, t)).toBe(true);
+    expect(t.lineup.xi).toEqual(lineupOptions(L, t, ['4-4-2']).options[0].lineup.xi);
+    // Healthy again: he is back if he is among the best.
+    hurt.inj = null;
+    advanceDay(L);
+    expect(t.lineup.xi).toEqual(lineupOptions(L, t, ['4-4-2']).options[0].lineup.xi);
+    // A red card: the suspended starter is replaced the same way.
+    const sent = L.players[t.lineup.xi.find((id) => id !== pinned && L.players[id].pos !== 'G')!];
+    sent.susp = 2;
+    advanceDay(L);
+    expect(t.lineup.xi).not.toContain(sent.id);
+    expect(lineupValid(L, t)).toBe(true);
+  });
+
+  it('a manual line-up is still never rebuilt', () => {
+    const L = career('ZEN');
+    const t = L.teams.ZEN;
+    t.lineup.auto = false;
+    const before = [...t.lineup.xi];
+    advanceDay(L);
+    expect(t.lineup.xi).toEqual(before);
   });
 });
 

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useGame, useL } from '../../store/game';
 import { useNav } from '../../store/nav';
-import { aiLineup, foreignOnPitch } from '../../engine/ai';
-import { lineupOptions, type ShapeOption } from '../../engine/bestxi';
+import { foreignOnPitch } from '../../engine/ai';
+import { lineupOptions, staffLineup, type ShapeOption } from '../../engine/bestxi';
 import { wageBill } from '../../engine/contracts';
 import { foreignLimit, isForeign } from '../../engine/leagues';
 import { BENCH_SIZE, FORMATIONS, FORMATION_IDS, available, lineupValid, setCover, slotRating, squad, teamPower, teamStrength } from '../../engine/lineup';
@@ -109,7 +109,10 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
   const inXI = new Set(ln.xi), onBench = new Set(ln.bench);
   const reserves = sq.filter((p) => !inXI.has(p.id) && !onBench.has(p.id)).sort((a, b) => b.ovr - a.ovr);
   const cardW = Math.max(54, Math.min(84, w * 0.176));
-  const manual = <T,>(fn: () => T) => act(() => { t.lineup.auto = false; return fn(); });
+  const manual = <T,>(fn: () => T) => {
+    if (t.lineup.auto) toast('Ручной состав: штаб больше не меняет его сам. Чтобы игрок оставался в основе при автосоставе — закрепите его 📌', 'info');
+    return act(() => { t.lineup.auto = false; return fn(); });
+  };
   const ok = (id: number | null) => id != null && !!L.players[id] && available(L.players[id]);
   const covers = Object.entries(ln.cover ?? {}).map(([sub, reg]) => [L.players[Number(sub)], L.players[reg]] as const).filter(([sub, reg]) => sub && reg && !available(reg) && ln.xi.includes(sub.id));
   const refuse = (id: number | null) => { if (id != null && L.players[id]) toast(`${dispName(L.players[id])} сейчас не может играть`, 'bad'); };
@@ -175,7 +178,8 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
     swap(a, b);
   };
 
-  const setForm = (f: FormationId) => manual(() => {
+  // With the staff in charge a new formation keeps them in charge: they put out the best eleven in it.
+  const setForm = (f: FormationId) => (t.lineup.auto ? act(() => { t.lineup.form = f; staffLineup(L, t); setSel(null); }) : manual(() => {
     // Keep the same eleven; players are re-seated into the new shape by best fit.
     const left = t.lineup.xi.map((id) => L.players[id]).filter(Boolean);
     const xi: number[] = [];
@@ -188,7 +192,7 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
     t.lineup.form = f;
     t.lineup.xi = xi;
     setSel(null);
-  });
+  }));
   const [bestOpen, setBestOpen] = useState(false);
   const candidates = useMemo(() => (pick == null ? [] : [...sq].sort((a, b) => slotRating(b, roles[pick]) - slotRating(a, roles[pick]))), [pick, sq, roles]);
   const selP = sel?.id != null ? L.players[sel.id] : null;
@@ -278,11 +282,11 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
       <Card className="mt-3">
         <div className="flex items-center gap-3">
           <div className="flex-1">
-            <div className="text-[15px] font-semibold">{ln.auto ? 'Состав выбирает штаб' : 'Состав выбираете вы'}</div>
-            <div className="text-[12.5px] text-muted leading-snug">{ln.auto ? 'Перед каждым матчем штаб ставит сильнейших доступных игроков.' : 'На поле выйдут именно эти одиннадцать. Если кто-то не сможет играть, игра остановится и предупредит.'}</div>
+            <div className="text-[15px] font-semibold">Автосостав: лучший состав после каждого матча</div>
+            <div className="text-[12.5px] text-muted leading-snug">{ln.auto ? `Включён. После каждого матча, травмы или дисквалификации штаб сам ставит лучший состав в схеме ${ln.form}. Закреплённые 📌 остаются в основе.` : 'Выключен: на поле выйдут именно эти одиннадцать. Если кто-то не сможет играть, игра остановится и предупредит.'}</div>
           </div>
-          <button onClick={() => act(() => { t.lineup.auto = !t.lineup.auto; if (t.lineup.auto) aiLineup(L, t, sq, true); })} className={cx('press hit w-[52px] h-[32px] rounded-full shrink-0 transition-colors', ln.auto ? 'bg-white/15' : 'accent-bg')} aria-label="Ручной состав">
-            <span className={cx('absolute top-[3px] w-[26px] h-[26px] rounded-full bg-white transition-all', ln.auto ? 'left-[3px]' : 'left-[23px]')} />
+          <button onClick={() => { const on = !t.lineup.auto; act(() => { t.lineup.auto = on; if (on) staffLineup(L, t); }); toast(on ? 'Автосостав включён: штаб ставит лучший состав после каждого матча' : 'Автосостав выключен: состав выбираете вы', 'good'); }} className={cx('press hit relative w-[52px] h-[32px] rounded-full shrink-0 transition-colors', ln.auto ? 'accent-bg' : 'bg-white/15')} aria-label="Автосостав" aria-pressed={ln.auto}>
+            <span className={cx('absolute top-[3px] w-[26px] h-[26px] rounded-full bg-white transition-all', ln.auto ? 'left-[23px]' : 'left-[3px]')} />
           </button>
         </div>
       </Card>

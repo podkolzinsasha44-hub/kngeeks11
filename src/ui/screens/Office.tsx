@@ -20,8 +20,7 @@ import { Ring } from '../components/charts';
 import { dateLong, dateShort, dowRu, money, phaseLabel, recordStr, ROLE_RU, seasonLabel } from '../format';
 import { SimDock } from './SimOverlay';
 import { transferAdvice } from '../../engine/advice';
-import { aiLineup } from '../../engine/ai';
-import { squad } from '../../engine/lineup';
+import { staffLineup } from '../../engine/bestxi';
 import { keepFor } from '../keep';
 import { surname } from '../components/PlayerCard';
 import { PlayerPhoto } from '../components/media';
@@ -300,7 +299,7 @@ function BestLineupButton() {
   const t = L.teams[L.user];
   const best = () => {
     const before = teamPower(L, t);
-    act(() => { const keep = t.lineup.auto; aiLineup(L, t, squad(L, t.id), true); t.lineup.auto = keep; });
+    act(() => staffLineup(L, t));
     const after = teamPower(L, t);
     toast(after > before + 0.05 ? `Лучший состав: сила ${before.toFixed(1)} → ${after.toFixed(1)}` : `Уже стоит лучший состав (сила ${after.toFixed(1)})`, 'good');
   };

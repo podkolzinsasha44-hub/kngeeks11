@@ -3,6 +3,7 @@
 import { canRegister, interest, offerContract, signContract, startTalks, wageBill, wageFor, type TalkResult } from './contracts';
 import { foreignLimit, isForeign, windowOpen } from './leagues';
 import { FORMATIONS, autoLineup, available, slotRating, squad, touchSquads } from './lineup';
+import { staffLineup } from './bestxi';
 import { pushMsg, pushNews, social } from './news';
 import { avgRating, seasonTotal } from './stats';
 import { int, next, pick, shuffle } from './rng';
@@ -232,7 +233,7 @@ export function autoFixUserLineup(L: League) {
   const ok = (id: number) => L.players[id]?.team === t.id;
   t.lineup.bench = t.lineup.bench.filter(ok);
   if (t.lineup.pinned) t.lineup.pinned = t.lineup.pinned.filter(ok);
-  if (t.lineup.auto) autoLineup(L, t);
+  if (t.lineup.auto) staffLineup(L, t);
 }
 
 // ----- AI clubs among themselves ---------------------------------------------------------------

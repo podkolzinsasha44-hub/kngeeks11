@@ -18,6 +18,7 @@ import { ensureSquads, weeklyMarket } from './transfers';
 import type { Game, League, LeagueId, OutfieldAttrs, Player, Team } from './types';
 import { addDays, clamp, dispName, dow } from './util';
 import { autoRenew, renewalCases, VERDICT_RU } from './renewals';
+import { staffLineup } from './bestxi';
 import { absenceText, dateRu, injure } from './medical';
 import { dailyClub, recovery, weeklyTraining } from './club';
 import { club, onUclGame, rosterOf, UCL } from './ucl';
@@ -42,7 +43,7 @@ export function setLastBox(b: typeof lastUserBox) { lastUserBox = b; }
  */
 function prepareUserLineup(L: League, t: Team, roster: Player[], date: string): boolean {
   if (t.lineup.auto) {
-    aiLineup(L, t, roster, true);
+    staffLineup(L, t);
     return true;
   }
   const lim = foreignLimit(t.lg, L.season);
@@ -102,6 +103,8 @@ export function applyLive(L: League, g: Game, box: MatchBox) {
   L.lastUserGame = g.id;
   L.liveGame = undefined;
   checkEnds(L);
+  const me = L.teams[L.user];
+  if (me?.lineup.auto) staffLineup(L, me);
 }
 
 /** Leagues whose last game has been played end; when all of them are over, the play-offs are drawn. */
@@ -176,7 +179,7 @@ function applyGame(L: League, g: Game, box: MatchBox) {
     if (p.team === L.user) {
       pushMsg(L, {
         from: 'Медицинский штаб', kind: 'staff', title: `Травма: ${dispName(p)}`,
-        body: `${inj.type}. Ориентировочно ${absenceText(days)}, вернётся к ${dateRu(addDays(L.date, days))}.${!L.teams[L.user].lineup.auto && L.teams[L.user].lineup.xi.includes(p.id) ? '\n\nОн в вашем стартовом составе: перед матчем замените его. Когда он поправится, штаб сам вернёт его на место.' : ''}`,
+        body: `${inj.type}. Ориентировочно ${absenceText(days)}, вернётся к ${dateRu(addDays(L.date, days))}.${!L.teams[L.user].lineup.xi.includes(p.id) ? '' : L.teams[L.user].lineup.auto ? '\n\nШтаб сам поставит лучший состав без него, а когда он поправится — вернёт в основу, если он сильнее.' : '\n\nОн в вашем стартовом составе: перед матчем замените его. Когда он поправится, штаб сам вернёт его на место.'}`,
         ref: { type: 'player', id: p.id },
       });
       if (days >= 10 && p.ovr >= L.teams[L.user].lineup.xi.reduce((s, id) => s + (L.players[id]?.ovr ?? 0), 0) / 11 - 3) L.stops.push('injury');
@@ -277,6 +280,9 @@ export function advanceDay(L: League, opts: { live?: boolean } = {}): DayReport 
   intlDaily(L);
   daily(L);
   dailyClub(L);
+  // The staff pick the team: after the games, injuries, suspensions and returns of the day they put out the best eleven.
+  const me = L.teams[L.user];
+  if (me?.lineup.auto) staffLineup(L, me);
 
   if (dow(date) === 1) {
     weeklyMorale(L);

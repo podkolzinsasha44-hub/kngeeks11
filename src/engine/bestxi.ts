@@ -20,14 +20,14 @@ export interface ShapeOption {
  * All formations for the next match, strongest first, plus the power of the current line-up.
  * Pinned players who can play are in every eleven; in the current formation they keep their slots.
  */
-export function lineupOptions(L: League, t: Team): { options: ShapeOption[]; current: number } {
+export function lineupOptions(L: League, t: Team, forms: FormationId[] = FORMATION_IDS): { options: ShapeOption[]; current: number } {
   const pool = squad(L, t.id).filter(available);
   const lim = foreignLimit(t.lg, L.season);
   const maxF = lim ? lim[1] : 11;
   const foreign = (p: Player) => isForeign(p, t.country);
   const pins = new Set(t.lineup.pinned ?? []);
   const options: ShapeOption[] = [];
-  for (const form of FORMATION_IDS) {
+  for (const form of forms) {
     const roles = FORMATIONS[form];
     const tmp = { ...t, lineup: { ...t.lineup, form, xi: bestXI(pool, form, pinsFor(t.lineup, form)).xi.map((p) => p.id) } };
     fixForeign(L, tmp, pool);
@@ -74,4 +74,15 @@ export function lineupOptions(L: League, t: Team): { options: ShapeOption[]; cur
   }
   options.sort((a, b) => b.power - a.power);
   return { options, current: teamPower(L, t) };
+}
+
+/**
+ * The staff put out the best line-up in the user's formation: the same search as "best line-up", pinned players
+ * kept. Used whenever the staff pick the team (`lineup.auto`): after every day, so an injury is covered at once.
+ */
+export function staffLineup(L: League, t: Team) {
+  const o = lineupOptions(L, t, [t.lineup.form]).options[0];
+  if (!o || o.lineup.xi.length < 11) return;
+  const pen = t.lineup.pen != null && o.lineup.xi.includes(t.lineup.pen) ? t.lineup.pen : o.lineup.pen;
+  t.lineup = { ...o.lineup, auto: t.lineup.auto, pen };
 }
