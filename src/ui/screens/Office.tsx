@@ -33,7 +33,7 @@ export function Office() {
   const openModal = useNav((s) => s.openModal);
   const t = L.teams[L.user];
   const ng = nextUserGame(L);
-  const lim = foreignLimit(t.lg, L.season);
+  const lim = foreignLimit(L, t.lg);
   const xiKey = t.lineup.xi.join(',') + t.lineup.form + t.tactic;
   const opp = ng ? club(L, ng.h === L.user ? ng.a : ng.h) : null;
   // The odds come from the match engine itself, played with the two elevens as they stand now.

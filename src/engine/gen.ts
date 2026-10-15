@@ -4,8 +4,8 @@ import { YOUTH } from './names';
 import { int, next, normal, pick, weighted } from './rng';
 import type { KeeperAttrs, League, OutfieldAttrs, Personality, Player, Role, Team } from './types';
 import { MIN_VALUE, W_ROLE, calcOvr, clamp, posOfRole, roundMoney } from './util';
-import { wageFor } from './contracts';
-import { touchSquads } from './lineup';
+import { modelValue, wageFor } from './contracts';
+import { squad, touchSquads } from './lineup';
 
 export function personality(): Personality {
   const v = () => clamp(Math.round(normal(11, 3.5)), 1, 20);
@@ -68,6 +68,53 @@ export function genPlayer(L: League, o: GenOpts = {}): Player {
   p.pot = Math.max(p.pot, p.ovr);
   p.val = Math.max(MIN_VALUE, roundMoney(1e5 * Math.pow(10, (p.ovr + 0.3 * (p.pot - p.ovr) + 4 - 58) / 10)));
   L.players[p.id] = p;
+  touchSquads();
+  return p;
+}
+
+export interface NewPlayer {
+  fn: string; ln: string; role: Role; foot: Player['foot'];
+  year: number; ovr: number; pot: number;
+  /** Clubs before, oldest first: name and seasons there. */
+  past: { club: string; years: number }[];
+  /** Photo as a data URL, made on the device; it stays in the save. */
+  photo?: string | null;
+}
+
+/**
+ * A player the user creates for his own club, e.g. a boy from his academy. He lives only in the user's save
+ * (`custom`, `made`): the game ships no such data. Signed on an academy contract, so the wage limit does not stop him.
+ */
+export function createPlayer(L: League, o: NewPlayer): Player | string {
+  const t = L.teams[L.user];
+  if (!t) return 'Нет клуба';
+  if (!o.ln.trim()) return 'Введите фамилию';
+  if (squad(L, t.id).length >= 40) return 'В заявке уже 40 игроков — сначала освободите место';
+  const age = Number(L.date.slice(0, 4)) - o.year;
+  const ovr = clamp(Math.round(o.ovr), 30, 99);
+  const p = genPlayer(L, { team: t, role: o.role, age: clamp(age, 15, 40), ovr, pot: clamp(Math.round(o.pot), ovr, 99) });
+  p.fn = o.fn.trim(); p.ln = o.ln.trim(); p.ru = `${p.fn} ${p.ln}`.trim();
+  p.ctry = t.country ?? 'RUS';
+  p.foot = o.foot;
+  p.bd = `${o.year}${p.bd.slice(4)}`;
+  p.r = attrsFor(o.role, ovr);
+  p.ovr = calcOvr(p);
+  // A star: every attribute of the role is pushed up until the rating is what the user asked for.
+  for (let it = 0; it < 30 && p.ovr < ovr; it++) {
+    for (const k in p.r) (p.r as unknown as Record<string, number>)[k] = Math.min(99, (p.r as unknown as Record<string, number>)[k] + 1);
+    p.ovr = calcOvr(p);
+  }
+  p.pot = clamp(Math.round(o.pot), p.ovr, 99);
+  p.dev = 'E';
+  p.yth = undefined;
+  p.custom = true; p.made = true;
+  p.img = o.photo ?? null;
+  p.c = { wage: Math.max(15_000, roundMoney(wageFor(50, t.lg) * 0.6)), until: L.season + 5, signed: L.season };
+  const past = o.past.filter((x) => x.club.trim() && x.years > 0);
+  let y = L.season - past.reduce((s, x) => s + Math.round(x.years), 0);
+  p.h = past.flatMap((x) => Array.from({ length: Math.round(x.years) }, () => [y++, x.club.trim(), '—', '—', '—', 0]));
+  p.bought = { fee: 0, date: L.date, from: past.length ? past[past.length - 1].club.trim() : null };
+  p.val = modelValue(p, L.date, t.lg);
   touchSquads();
   return p;
 }

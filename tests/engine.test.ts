@@ -19,6 +19,7 @@ import { modelValue, raiseWageBudget, WAGE_SWAP, wageBill, wageFor } from '../sr
 import type { League } from '../src/engine/types';
 import { newCareer, upgradeSave, type WorldJson } from '../src/engine/world';
 import { editYouthPlayer } from '../src/engine/youth';
+import { createPlayer } from '../src/engine/gen';
 import { initPlayoffs } from '../src/engine/cup';
 import { recovery, startUpgrade, trainingGrowth, upgradeCost, weeklyTraining, facility } from '../src/engine/club';
 import { developPlayer } from '../src/engine/progression';
@@ -67,7 +68,7 @@ describe('data', () => {
       const sq = squad(L, id);
       expect(sq.length).toBeGreaterThanOrEqual(20);
       expect(sq.filter((p) => p.pos === 'G').length).toBeGreaterThanOrEqual(2);
-      const lim = foreignLimit('RPL', L.season)!;
+      const lim = foreignLimit(L, 'RPL')!;
       expect(sq.filter((p) => isForeign(p, 'RUS')).length).toBeLessThanOrEqual(lim[0]);
     }
   });
@@ -366,7 +367,7 @@ describe('best line-up', () => {
         o.lineup.xi.forEach((pid, i) => expect(L.players[pid].pos === 'G').toBe(roles[i] === 'GK'));
         t.lineup = o.lineup;
         expect(lineupValid(L, t)).toBe(true);
-        expect(foreignOnPitch(L, t)).toBeLessThanOrEqual(foreignLimit(t.lg, L.season)![1]);
+        expect(foreignOnPitch(L, t)).toBeLessThanOrEqual(foreignLimit(L, t.lg)![1]);
         // The power shown is what the engine plays with.
         expect(teamPower(L, t)).toBeCloseTo(o.power, 9);
       }
@@ -517,6 +518,39 @@ describe('wage limit', () => {
     expect(canRegister(L, t, p, 50_000, true)).toBeNull();
     expect(raiseWageBudget(L, 1_000_000)).toMatch(/Не хватает/);
     expect(t.budget).toBe(b - 100_000 * WAGE_SWAP);
+  });
+});
+
+describe('foreign players setting', () => {
+  it('switched off, no Russian league limits foreigners in the squad or on the pitch', () => {
+    const L = career('ZEN');
+    expect(foreignLimit(L, 'RPL')).not.toBeNull();
+    expect(foreignLimit(L, 'L2B')).toEqual([0, 0]);
+    L.settings.noForeignLimit = true;
+    for (const lg of ['RPL', 'FNL', 'L2A', 'L2B'] as const) expect(foreignLimit(L, lg)).toBeNull();
+    const t = L.teams.ZEN;
+    const best = lineupOptions(L, t).options[0];
+    expect(best.lineup.xi.length).toBe(11);
+  });
+});
+
+describe('a player the user creates', () => {
+  it('joins the user\'s club with the rating, potential and past clubs asked for', () => {
+    const L = career('ORL');
+    const t = L.teams.ORL;
+    const bill = wageBill(L, t.id);
+    const p = createPlayer(L, { fn: 'Тест', ln: 'Звезда', role: 'LW', foot: 'L', year: L.season - 16, ovr: 95, pot: 99, past: [{ club: 'Академия А', years: 2 }, { club: 'Академия Б', years: 2 }], photo: 'data:image/jpeg;base64,AAAA' });
+    if (typeof p === 'string') throw new Error(p);
+    expect(p.team).toBe('ORL');
+    expect(squad(L, 'ORL')).toContain(p);
+    expect(p.ovr).toBeGreaterThanOrEqual(94);
+    expect(p.pot).toBe(99);
+    expect(p.role).toBe('LW');
+    expect(p.made && p.custom && !p.real).toBe(true);
+    expect(p.h?.map((h) => [h[0], h[1]])).toEqual([[L.season - 4, 'Академия А'], [L.season - 3, 'Академия А'], [L.season - 2, 'Академия Б'], [L.season - 1, 'Академия Б']]);
+    // An academy contract: the wage limit does not stop him.
+    expect(wageBill(L, t.id) - bill).toBeLessThan(50_000);
+    expect(createPlayer(L, { fn: '', ln: ' ', role: 'ST', foot: 'R', year: 2008, ovr: 60, pot: 70, past: [] })).toMatch(/фамили/);
   });
 });
 

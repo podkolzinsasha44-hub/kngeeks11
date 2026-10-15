@@ -53,7 +53,7 @@ export function foreignCount(L: League, t: Team) {
 export function canRegister(L: League, t: Team, p: Player, wage: number, transfer = false): string | null {
   const sq = squad(L, t.id);
   if (!transfer && sq.length >= 40) return 'В заявке уже 40 игроков — сначала освободите место';
-  const lim = foreignLimit(t.lg, L.season);
+  const lim = foreignLimit(L, t.lg);
   if (lim && isForeign(p, t.country) && sq.filter((x) => isForeign(x, t.country)).length >= lim[0]) return `Лимит на легионеров: не больше ${lim[0]} в заявке`;
   if (wageBill(L, t.id) + wage > t.wageBudget * 1.02) return `Зарплатный бюджет исчерпан (${money(t.wageBudget)} в год)`;
   return null;

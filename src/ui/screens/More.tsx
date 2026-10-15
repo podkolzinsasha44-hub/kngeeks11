@@ -141,7 +141,7 @@ export function FinanceScreen() {
   const t = L.teams[L.user];
   const sq = squad(L, t.id).filter((p) => p.c).sort((a, b) => (b.c!.wage ?? 0) - (a.c!.wage ?? 0));
   const bill = wageBill(L, t.id);
-  const lim = foreignLimit(t.lg, L.season);
+  const lim = foreignLimit(L, t.lg);
   const [w1, w2] = transferWindows(L.season);
   return (
     <Screen title="Финансы">
@@ -284,7 +284,7 @@ export function SettingsScreen() {
   const save = useGame((s) => s.save);
   const toast = useGame((s) => s.toast);
   const s = L.settings;
-  const T = ({ k, label, sub }: { k: 'sound' | 'stopOnUserGames' | 'watchGames' | 'hideMedia' | 'noFiring' | 'intlRussia' | 'autoRenew'; label: string; sub?: string }) => (
+  const T = ({ k, label, sub }: { k: 'sound' | 'stopOnUserGames' | 'watchGames' | 'hideMedia' | 'noFiring' | 'intlRussia' | 'autoRenew' | 'noForeignLimit'; label: string; sub?: string }) => (
     <Row onClick={() => act(() => { s[k] = !isOn(s, k); })}>
       <div className="flex-1"><div className="text-[15.5px]">{label}</div>{sub && <div className="text-[12.5px] text-muted">{sub}</div>}</div>
       <Switch on={isOn(s, k)} />
@@ -301,7 +301,8 @@ export function SettingsScreen() {
         <T k="sound" label="Звук гола" /><Divider />
         <T k="hideMedia" label="Скрыть соцсети в новостях" /><Divider />
         <T k="noFiring" label="Без увольнения" sub="Доверие руководства считается, но уволить вас нельзя" /><Divider />
-        <T k="intlRussia" label="Россия в турнирах FIFA и UEFA" sub="Сборная на ЧМ и Евро, чемпион РПЛ — в Лиге чемпионов (со следующего сезона). В реальности отстранены с 2022 года" />
+        <T k="intlRussia" label="Россия в турнирах FIFA и UEFA" sub="Сборная на ЧМ и Евро, чемпион РПЛ — в Лиге чемпионов (со следующего сезона). В реальности отстранены с 2022 года" /><Divider />
+        <T k="noForeignLimit" label="Без лимита на легионеров" sub="Сколько угодно легионеров в заявке и на поле, во Второй лиге тоже. Для всех клубов одинаково. В реальности — лимит Минспорта" />
       </Card>
       <SectionTitle>Травмы и карточки</SectionTitle>
       <Segmented value={s.incidents ?? 'less'} onChange={(v) => act(() => { s.incidents = v; })} options={(Object.keys(INCIDENTS) as Incidents[]).map((v) => ({ v, label: INCIDENTS[v].label }))} />

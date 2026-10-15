@@ -381,7 +381,7 @@ export function releasePlayer(L: League, p: Player) {
 }
 
 export const foreignLeft = (L: League, t: Team) => {
-  const lim = foreignLimit(t.lg, L.season);
+  const lim = foreignLimit(L, t.lg);
   return lim ? lim[0] - squad(L, t.id).filter((p) => isForeign(p, t.country)).length : null;
 };
 export { wageBill };

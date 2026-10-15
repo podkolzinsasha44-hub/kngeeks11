@@ -76,7 +76,7 @@ export function PlayerScreen({ params }: { params: Record<string, unknown> }) {
 
 function Badges({ L, p }: { L: League; p: Player }) {
   const items = [
-    !p.real && <Pill key="acad">Воспитанник академии</Pill>,
+    p.made ? <Pill key="made" color="var(--accent)">Создан вами</Pill> : !p.real && <Pill key="acad">Воспитанник академии</Pill>,
     p.inj && <Pill key="inj" color="#ff5a5f">Травма: {p.inj.type}, ещё {p.inj.days} дн. · вернётся {dateRu(addDays(L.date, p.inj.days))}</Pill>,
     !!p.susp && <Pill key="susp" color="#ff5a5f">Дисквалификация: пропустит {matchesRu(p.susp)}</Pill>,
     p.wantsOut && <Pill key="out" color="#ffb547">Хочет сменить клуб</Pill>,
@@ -271,7 +271,7 @@ function Stats({ L, p }: { L: League; p: Player }) {
         ))}
         {!seasons.length && !p.h?.length && <div className="px-3 py-4 text-muted text-[13.5px]">Данных о матчах пока нет.</div>}
       </Card>
-      {!!p.h?.length && <div className="text-[11.5px] text-faint mt-1.5 px-1">Сезоны до 2026/27 — реальная статистика игрока во всех турнирах.</div>}
+      {!!p.h?.length && <div className="text-[11.5px] text-faint mt-1.5 px-1">{p.made ? 'Прошлые клубы указаны вами при создании игрока.' : 'Сезоны до 2026/27 — реальная статистика игрока во всех турнирах.'}</div>}
     </>
   );
 }

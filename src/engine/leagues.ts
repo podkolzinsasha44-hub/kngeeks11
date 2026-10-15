@@ -107,8 +107,10 @@ export const isForeign = (p: Player, country: string) => (country === 'RUS' ? !H
  * Foreign-player limit of the Russian leagues: [in the squad, on the pitch].
  * 2026-27: 12 and 7; 2027-28: 11 and 6; from 2028-29: 10 and 5 (ministry order, reference values).
  */
-export function foreignLimit(lg: LeagueId, season: number): [number, number] | null {
-  if (LEAGUES[lg]?.country !== 'RUS') return null;
+/** [in the squad, on the pitch] for foreigners, or null: no limit (abroad, or switched off in the settings). */
+export function foreignLimit(L: Pick<League, 'season' | 'settings'>, lg: LeagueId): [number, number] | null {
+  if (LEAGUES[lg]?.country !== 'RUS' || L.settings.noForeignLimit) return null;
+  const season = L.season;
   // The Second League admits only citizens of Russia (and of the Eurasian Economic Union): no foreigners at all.
   if (lg === 'L2A' || lg === 'L2B') return [0, 0];
   return season <= 2026 ? [12, 7] : season === 2027 ? [11, 6] : [10, 5];

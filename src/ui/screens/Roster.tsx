@@ -15,6 +15,7 @@ import { PitchSvg } from '../components/charts';
 import { dispName, dispShort, fitColor, money, playerAge, POS_FULL, ROLE_RU } from '../format';
 import { useKeep } from '../keep';
 import { loanedOut } from '../../engine/loans';
+import { NewPlayerSheet } from '../components/NewPlayer';
 
 type TabId = 'pitch' | 'list';
 
@@ -25,10 +26,14 @@ export function Roster({ params }: { params: Record<string, unknown> }) {
   const sq = squad(L, t.id);
   const push = useNav((s) => s.push);
   // A youth team: the user types in the real squad himself.
-  const edit = t.lg === 'U17' ? <button onClick={() => push('youth', { id: t.id })} className="press h-11 px-3 rounded-full glass text-[14px] font-medium">Изменить состав</button> : undefined;
+  const [create, setCreate] = useState(false);
+  const edit = t.lg === 'U17'
+    ? <button onClick={() => push('youth', { id: t.id })} className="press h-11 px-3 rounded-full glass text-[14px] font-medium">Изменить состав</button>
+    : <button onClick={() => setCreate(true)} className="press h-11 px-3 rounded-full glass text-[14px] font-medium">+ Игрок</button>;
   return (
     <Screen title="Состав" right={edit} subtitle={t.lg === 'U17' ? `${sq.length} игроков` : `${sq.length} игроков · зарплаты ${money(wageBill(L, t.id))} в год`} headerExtra={<div className="px-4 pb-2"><Segmented value={tab} onChange={setTab} options={[{ v: 'pitch', label: 'Поле' }, { v: 'list', label: 'Список и контракты' }]} /></div>}>
       {tab === 'list' ? <SquadList L={L} t={t} sq={sq} /> : <PitchEditor L={L} t={t} sq={sq} />}
+      {create && <NewPlayerSheet onClose={() => setCreate(false)} />}
     </Screen>
   );
 }
@@ -37,7 +42,7 @@ function SquadList({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
   const [sort, setSort] = useKeep<'pos' | 'ovr' | 'age' | 'wage' | 'fit'>('roster.sort', 'pos');
   const xi = new Set(t.lineup.xi), bench = new Set(t.lineup.bench);
   const loans = loanedOut(L);
-  const lim = foreignLimit(t.lg, L.season);
+  const lim = foreignLimit(L, t.lg);
   const foreign = sq.filter((p) => isForeign(p, t.country)).length;
   const badge = (p: Player) => (xi.has(p.id) ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-good/20 text-good">СТАРТ</span> : bench.has(p.id) ? <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/10 text-muted">ЗАП</span> : null);
   const row = (p: Player) => (
@@ -104,7 +109,7 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
   const ln = t.lineup;
   const roles = FORMATIONS[ln.form];
   const xy = useMemo(() => cardXY(ln.form), [ln.form]);
-  const lim = foreignLimit(t.lg, L.season);
+  const lim = foreignLimit(L, t.lg);
   const fOn = foreignOnPitch(L, t);
   const valid = lineupValid(L, t);
   const s = teamStrength(L, t);

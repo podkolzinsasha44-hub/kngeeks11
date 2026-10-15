@@ -144,6 +144,8 @@ export interface Player {
   yth?: boolean;
   /** A player of a youth team: a placeholder or typed in by the user (not real data of the game). */
   custom?: boolean;
+  /** Created by the user in his own save ("Создать игрока"): never part of the game's data. */
+  made?: boolean;
 }
 
 export interface Lineup {
@@ -405,6 +407,8 @@ export interface Settings {
   autoRenew?: boolean;
   /** Injuries and cards (missing in old saves: 'less'). */
   incidents?: Incidents;
+  /** No limit on foreign players in the Russian leagues, for every club alike (the real rule is on by default). */
+  noForeignLimit?: boolean;
 }
 
 export interface Scouting {

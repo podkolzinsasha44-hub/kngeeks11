@@ -21,7 +21,7 @@ export function foreignOnPitch(L: League, t: Team) {
 
 /** Swaps foreigners out of the XI until the on-pitch limit holds, losing as little quality as possible. */
 export function fixForeign(L: League, t: Team, roster: Player[]) {
-  const lim = foreignLimit(t.lg, L.season);
+  const lim = foreignLimit(L, t.lg);
   if (!lim) return;
   const roles = FORMATIONS[t.lineup.form];
   // Pinned starters leave only when no other foreigner can.

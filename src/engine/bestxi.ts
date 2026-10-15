@@ -22,7 +22,7 @@ export interface ShapeOption {
  */
 export function lineupOptions(L: League, t: Team, forms: FormationId[] = FORMATION_IDS): { options: ShapeOption[]; current: number } {
   const pool = squad(L, t.id).filter(available);
-  const lim = foreignLimit(t.lg, L.season);
+  const lim = foreignLimit(L, t.lg);
   const maxF = lim ? lim[1] : 11;
   const foreign = (p: Player) => isForeign(p, t.country);
   const pins = new Set(t.lineup.pinned ?? []);

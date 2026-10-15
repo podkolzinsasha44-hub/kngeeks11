@@ -95,7 +95,7 @@ export function transferAdvice(L: League, limit = 8): Advice {
   const base = teamPower(L, t);
   const open = windowOpen(L);
   const sq = squad(L, t.id);
-  const lim = foreignLimit(t.lg, L.season);
+  const lim = foreignLimit(L, t.lg);
   const foreignIn = sq.filter((x) => isForeign(x, t.country)).length;
   const foreignOn = t.lineup.xi.filter((id) => L.players[id] && isForeign(L.players[id], t.country)).length;
   const wageRoom = t.wageBudget * 1.02 - wageBill(L, t.id);

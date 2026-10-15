@@ -47,7 +47,7 @@ function prepareUserLineup(L: League, t: Team, roster: Player[], date: string): 
     return true;
   }
   applyBackups(L, t);
-  const lim = foreignLimit(t.lg, L.season);
+  const lim = foreignLimit(L, t.lg);
   const tooMany = lim ? foreignOnPitch(L, t) > lim[1] : false;
   if (lineupValid(L, t) && !tooMany) return true;
   const flag = `lineup:${date}`;
