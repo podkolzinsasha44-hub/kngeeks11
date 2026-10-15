@@ -100,7 +100,23 @@ export function completeTransfer(L: League, p: Player, to: Team, fee: number, wa
 
 // ----- the user buys ---------------------------------------------------------------------------
 
-export interface BidResult { status: TransferOffer['status']; text: string; ask?: number }
+export interface BidResult { status: TransferOffer['status']; text: string; ask?: number; final?: boolean; left?: number }
+
+/** How many times a selling club comes down before its last word. */
+export const HAGGLE_ROUNDS = 3;
+
+/**
+ * The least a club takes for the player from the user: key players hardly any less than the asking price,
+ * a player the club wants to sell (listed, wants out) or a squad player noticeably less. Good relations help.
+ */
+export function sellerFloor(L: League, p: Player, ask: number): number {
+  const seller = p.team ? L.teams[p.team] : null;
+  const rank = seller ? squadRank(L, p) : 20;
+  let f = rank < 5 ? 0.9 : rank < 11 ? 0.86 : 0.82;
+  if (p.listed || p.wantsOut) f -= 0.05;
+  if (seller && seller.rel > 60) f -= 0.02;
+  return round(Math.min(ask, Math.max(p.val * 0.8, ask * f)));
+}
 
 /** The user bids for a player of another club (or of a club outside the simulated leagues). */
 export function userBid(L: League, pid: number, fee: number): BidResult {
@@ -113,19 +129,31 @@ export function userBid(L: League, pid: number, fee: number): BidResult {
   if (p.loan) return { status: 'rejected', text: 'Игрок в аренде — переговоры возможны после её окончания.' };
   if (interest(L, p, me) < 0.35) return { status: 'rejected', text: `${dispName(p)} не рассматривает переход в «${me.ru}»: уровень клуба ниже его амбиций.` };
   const ask = askingPrice(L, p, me);
+  const floor = sellerFloor(L, p, ask);
   const who = seller ? `«${seller.ru}»` : p.ext ?? 'Клуб';
+  // Haggling goes on from where it stopped (within the week the offer stands).
+  const prev = L.offers.find((o) => o.player === pid && o.from === me.id && o.status === 'countered' && o.expires >= L.date);
+  const cur = Math.max(floor, Math.min(ask, prev?.ask ?? ask));
+  const rounds = prev?.rounds ?? 0;
   const off: TransferOffer = { id: L.nextMsgId++, date: L.date, player: pid, from: me.id, to: seller?.id ?? '', fee, status: 'pending', expires: addDays(L.date, 7) };
   L.offers = L.offers.filter((o) => !(o.player === pid && o.from === me.id));
   L.offers.push(off);
-  if (fee >= ask) {
+  // Close enough to what the club now asks: it takes the bid.
+  if (fee >= cur || (fee >= floor && cur - fee <= ask * 0.02)) {
     off.status = 'accepted';
     startTalks(L, p, me.id, 'transfer', fee);
     return { status: 'accepted', text: `${who} принимает предложение ${money(fee)}. Теперь нужно договориться с игроком.` };
   }
-  if (fee >= ask * 0.72) {
+  if (fee >= floor * 0.8) {
     off.status = 'countered';
-    off.ask = ask;
-    return { status: 'countered', ask, text: `${who}: «За ${money(ask)} договоримся».` };
+    off.rounds = rounds + 1;
+    // Each round the club meets the bid a little less: half the gap, then 40%, then 30%; after that — its last word.
+    const share = [0.5, 0.4, 0.3][rounds] ?? 0;
+    const next = Math.max(floor, round(cur - (cur - Math.max(fee, floor)) * share));
+    off.ask = next;
+    const left = Math.max(0, HAGGLE_ROUNDS - off.rounds);
+    if (!share || next >= cur) return { status: 'countered', ask: next, final: true, left: 0, text: `${who}: «${money(next)} — наше последнее слово».` };
+    return { status: 'countered', ask: next, left, text: rounds === 0 && next === cur ? `${who}: «За ${money(next)} договоримся».` : `${who}: «Можем уступить: ${money(next)}${left ? '' : ' — и это последнее слово'}».`, final: !left };
   }
   off.status = 'rejected';
   if (seller) seller.rel = clamp(seller.rel - (fee < ask * 0.4 ? 4 : 1), 0, 100);

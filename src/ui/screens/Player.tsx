@@ -11,7 +11,7 @@ import { playerClub } from '../../engine/ucl';
 import { useNav } from '../../store/nav';
 import { interest, startTalks, yearsLeft } from '../../engine/contracts';
 import { isLeague, LEAGUES, windowOpen } from '../../engine/leagues';
-import { askingPrice, releasePlayer, saleBlock, setListed, squadRank, userBid } from '../../engine/transfers';
+import { askingPrice, releasePlayer, saleBlock, setListed, squadRank, userBid, type BidResult } from '../../engine/transfers';
 import { avgRating, career } from '../../engine/stats';
 import type { KeeperAttrs, League, OutfieldAttrs, Player } from '../../engine/types';
 import { fullName } from '../../engine/util';
@@ -352,7 +352,10 @@ function BidSheet({ open, onClose, L, p }: { open: boolean; onClose: () => void;
   const me = L.teams[L.user];
   const step = moneyStep(p.val, 1000);
   const [fee, setFee] = useState(() => Math.round(p.val / step) * step);
-  const [res, setRes] = useState<{ status: string; text: string; ask?: number } | null>(null);
+  const [res, setRes] = useState<BidResult | null>(null);
+  const bid = (v: number) => { setFee(v); setRes(act(() => userBid(L, p.id, v))); };
+  // "Meet in the middle": halfway between the last bid and what the club now asks.
+  const middle = res?.status === 'countered' && res.ask && !res.final ? Math.round((fee + res.ask) / 2 / step) * step : null;
   const want = interest(L, p, me);
   const rank = squadRank(L, p);
   const hint = askingPrice(L, p, me);
@@ -370,12 +373,18 @@ function BidSheet({ open, onClose, L, p }: { open: boolean; onClose: () => void;
           {[-1, 1].map((d) => <Button key={d} full size="sm" onClick={() => { setFee(Math.max(0, fee + d * step)); setRes(null); }}>{d < 0 ? '−' : '+'} {money(step)}</Button>)}
         </div>
       </div>
-      {res && <div className={cx('mt-3 rounded-2xl px-4 py-3 text-[14px]', res.status === 'accepted' ? 'bg-good/15 text-good' : res.status === 'countered' ? 'bg-warn/15 text-warn' : 'bg-bad/15 text-bad')}>{res.text}</div>}
+      {res && (
+        <div className={cx('mt-3 rounded-2xl px-4 py-3 text-[14px]', res.status === 'accepted' ? 'bg-good/15 text-good' : res.status === 'countered' ? 'bg-warn/15 text-warn' : 'bg-bad/15 text-bad')}>
+          {res.text}
+          {res.status === 'countered' && <div className="text-[12px] opacity-80 mt-1">{res.final ? 'Дальше клуб не уступит: соглашайтесь или ищите другого игрока.' : `Можно поторговаться: предложите сумму между вашей и их — клуб уступит ещё ${res.left === 1 ? 'один раз' : `до ${res.left} раз`}.`}</div>}
+        </div>
+      )}
       <div className="flex flex-col gap-2 mt-4">
         {res?.status === 'accepted'
           ? <Button variant="good" size="lg" full onClick={() => { onClose(); push('negotiate', { id: p.id }); }}>Перейти к контракту с игроком</Button>
-          : <Button variant="primary" size="lg" full onClick={() => setRes(act(() => userBid(L, p.id, fee)))}>Отправить предложение</Button>}
-        {res?.status === 'countered' && res.ask && <Button full onClick={() => { setFee(res.ask!); setRes(act(() => userBid(L, p.id, res.ask!))); }}>Согласиться на {money(res.ask)}</Button>}
+          : <Button variant="primary" size="lg" full onClick={() => bid(fee)}>Отправить предложение</Button>}
+        {middle != null && middle > fee && middle < res!.ask! && <Button full onClick={() => bid(middle)}>Встретиться посередине: {money(middle)}</Button>}
+        {res?.status === 'countered' && res.ask && <Button full onClick={() => bid(res.ask!)}>Согласиться на {money(res.ask)}</Button>}
       </div>
     </Sheet>
   );

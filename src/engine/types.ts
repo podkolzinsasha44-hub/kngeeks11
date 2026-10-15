@@ -327,8 +327,10 @@ export interface TransferOffer {
   /** Loan until the end of the season instead of a permanent move. */
   loan?: boolean;
   status: 'pending' | 'accepted' | 'rejected' | 'countered' | 'done' | 'collapsed';
-  /** Counter-offer fee asked by the seller. */
+  /** Counter-offer fee asked by the seller (it comes down as the user haggles). */
   ask?: number;
+  /** Rounds of haggling so far: the seller concedes a little each time, then names his last word. */
+  rounds?: number;
   expires: string;
   note?: string;
 }

@@ -7,7 +7,7 @@ import { createMatch, simulateMatch } from '../src/engine/match';
 import { gameOdds, quickOdds, ratingOf, sideOf } from '../src/engine/projection';
 import { seedState, useState_ } from '../src/engine/rng';
 import { advanceDay, applyLive, lastUserBox, nextUserGame, startLive } from '../src/engine/season';
-import { negotiate, userBid } from '../src/engine/transfers';
+import { askingPrice, HAGGLE_ROUNDS, negotiate, sellerFloor, userBid } from '../src/engine/transfers';
 import { canRegister, interest, startTalks } from '../src/engine/contracts';
 import { dealFor, transferAdvice } from '../src/engine/advice';
 import { aiLineup, foreignOnPitch } from '../src/engine/ai';
@@ -285,6 +285,35 @@ describe('market', () => {
     expect(L.teams.ROS.budget).toBeGreaterThan(from);
     expect(me.budget).toBeLessThan(60e6);
     expect(L.transfers[0].player).toBe(target.id);
+  });
+  it('the selling club can be haggled down a little, round by round, then names its last word', () => {
+    const L = career('ZEN');
+    const me = L.teams.ZEN;
+    me.budget = 60e6;
+    me.wageBudget *= 2;
+    const target = squad(L, 'ROS').filter((p) => !isForeign(p, 'RUS')).sort((a, b) => b.ovr - a.ovr)[3];
+    const ask = askingPrice(L, target, me);
+    const floor = sellerFloor(L, target, ask);
+    expect(floor).toBeLessThan(ask);
+    const low = Math.round(floor * 0.85);
+    // Below 80% of the floor the club does not talk.
+    expect(userBid(L, target.id, Math.round(floor * 0.7)).status).toBe('rejected');
+    let last = ask;
+    const asks: number[] = [];
+    for (let i = 0; i < HAGGLE_ROUNDS + 1; i++) {
+      const r = userBid(L, target.id, low);
+      expect(r.status).toBe('countered');
+      expect(r.ask!).toBeLessThanOrEqual(last);
+      expect(r.ask!).toBeGreaterThanOrEqual(floor);
+      asks.push(r.ask!);
+      last = r.ask!;
+      if (i >= HAGGLE_ROUNDS - 1) expect(r.final).toBe(true);
+    }
+    expect(asks[0]).toBeLessThan(ask);
+    expect(asks[HAGGLE_ROUNDS]).toBe(asks[HAGGLE_ROUNDS - 1]);
+    const r = userBid(L, target.id, last);
+    expect(r.status).toBe('accepted');
+    expect(L.offers.find((o) => o.player === target.id)!.fee).toBeLessThan(ask);
   });
   it('a full squad of 40 does not block a transfer, but does block a free agent', () => {
     const L = career('ZEN');
