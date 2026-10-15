@@ -9,7 +9,7 @@ import { useNav } from '../../store/nav';
 import { exportFile } from '../../persistence/db';
 import { saleBlock, setListed } from '../../engine/transfers';
 import { aiLineup } from '../../engine/ai';
-import { startTalks, wageBill } from '../../engine/contracts';
+import { raiseWageBudget, startTalks, WAGE_SWAP, wageBill } from '../../engine/contracts';
 import { renewalCases, renewNow, VERDICT_RU, type RenewalCase, type Verdict } from '../../engine/renewals';
 import { groupOrder, nationPower } from '../../engine/intl';
 import { LEAGUES, foreignLimit, isForeign, transferWindows } from '../../engine/leagues';
@@ -21,6 +21,7 @@ import { Screen, Sheet } from '../components/shell';
 import { RoomSettings } from '../components/Rooms';
 import { Flag, PlayerRow, TeamBadge } from '../components/media';
 import { dateLong, dateShort, dispName, money, nationName, seasonLabel } from '../format';
+import { roundMoney } from '../../engine/util';
 import { useKeep } from '../keep';
 
 const TILES: { route: string; icon: string; title: string; sub: (L: League) => string; badge?: (L: League) => number }[] = [
@@ -154,10 +155,44 @@ export function FinanceScreen() {
         {lim && lim[0] > 0 && <div>Легионеры: {sq.filter((p) => isForeign(p, t.country)).length} из {lim[0]} в заявке, на поле не больше {lim[1]}. Граждане России, Беларуси, Казахстана, Армении и Киргизии легионерами не считаются.</div>}
         <div className="text-muted mt-1">Бюджет на следующий сезон зависит от места в таблице и репутации клуба. Деньги от продаж остаются в клубе.</div>
       </Card>
+      <WageRaise />
       <Renewals L={L} />
       <SectionTitle>Зарплатная ведомость</SectionTitle>
       <Card pad={false} className="overflow-hidden">{sq.map((p) => <PlayerRow key={p.id} dense p={p} right={<span className="num text-[13px] mr-1 text-right leading-tight">{money(p.c!.wage)}<br /><span className="text-[10.5px] text-muted">до {p.c!.until}</span></span>} />)}</Card>
     </Screen>
+  );
+}
+
+/** Moving transfer money into the wage limit, and how the limit is formed. */
+function WageRaise() {
+  const L = useL();
+  const act = useGame((s) => s.act);
+  const toast = useGame((s) => s.toast);
+  const t = L.teams[L.user];
+  const room = t.wageBudget * 1.02 - wageBill(L, t.id);
+  const steps = [...new Set([0.05, 0.1, 0.25].map((f) => roundMoney(Math.max(10_000, t.wageBudget * f))))];
+  const raise = (amount: number) => {
+    let err: string | null = null;
+    act(() => { err = raiseWageBudget(L, amount); });
+    toast(err ?? `Лимит зарплат: ${money(t.wageBudget)} в год (−${money(amount * WAGE_SWAP)} из трансферного бюджета)`, err ? 'bad' : 'good');
+  };
+  return (
+    <>
+      <SectionTitle>Лимит зарплат</SectionTitle>
+      <Card className="text-[13.5px] leading-relaxed">
+        <div>{room > 0 ? <>Свободно под новые контракты: <b className="num">{money(room)}</b> в год.</> : <>Лимит превышен на <b className="num text-bad">{money(-room)}</b> в год — новых игроков не подписать, пока не поднимете лимит или не продадите кого-то.</>}</div>
+        <div className="text-muted mt-1.5 text-[12.5px] leading-snug">
+          Как он меняется: каждый новый сезон (20 июня) +3%, при повышении в классе ×1,35, при вылете ×0,75 — но не меньше текущих зарплат +8%. Продажа, аренда и расторжение освобождают место. Можно и сразу перевести деньги из трансферного бюджета: €1 в год к лимиту стоит €{WAGE_SWAP} — прибавка остаётся и в следующих сезонах.
+        </div>
+        <div className="grid grid-cols-3 gap-2 mt-3">
+          {steps.map((a) => (
+            <Button key={a} size="sm" full className="!px-1 !h-auto py-2 flex-col !gap-0 leading-tight" disabled={a * WAGE_SWAP > t.budget} onClick={() => raise(a)}>
+              <span>+{money(a)}</span><span className="text-[11px] text-muted font-normal">за {money(a * WAGE_SWAP)}</span>
+            </Button>
+          ))}
+        </div>
+      </Card>
+    </>
   );
 }
 

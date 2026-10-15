@@ -59,6 +59,22 @@ export function canRegister(L: League, t: Team, p: Player, wage: number, transfe
   return null;
 }
 
+/**
+ * Transfer budget the user moves into the wage limit, as in Football Manager: every €1 a year of wage room costs
+ * this much of the transfer budget once. The raise stays — next seasons grow from the new limit.
+ */
+export const WAGE_SWAP = 3;
+
+export function raiseWageBudget(L: League, amount: number): string | null {
+  const t = L.teams[L.user];
+  const cost = amount * WAGE_SWAP;
+  if (amount <= 0) return 'Нечего переводить';
+  if (cost > t.budget) return `Не хватает трансферного бюджета: нужно ${money(cost)}`;
+  t.budget -= cost;
+  t.wageBudget += amount;
+  return null;
+}
+
 /** How much a player wants to join a club: 0..1+. Below ~0.35 he refuses to talk. */
 export function interest(L: League, p: Player, to: Team) {
   // Youth teams are outside the market: adults do not join them and their boys are not for sale.

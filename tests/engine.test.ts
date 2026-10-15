@@ -15,7 +15,7 @@ import { bestLineups, lineupOptions, staffLineup } from '../src/engine/bestxi';
 import { autoRenew, renewalCases } from '../src/engine/renewals';
 import { offerView, saleView, sellAdvice } from '../src/engine/sale';
 import { buyerCeiling, purchaseOf, releasePlayer, respondOffer, saleBlock, setListed } from '../src/engine/transfers';
-import { modelValue, wageBill, wageFor } from '../src/engine/contracts';
+import { modelValue, raiseWageBudget, WAGE_SWAP, wageBill, wageFor } from '../src/engine/contracts';
 import type { League } from '../src/engine/types';
 import { newCareer, upgradeSave, type WorldJson } from '../src/engine/world';
 import { editYouthPlayer } from '../src/engine/youth';
@@ -499,6 +499,24 @@ describe('named backups', () => {
       expect(o.lineup.xi).toContain(backup.id);
       expect(o.lineup.backups).toEqual({ [starter.id]: backup.id });
     }
+  });
+});
+
+describe('wage limit', () => {
+  it('transfer money raises the wage limit at a fixed rate and the raise lets the club sign', () => {
+    const L = career('ORL');
+    const t = L.teams.ORL;
+    t.wageBudget = Math.round(wageBill(L, t.id) / 1.02); // no room left
+    t.budget = 1_000_000;
+    const p = Object.values(L.players).find((x) => x.team && x.team !== t.id && L.teams[x.team].lg === t.lg)!;
+    expect(canRegister(L, t, p, 50_000, true)).toMatch(/Зарплатный бюджет/);
+    const [wb, b] = [t.wageBudget, t.budget];
+    expect(raiseWageBudget(L, 100_000)).toBeNull();
+    expect(t.wageBudget).toBe(wb + 100_000);
+    expect(t.budget).toBe(b - 100_000 * WAGE_SWAP);
+    expect(canRegister(L, t, p, 50_000, true)).toBeNull();
+    expect(raiseWageBudget(L, 1_000_000)).toMatch(/Не хватает/);
+    expect(t.budget).toBe(b - 100_000 * WAGE_SWAP);
   });
 });
 
