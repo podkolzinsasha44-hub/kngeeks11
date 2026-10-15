@@ -729,6 +729,18 @@ describe('potential fades with age', () => {
   });
 });
 
+describe('advice for one position', () => {
+  it('every pick plays that position, and there are picks', () => {
+    const L = career('ROS');
+    for (const role of ['CM', 'LW'] as const) {
+      const a = transferAdvice(L, 15, { role });
+      const all = [...a.now, ...a.value, ...a.future, ...a.free];
+      expect(all.length).toBeGreaterThan(0);
+      for (const x of all) expect(x.p.role === role || !!x.p.alt?.includes(role)).toBe(true);
+    }
+  });
+});
+
 describe('swaps', () => {
   const setup = () => {
     const L = career('ZEN');

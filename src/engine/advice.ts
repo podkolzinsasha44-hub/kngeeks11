@@ -69,13 +69,16 @@ export interface Advice {
 const chanceOf = (i: number): Chance => (i >= 0.75 ? 'high' : i >= 0.5 ? 'mid' : 'low');
 
 /** Best place of the player in the eleven and how much it changes the power of the team. */
-function bestSlot(L: League, t: Team, p: Player, base: number) {
+function bestSlot(L: League, t: Team, p: Player, base: number, only?: Role) {
   const roles = FORMATIONS[t.lineup.form];
+  // Looking for a position: only its slots, when the formation has it.
+  const slots = only && roles.includes(only) ? only : null;
   // He is measured as he will be after signing: a new player arrives in a better mood.
   const players: Record<number, Player> = Object.create(L.players);
   players[p.id] = { ...p, morale: clamp(p.morale + JOIN_MORALE, 0, 100) };
   let best: { slot: number; gain: number; rating: number } | null = null;
   roles.forEach((r, i) => {
+    if (slots && r !== slots) return;
     const cur = L.players[t.lineup.xi[i]];
     const mine = slotRating(p, r);
     if (cur && mine <= slotRating(cur, r) + 0.5) return;
@@ -88,7 +91,8 @@ function bestSlot(L: League, t: Team, p: Player, base: number) {
 }
 
 /** Recommendations for the user's club at the current date. */
-export function transferAdvice(L: League, limit = 8): Advice {
+export function transferAdvice(L: League, limit = 8, opts: { role?: Role } = {}): Advice {
+  const role = opts.role;
   // Players out for a short time keep their place: a two-week injury is not a reason to buy.
   const t = planned(L, L.teams[L.user]);
   const roles = FORMATIONS[t.lineup.form];
@@ -114,6 +118,7 @@ export function transferAdvice(L: League, limit = 8): Advice {
   for (const id in L.players) {
     const p = L.players[id];
     if (p.team === t.id || p.loan || (p.st !== 'ACT' && p.st !== 'FA')) continue;
+    if (role && p.role !== role && !p.alt?.includes(role)) continue;
     const isFree = p.st === 'FA';
     const will = interest(L, p, t);
     if (will < 0.35) continue;
@@ -123,7 +128,7 @@ export function transferAdvice(L: League, limit = 8): Advice {
     if (canRegister(L, t, p, wage, !isFree)) continue;
     const age = ageOn(p.bd, L.date);
     const talent = age <= 21 && p.pot >= avgStarter + 2;
-    const best = bestSlot(L, t, p, base);
+    const best = bestSlot(L, t, p, base, role);
     if (!best && !talent) continue;
     const slot = best?.slot ?? roles.findIndex((r) => slotRating(p, r) === Math.max(...roles.map((x) => slotRating(p, x))));
     const notes: string[] = [];
@@ -145,7 +150,9 @@ export function transferAdvice(L: League, limit = 8): Advice {
   // Deals that break the foreign limit stay visible but go to the end.
   const blocked = (x: Pick) => (x.notes.some((n) => n.includes('легионеров')) ? 1 : 0);
   // Not more than two names per place, so the list covers different positions.
+  // Looking for one position: everyone who fits it, without the cap per place.
   const spread = (list: Pick[]) => {
+    if (role) return list.slice(0, limit);
     const per = new Map<number, number>();
     return list.filter((x) => { const n = per.get(x.slot) ?? 0; per.set(x.slot, n + 1); return n < 2; }).slice(0, limit);
   };

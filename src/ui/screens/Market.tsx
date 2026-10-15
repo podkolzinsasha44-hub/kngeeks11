@@ -399,9 +399,13 @@ function Log({ L }: { L: League }) {
 const CHANCE: Record<Chance, [string, string]> = { high: ['охотно перейдёт', '#3ddc97'], mid: ['готов обсудить', '#ffb547'], low: ['сомневается', '#ff8a5f'] };
 
 /** Who to buy: computed by the engine from the price, the wage, the player's will and the power of the eleven. */
+const ALL_ROLES: Role[] = ['GK', 'CB', 'LB', 'RB', 'DM', 'CM', 'AM', 'LM', 'RM', 'LW', 'RW', 'ST'];
+
 function AdviceTab({ L }: { L: League }) {
   const ver = useGame((s) => s.ver);
-  const adv = useMemo(() => transferAdvice(L), [L, ver]);
+  // A position the staff looks for (or all of them).
+  const [role, setRole] = useKeep<'all' | Role>('advice.role', 'all');
+  const adv = useMemo(() => transferAdvice(L, role === 'all' ? 8 : 15, role === 'all' ? {} : { role }), [L, ver, role]); // eslint-disable-line react-hooks/exhaustive-deps
   const sell = useMemo(() => sellAdvice(L), [L, ver]);
   const me = L.teams[L.user];
   const weak = adv.weak;
@@ -414,6 +418,8 @@ function AdviceTab({ L }: { L: League }) {
   ];
   return (
     <>
+      <div className="mt-1 mb-2"><Chips value={role} onChange={setRole} options={[{ v: 'all', label: 'Все позиции' }, ...ALL_ROLES.map((v) => ({ v, label: ROLE_RU[v] }))]} /></div>
+      {role !== 'all' && <div className="text-[12.5px] text-muted mb-2 px-1">Ищем: {ROLE_RU[role]} — все, кто играет на этой позиции (основной или запасной) и кого можно взять сейчас, по пользе для состава.</div>}
       <Card className="mt-1">
         <div className="flex items-start gap-3">
           <div className="text-[26px] leading-none">🧭</div>
