@@ -367,7 +367,8 @@ describe('transfer advice', () => {
   it('the top pick can actually be bought and makes the team stronger as promised', () => {
     const L = career('ROS');
     const me = L.teams.ROS;
-    const top = transferAdvice(L).now.find((x) => !x.notes.length)!;
+    // Notes like "32 years old — not for long" are information; only a closed window stops the deal.
+    const top = transferAdvice(L).now.find((x) => !x.notes.some((n) => /окно/.test(n)))!;
     expect(top).toBeTruthy();
     expect(userBid(L, top.p.id, top.fee).status).toBe('accepted');
     const n = L.negotiations[top.p.id];
@@ -689,11 +690,14 @@ describe('value outlook of the user\'s players', () => {
 });
 
 describe('any player agrees to come (setting)', () => {
-  it('a star of a top club talks to a modest club of the user only when it is on', () => {
+  it('a star of a top club talks to a modest club of the user unless it is switched off', () => {
     const L = career('KRA');
     const me = L.teams.KRA;
     me.budget = 2e9; me.wageBudget = 2e9;
     const star = Object.values(L.players).filter((p) => p.team && L.teams[p.team].lg !== 'RPL' && !p.loan).sort((a, b) => b.ovr - a.ovr)[0];
+    // On by default; switched off, a star turns down a modest club.
+    expect(interest(L, star, me)).toBeGreaterThanOrEqual(0.5);
+    L.settings.anyoneJoins = false;
     expect(interest(L, star, me)).toBeLessThan(0.35);
     expect(userBid(L, star.id, star.val * 3).text).toMatch(/не рассматривает/);
     L.settings.anyoneJoins = true;

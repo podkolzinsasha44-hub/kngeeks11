@@ -98,8 +98,9 @@ export function interest(L: League, p: Player, to: Team) {
   const above = top.length ? p.ovr - top.reduce((s, o) => s + o, 0) / top.length : 0;
   const tooGood = p.st === 'FA' && !formerClub ? clamp((above - 5) * 0.08, 0, 0.8) : 0;
   const v = 0.5 + level + role + home + need - tooGood + (p.pers.win - 10) * (to.strategy === 'contend' ? 0.012 : -0.008);
-  // "Any player agrees to come": the user's club is never below a player's ambitions (the wage still reflects it).
-  return L.settings.anyoneJoins && to.id === L.user ? Math.max(v, 0.5) : v;
+  // "Any player agrees to come" (on unless switched off): the user's club is never below a player's ambitions
+  // (the wage still reflects it).
+  return L.settings.anyoneJoins !== false && to.id === L.user ? Math.max(v, 0.5) : v;
 }
 
 /** Contract length the player wants: veterans a short deal, talents a long one. */

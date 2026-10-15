@@ -441,7 +441,7 @@ export function CelebrationModal({ params }: { params: Record<string, unknown> }
 }
 
 /** Auto-renewal is on unless switched off (saves made before the setting existed have it undefined). */
-const isOn = (s: League['settings'], k: keyof League['settings']) => (k === 'autoRenew' ? s.autoRenew !== false : !!s[k]);
+const isOn = (s: League['settings'], k: keyof League['settings']) => (k === 'autoRenew' || k === 'anyoneJoins' ? s[k] !== false : !!s[k]);
 
 function Switch({ on }: { on: boolean }) {
   return <div className={cx('w-[48px] h-[30px] rounded-full relative transition-colors shrink-0', on ? 'accent-bg' : 'bg-white/15')}><span className={cx('absolute top-[3px] w-6 h-6 rounded-full bg-white transition-all', on ? 'left-[21px]' : 'left-[3px]')} /></div>;
