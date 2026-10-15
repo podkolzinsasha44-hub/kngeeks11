@@ -6,9 +6,11 @@ import './index.css';
 import App from './App';
 import { registerSW } from 'virtual:pwa-register';
 import { installCloudSync } from './store/cloud';
+import { installViewportFix } from './ui/viewport';
 
 registerSW({ immediate: true });
 installCloudSync();
+installViewportFix();
 
 // Debug hooks (used by automated UI checks)
 import { useGame } from './store/game';

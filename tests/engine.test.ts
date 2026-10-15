@@ -20,6 +20,8 @@ import type { League } from '../src/engine/types';
 import { newCareer, upgradeSave, type WorldJson } from '../src/engine/world';
 import { editYouthPlayer } from '../src/engine/youth';
 import { createPlayer } from '../src/engine/gen';
+import { intlDaily, updateRanking } from '../src/engine/intl';
+import { addDays } from '../src/engine/util';
 import { initPlayoffs } from '../src/engine/cup';
 import { recovery, startUpgrade, trainingGrowth, upgradeCost, weeklyTraining, facility } from '../src/engine/club';
 import { developPlayer } from '../src/engine/progression';
@@ -518,6 +520,40 @@ describe('wage limit', () => {
     expect(canRegister(L, t, p, 50_000, true)).toBeNull();
     expect(raiseWageBudget(L, 1_000_000)).toMatch(/Не хватает/);
     expect(t.budget).toBe(b - 100_000 * WAGE_SWAP);
+  });
+});
+
+describe('international tournaments decades into a career', () => {
+  const shrink = (L: League, keep: number) => {
+    updateRanking(L);
+    const left = new Set(L.intl.ranking.slice(0, keep));
+    for (const p of Object.values(L.players)) if (!left.has(p.ctry)) p.st = 'RET';
+    touchSquads();
+  };
+  const playOut = (L: League, from: string) => {
+    for (L.date = from; L.date < '2038-08-01'; L.date = addDays(L.date, 1)) intlDaily(L);
+  };
+  it('with too few nations for 48 places the World Cup shrinks and is played to the end', () => {
+    const L = career('ZEN');
+    shrink(L, 29);
+    playOut(L, '2038-05-25');
+    expect(L.intl.current).toBeNull();
+    const h = L.intl.history[0];
+    expect(h.year).toBe(2038);
+    expect(new Set(h.medals).size).toBe(3);
+    expect(L.intl.prev!.teams.length).toBe(28);
+    for (const g of L.intl.prev!.games) expect(g.played).toBe(true);
+  });
+
+  it('a World Cup drawn with empty places (older version) is drawn again', () => {
+    const L = career('ZEN');
+    shrink(L, 29);
+    L.date = '2038-05-25';
+    intlDaily(L);
+    const T = L.intl.current!;
+    T.games.push({ id: 999999, day: '2038-06-13', h: T.teams[0], a: undefined as unknown as string, stage: 'A' });
+    playOut(L, '2038-06-13');
+    expect(L.intl.history[0].year).toBe(2038);
   });
 });
 

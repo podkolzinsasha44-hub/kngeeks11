@@ -146,7 +146,17 @@ export const useGame = create<GameState>((set, get) => ({
     while (get().sim?.running) {
       L.stops = [];
       // "Watch the match": the user's game is not simulated with the day, it is played live from the touchline.
-      const rep = advanceDay(L, { live: !!opts?.watch });
+      let rep: ReturnType<typeof advanceDay>;
+      try {
+        rep = advanceDay(L, { live: !!opts?.watch });
+      } catch (e) {
+        // An error in the engine must not leave the simulation spinning forever: stop and say so.
+        console.error('advanceDay failed', e);
+        // The half-played day is not saved: the last save stays as it was.
+        set({ sim: null, ver: get().ver + 1 });
+        get().toast(`Ошибка симуляции ${L.date}: ${e instanceof Error ? e.message : String(e)}. Перезапустите игру и сообщите разработчику.`, 'bad');
+        return;
+      }
       if (rep.blocked) { reason = 'lineup'; break; }
       if (rep.live) { live = rep.live; reason = L.stops.find((s) => ALWAYS.has(s)) ?? null; break; }
       sim.days++;

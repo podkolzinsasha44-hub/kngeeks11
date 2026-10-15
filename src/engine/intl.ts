@@ -103,12 +103,18 @@ function field(L: League, kind: IntlKind, year: number): string[] {
 
 const emptyRec = (): IntlRecord => ({ gp: 0, w: 0, d: 0, l: 0, pts: 0, gf: 0, ga: 0 });
 
-export function createTournament(L: League, kind: IntlKind, year: number): Tournament {
+/**
+ * The game simulates seven leagues, so decades into a career fewer nations have a squad: the tournament keeps its
+ * groups of four and shrinks (fewer groups, a shorter play-off) instead of leaving empty places. Null: not enough.
+ */
+export function createTournament(L: League, kind: IntlKind, year: number): Tournament | null {
   updateRanking(L);
-  const teams = field(L, kind, year);
   const rank = L.intl.ranking;
-  const seeded = [...teams].sort((a, b) => rank.indexOf(a) - rank.indexOf(b));
-  const nGroups = kind === 'wc' ? 12 : 6;
+  const all = [...field(L, kind, year)].sort((a, b) => rank.indexOf(a) - rank.indexOf(b));
+  const nGroups = Math.min(kind === 'wc' ? 12 : 6, Math.floor(all.length / 4));
+  if (nGroups < 2) return null;
+  const teams = all.slice(0, nGroups * 4);
+  const seeded = teams;
   const groups: Record<string, string[]> = {};
   const letters = 'ABCDEFGHIJKL'.slice(0, nGroups).split('');
   for (const l of letters) groups[l] = [];
@@ -200,9 +206,12 @@ function advance(L: League, T: Tournament, date: string) {
     const firsts: string[] = [], seconds: string[] = [], thirds: string[] = [];
     for (const l in T.groups) { const o = groupOrder(T, l); firsts.push(o[0]); seconds.push(o[1]); thirds.push(o[2]); }
     const c = cmp(T);
-    const q = [...firsts.sort(c), ...seconds.sort(c), ...thirds.sort(c).slice(0, T.kind === 'wc' ? 8 : 4)];
+    // The play-off takes the largest power of two out of the top three of every group: 32 of 12 groups, 16 of 6.
+    let n = 4;
+    while (n * 2 <= firsts.length * 3) n *= 2;
+    const q = [...firsts.sort(c), ...seconds.sort(c), ...thirds.sort(c)].slice(0, n);
     T.phase = 'playoff';
-    const stage = T.kind === 'wc' ? 'r32' : 'r16';
+    const stage = STAGES[STAGES.length - Math.log2(n)];
     const day = addDays(date, 3);
     for (let i = 0; i < q.length / 2; i++) T.games.push({ id: L.intl.nextGameId++, day: addDays(day, i % 4), h: q[i], a: q[q.length - 1 - i], stage });
     return;
@@ -257,15 +266,21 @@ function finish(L: League, T: Tournament) {
 export function intlDaily(L: League) {
   const date = L.date;
   const year = Number(date.slice(0, 4));
+  // A tournament drawn by an older version with empty places in its groups is drawn again.
+  const cur = L.intl.current;
+  if (cur && cur.phase !== 'done' && cur.games.some((g) => !cur.teams.includes(g.h) || !cur.teams.includes(g.a))) {
+    L.intl.current = createTournament(L, cur.kind, cur.year);
+  }
   if (!L.intl.current && year % 2 === 0 && year >= 2028 && date === `${year}-05-25`) {
     L.intl.current = createTournament(L, year % 4 === 2 ? 'wc' : 'euro', year);
-    pushNews(L, { kind: 'intl', title: `${L.intl.current.name}: жеребьёвка и состав участников определены`, important: true });
+    if (L.intl.current) pushNews(L, { kind: 'intl', title: `${L.intl.current.name}: жеребьёвка и состав участников определены`, important: true });
   }
   const T = L.intl.current;
   if (!T) return;
   if (!T.named && date >= T.select) nameSquads(L, T);
   if (T.phase === 'upcoming' && date >= T.start) T.phase = 'group';
   if (T.phase === 'upcoming') return;
-  for (const g of T.games) if (g.day === date && !g.played) playIntl(L, T, g);
+  // Games left behind (a tournament drawn again after its start) are played on the next day.
+  for (const g of T.games) if (g.day <= date && !g.played) playIntl(L, T, g);
   advance(L, T, date);
 }
