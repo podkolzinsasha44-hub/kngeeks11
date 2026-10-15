@@ -331,6 +331,8 @@ export interface TransferOffer {
   ask?: number;
   /** Rounds of haggling so far: the seller concedes a little each time, then names his last word. */
   rounds?: number;
+  /** A swap offered to the user: the buying club's players he gets, and the money it adds (< 0: the user adds). */
+  swap?: { give: number[]; cash: number };
   expires: string;
   note?: string;
 }

@@ -4,9 +4,10 @@ import { canRegister, interest, offerContract, signContract, startTalks, wageBil
 import { foreignLimit, isForeign, windowOpen } from './leagues';
 import { FORMATIONS, autoLineup, available, slotRating, squad, touchSquads } from './lineup';
 import { staffLineup } from './bestxi';
+import { acceptSwapOffer, swapCashText, swapFor } from './swaps';
 import { pushMsg, pushNews, social } from './news';
 import { avgRating, seasonTotal } from './stats';
-import { int, next, pick, shuffle } from './rng';
+import { hash01, int, next, pick, shuffle } from './rng';
 import type { League, Player, Team, TransferOffer } from './types';
 import { isYouth, onMarket, youthBoy, youthPlayer } from './youth';
 import { addDays, ageOn, clamp, dispName, MIN_VALUE, money, roundMoney } from './util';
@@ -60,7 +61,7 @@ export function askingPrice(L: League, p: Player, buyer: Team): number {
   return round(p.val * m);
 }
 
-function record(L: League, p: Player, from: string | null, to: string, fee: number) {
+export function record(L: League, p: Player, from: string | null, to: string, fee: number) {
   const user = to === L.user || from === L.user;
   const ratio = fee / Math.max(MIN_VALUE, p.val);
   const grade = to === L.user ? (ratio < 0.8 ? 'A' : ratio < 1.1 ? 'B' : ratio < 1.5 ? 'C' : 'D') : from === L.user ? (ratio > 1.4 ? 'A' : ratio > 1.05 ? 'B' : ratio > 0.8 ? 'C' : 'D') : undefined;
@@ -209,10 +210,17 @@ function offersToUser(L: League) {
     if (!buyer) continue;
     const fee = round(Math.min(buyer.budget, p.val * (p.listed ? 0.75 + next() * 0.3 : 0.9 + next() * 0.45)));
     const off: TransferOffer = { id: L.nextMsgId++, date: L.date, player: p.id, from: buyer.id, to: L.user, fee, status: 'pending', expires: addDays(L.date, 6) };
+    // Some clubs offer one of their players instead of the full fee, with money for the difference either way.
+    // Decided by a hash of the offer, not the shared stream of chance: the world's other events stay as they were.
+    const swap = hash01(off.id, p.id) < 0.35 ? swapFor(L, buyer, p, fee) : null;
+    if (swap) off.swap = swap;
     L.offers.push(off);
+    const q = swap ? L.players[swap.give[0]] : null;
     pushMsg(L, {
-      from: `«${buyer.ru}»`, kind: 'transfer', title: `Предложение по игроку: ${dispName(p)}`,
-      body: `«${buyer.ru}» предлагает ${money(fee)} за ${dispName(p)} (оценка рынка — ${money(p.val)}). Предложение действует до ${off.expires.slice(8)}.${off.expires.slice(5, 7)}.`,
+      from: `«${buyer.ru}»`, kind: 'transfer', title: swap ? `Предложение обмена: ${dispName(p)}` : `Предложение по игроку: ${dispName(p)}`,
+      body: q && swap
+        ? `«${buyer.ru}» предлагает обмен: ${dispName(p)} (оценка ${money(p.val)}) на ${dispName(q)} (${q.ovr}, ${ageOn(q.bd, L.date)} лет, оценка ${money(q.val)}), ${swapCashText(buyer, swap.cash)}. Предложение действует до ${off.expires.slice(8)}.${off.expires.slice(5, 7)}.`
+        : `«${buyer.ru}» предлагает ${money(fee)} за ${dispName(p)} (оценка рынка — ${money(p.val)}). Предложение действует до ${off.expires.slice(8)}.${off.expires.slice(5, 7)}.`,
       ref: { type: 'offer', id: off.id },
     });
     L.stops.push('offer');
@@ -239,6 +247,12 @@ export function respondOffer(L: League, id: number, action: 'accept' | 'reject' 
   }
   const block = saleBlock(p);
   if (block) return `${block}. Предложение «${buyer.ru}» действует до ${off.expires.slice(8)}.${off.expires.slice(5, 7)}.`;
+  if (off.swap) {
+    if (action === 'counter') return 'В обмене торговаться нельзя: примите или откажите.';
+    const err = acceptSwapOffer(L, buyer, p, off.swap);
+    if (err) return err;
+    return `Обмен состоялся: ${dispName(p)} уходит в «${buyer.ru}».`;
+  }
   if (action === 'counter' && amount) {
     if (amount <= buyerCeiling(L, buyer, p)) off.fee = Math.round(amount);
     else {

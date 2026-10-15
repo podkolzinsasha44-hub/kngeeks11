@@ -8,6 +8,7 @@ import { gameOdds, quickOdds, ratingOf, sideOf } from '../src/engine/projection'
 import { seedState, useState_ } from '../src/engine/rng';
 import { advanceDay, applyLive, lastUserBox, nextUserGame, startLive } from '../src/engine/season';
 import { askingPrice, HAGGLE_ROUNDS, negotiate, sellerFloor, userBid } from '../src/engine/transfers';
+import { proposeSwap, swapFor, swapWorth } from '../src/engine/swaps';
 import { canRegister, interest, startTalks } from '../src/engine/contracts';
 import { dealFor, transferAdvice } from '../src/engine/advice';
 import { aiLineup, foreignOnPitch } from '../src/engine/ai';
@@ -725,6 +726,74 @@ describe('potential fades with age', () => {
     const normal = valueOutlook(L, kid).path.at(-1)!.ovr;
     L.teams.ZEN.training = { int: 'hard', focus: 'balanced' };
     expect(valueOutlook(L, kid).path.at(-1)!.ovr).toBeGreaterThan(normal);
+  });
+});
+
+describe('swaps', () => {
+  const setup = () => {
+    const L = career('ZEN');
+    const me = L.teams.ZEN;
+    me.budget = 60e6; me.wageBudget *= 3;
+    const club = L.teams.ROS;
+    const target = squad(L, 'ROS').filter((p) => !isForeign(p, 'RUS') && !p.loan).sort((a, b) => b.ovr - a.ovr)[2];
+    const mine = squad(L, 'ZEN').filter((p) => !isForeign(p, 'RUS') && !p.loan && !p.inj).sort((a, b) => b.val - a.val);
+    return { L, me, club, target, mine };
+  };
+  it('the user swaps his player plus money for a better one; players and money change clubs', () => {
+    const { L, me, club, target, mine } = setup();
+    const give = mine.find((p) => p.val < target.val * 0.8)!;
+    const ask = askingPrice(L, target, me);
+    const first = proposeSwap(L, target.id, [give.id], 0);
+    expect(first.status).not.toBe('accepted');
+    const pays = Math.max(0, ask - swapWorth(L, club, give));
+    const [b0, c0] = [me.budget, club.budget];
+    const r = proposeSwap(L, target.id, [give.id], pays);
+    expect(r.status).toBe('accepted');
+    expect(target.team).toBe('ZEN');
+    expect(give.team).toBe('ROS');
+    expect(me.budget).toBe(b0 - pays);
+    expect(club.budget).toBe(c0 + pays);
+    expect(target.bought?.from).toMatch(/обмен/);
+    expect(t(L).lineup.xi).not.toContain(give.id);
+  });
+  const t = (L: League) => L.teams.ZEN;
+  it('a club names the difference, and pays the user when it gets more', () => {
+    const { L, target, mine } = setup();
+    const give = mine.find((p) => p.val < target.val * 0.9 && p.val > target.val * 0.5)!;
+    const r = proposeSwap(L, target.id, [give.id], 0);
+    if (r.status === 'countered') {
+      expect(r.need!).toBeGreaterThan(0);
+      expect(proposeSwap(L, target.id, [give.id], r.need!).status).toBe('accepted');
+    } else expect(r.status).toBe('rejected');
+    // A much better player for a squad player: the club adds money.
+    const L2 = setup();
+    const star = L2.mine[0];
+    const ask = askingPrice(L2.L, L2.target, L2.me);
+    const extra = Math.floor((swapWorth(L2.L, L2.club, star) - ask) * 0.9);
+    if (extra > 0 && extra <= L2.club.budget) {
+      const b0 = L2.me.budget;
+      expect(proposeSwap(L2.L, L2.target.id, [star.id], -extra).status).toBe('accepted');
+      expect(L2.me.budget).toBe(b0 + extra);
+    }
+  });
+  it('no swaps with the window closed', () => {
+    const { L, target, mine } = setup();
+    L.date = `${L.season}-11-01`;
+    expect(proposeSwap(L, target.id, [mine[0].id], 0).text).toMatch(/окно закрыто/);
+  });
+  it('a swap offered by a club is accepted through the offer', () => {
+    const { L, me, club, mine } = setup();
+    // A player of a value the club has a counterpart for.
+    const p = mine.find((x) => swapFor(L, club, x, x.val))!;
+    expect(p).toBeTruthy();
+    const swap = swapFor(L, club, p, p.val);
+    const q = L.players[swap!.give[0]];
+    L.offers.push({ id: 999, date: L.date, player: p.id, from: club.id, to: me.id, fee: p.val, status: 'pending', expires: addDays(L.date, 5), swap: swap! });
+    const b0 = me.budget;
+    respondOffer(L, 999, 'accept');
+    expect(p.team).toBe(club.id);
+    expect(q.team).toBe('ZEN');
+    expect(me.budget).toBe(b0 + swap!.cash);
   });
 });
 

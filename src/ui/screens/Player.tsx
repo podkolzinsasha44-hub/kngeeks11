@@ -5,6 +5,7 @@ import { loanBlock, loanOut, loanTargets } from '../../engine/loans';
 import { useMemo, useState } from 'react';
 import { renewalCases, VERDICT_RU } from '../../engine/renewals';
 import { saleView, valueOutlook, type ValueOutlook } from '../../engine/sale';
+import { SwapSheet } from '../components/SwapSheet';
 import { RenewalSheet, VERDICT_COLOR } from './More';
 import { useGame, useL } from '../../store/game';
 import { playerClub } from '../../engine/ucl';
@@ -118,6 +119,7 @@ function Actions({ L, p }: { L: League; p: Player }) {
   const [bid, setBid] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [loan, setLoan] = useState(false);
+  const [swap, setSwap] = useState(false);
   const desktop = useDesktop();
   const mine = p.team === L.user;
   // After failed talks the agent waits — except to come back to the club whose contract has just run out.
@@ -149,6 +151,8 @@ function Actions({ L, p }: { L: League; p: Player }) {
     btns.push(L.negotiations[p.id]?.kind === 'transfer' && L.negotiations[p.id].status === 'open'
       ? <Button key="talk" variant="good" onClick={() => push('negotiate', { id: p.id })}>Клубы договорились — к контракту</Button>
       : <Button key="bid" variant="primary" onClick={() => setBid(true)} icon={<Icon name="swap" size={16} />}>Сделать предложение</Button>);
+    // A swap: only with clubs of the game's leagues (not with guests from outside them).
+    if (p.team && L.teams[p.team]) btns.push(<Button key="swapbtn" onClick={() => setSwap(true)}>Обмен</Button>);
   }
   const club = playerClub(L, p);
   if (club && !mine) btns.push(<Button key="club" onClick={() => push('team', { id: club.id })}>Клуб</Button>);
@@ -164,6 +168,7 @@ function Actions({ L, p }: { L: League; p: Player }) {
       {extra.length > 0 && <div className="flex flex-wrap gap-2 mt-3">{extra}</div>}
       <BidSheet open={bid} onClose={() => setBid(false)} L={L} p={p} />
       {loan && <LoanSheet L={L} p={p} onClose={() => setLoan(false)} />}
+      {swap && <SwapSheet L={L} p={p} onClose={() => setSwap(false)} />}
       <Sheet open={confirm} onClose={() => setConfirm(false)} title="Расторгнуть контракт?">
         <div className="text-[14.5px] text-muted mb-4">{dispName(p)} станет свободным агентом. Клуб выплатит половину оставшейся зарплаты из трансферного бюджета.</div>
         <Button variant="danger" size="lg" full onClick={() => { const cost = act(() => releasePlayer(L, p)); setConfirm(false); toast(cost == null ? saleBlock(p) ?? 'Контракт расторгнуть нельзя' : `Контракт расторгнут. Компенсация: ${money(cost)}`, cost == null ? 'bad' : 'info'); }}>Расторгнуть</Button>

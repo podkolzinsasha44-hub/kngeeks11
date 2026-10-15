@@ -180,6 +180,54 @@ function Search({ L, free }: { L: League; free: boolean }) {
   );
 }
 
+/** A club offers one of its players (and money either way) for one of the user's. */
+function SwapOfferCard({ L, o }: { L: League; o: TransferOffer }) {
+  const act = useGame((s) => s.act);
+  const toast = useGame((s) => s.toast);
+  const push = useNav((s) => s.push);
+  const p = L.players[o.player], from = L.teams[o.from];
+  const theirs = o.swap!.give.map((id) => L.players[id]).filter(Boolean);
+  const cash = o.swap!.cash;
+  // What the user gets against what he gives, at market value.
+  const getVal = theirs.reduce((s, q) => s + q.val, 0) + cash;
+  const ratio = getVal / Math.max(1, p.val);
+  const [title, color] = ratio >= 1.08 ? ['Выгодно', '#3ddc97'] : ratio >= 0.95 ? ['Равноценно', '#ffb547'] : ['Невыгодно', '#ff5a5f'];
+  const block = saleBlock(p);
+  return (
+    <Card className="mb-2.5">
+      <div className="flex items-center gap-3">
+        <TeamBadge team={from} size={40} />
+        <div className="flex-1 min-w-0">
+          <div className="font-medium truncate">Обмен с «{from.ru}»</div>
+          <div className="text-[12.5px] text-muted">до {dateShort(o.expires)}</div>
+        </div>
+        <span className="text-[13px] font-semibold" style={{ color }}>{title}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 mt-3">
+        <div className="rounded-xl bg-bad/10 px-3 py-2" onClick={() => push('player', { id: p.id })}>
+          <div className="text-[10.5px] uppercase tracking-wider text-muted">Отдаёте</div>
+          <div className="text-[14px] font-medium truncate">{dispName(p)}</div>
+          <div className="text-[12px] text-muted">{p.ovr} · {playerAge(L, p)} лет · {money(p.val)}</div>
+        </div>
+        {theirs.map((q) => (
+          <div key={q.id} className="rounded-xl bg-good/10 px-3 py-2" onClick={() => push('player', { id: q.id })}>
+            <div className="text-[10.5px] uppercase tracking-wider text-muted">Получаете</div>
+            <div className="text-[14px] font-medium truncate">{dispName(q)}</div>
+            <div className="text-[12px] text-muted">{q.ovr} · {ROLE_RU[q.role]} · {playerAge(L, q)} лет · {money(q.val)}</div>
+          </div>
+        ))}
+      </div>
+      <div className="text-[13.5px] mt-2">{cash > 0 ? <>«{from.ru}» доплачивает вам <span className="num text-good">{money(cash)}</span></> : cash < 0 ? <>Вы доплачиваете <span className="num text-bad">{money(-cash)}</span></> : 'Без доплаты'}</div>
+      {block ? <div className="mt-2 text-[13px] text-warn">⛔ {block}.</div> : (
+        <div className="grid grid-cols-2 gap-2 mt-3">
+          <Button full variant={ratio >= 1 ? 'good' : 'glass'} size="sm" onClick={() => { const t = act(() => respondOffer(L, o.id, 'accept')); toast(t, t.startsWith('Обмен состоялся') ? 'good' : 'bad'); }}>Принять обмен</Button>
+          <Button full variant="danger" size="sm" onClick={() => toast(act(() => respondOffer(L, o.id, 'reject')))}>Отказать</Button>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 function Offers({ L }: { L: League }) {
   const act = useGame((s) => s.act);
   const toast = useGame((s) => s.toast);
@@ -194,6 +242,7 @@ function Offers({ L }: { L: League }) {
       {incoming.length > 0 && <SectionTitle className="!mt-2">Предложения по вашим игрокам</SectionTitle>}
       {incoming.map((o) => {
         const p = L.players[o.player], from = L.teams[o.from];
+        if (o.swap) return <SwapOfferCard key={o.id} L={L} o={o} />;
         const v = offerView(L, o);
         const block = saleBlock(p);
         const [title, color] = OFFER_VERDICT[v.verdict === 'reject' && v.keep ? 'keep' : v.verdict];
