@@ -24,6 +24,8 @@ export function fixForeign(L: League, t: Team, roster: Player[]) {
   const lim = foreignLimit(t.lg, L.season);
   if (!lim) return;
   const roles = FORMATIONS[t.lineup.form];
+  // Pinned starters leave only when no other foreigner can.
+  const pinned = new Set(t.lineup.pinned ?? []);
   for (let guard = 0; guard < 11 && foreignOnPitch(L, t) > lim[1]; guard++) {
     const inXI = new Set(t.lineup.xi);
     const locals = roster.filter((p) => available(p) && !inXI.has(p.id) && !isForeign(p, t.country));
@@ -32,7 +34,7 @@ export function fixForeign(L: League, t: Team, roster: Player[]) {
       const p = L.players[id];
       if (!p || !isForeign(p, t.country)) return;
       for (const s of locals) {
-        const loss = slotRating(p, roles[i]) - slotRating(s, roles[i]);
+        const loss = slotRating(p, roles[i]) - slotRating(s, roles[i]) + (pinned.has(id) ? 1000 : 0);
         if (!best || loss < best.loss) best = { i, sub: s, loss };
       }
     });

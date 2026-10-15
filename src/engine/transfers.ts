@@ -231,6 +231,7 @@ export function autoFixUserLineup(L: League) {
   if (!t) return;
   const ok = (id: number) => L.players[id]?.team === t.id;
   t.lineup.bench = t.lineup.bench.filter(ok);
+  if (t.lineup.pinned) t.lineup.pinned = t.lineup.pinned.filter(ok);
   if (t.lineup.auto) autoLineup(L, t);
 }
 

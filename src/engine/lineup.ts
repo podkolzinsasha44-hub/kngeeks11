@@ -86,8 +86,19 @@ export function squad(L: League, teamId: string): Player[] {
 
 export const emptyLineup = (): Lineup => ({ form: '4-3-3', xi: [], bench: [], auto: true });
 
-/** Best eleven for a formation from the given players (greedy assignment + pairwise improvement). */
-export function bestXI(players: Player[], form: FormationId): { xi: Player[]; score: number } {
+/** A player pinned to the eleven and the slot he keeps (-1: any slot, the formation changes). */
+export interface Pin { id: number; slot: number }
+
+/** Pins of a line-up for a formation: in the current formation pinned starters keep their slots. */
+export function pinsFor(ln: Lineup | undefined, form: FormationId): Pin[] {
+  return (ln?.pinned ?? []).map((id) => ({ id, slot: ln!.form === form ? ln!.xi.indexOf(id) : -1 }));
+}
+
+/**
+ * Best eleven for a formation from the given players (greedy assignment + pairwise improvement).
+ * Pinned players among them are always in it; a pin with a slot stays exactly there.
+ */
+export function bestXI(players: Player[], form: FormationId, pins: Pin[] = []): { xi: Player[]; score: number } {
   const roles = FORMATIONS[form];
   const n = players.length;
   // Ratings of every player in every distinct role of the formation, computed once.
@@ -101,7 +112,19 @@ export function bestXI(players: Player[], form: FormationId): { xi: Player[]; sc
   const cols = roles.map((r) => table.get(r)!);
   const xi = new Int32Array(11).fill(-1);
   const used = new Uint8Array(n);
+  // Pinned players first: those with a slot take it, the rest go where they fit best.
+  const fixed = new Uint8Array(11), pinned = new Uint8Array(n);
+  const at = new Map(players.map((p, k) => [p.id, k]));
+  const pk = pins.map((x) => ({ k: at.get(x.id), slot: x.slot })).filter((x): x is { k: number; slot: number } => x.k != null);
+  for (const { k, slot } of pk) if (slot >= 0 && slot < 11 && xi[slot] < 0 && !used[k]) { xi[slot] = k; used[k] = pinned[k] = fixed[slot] = 1; }
+  for (const { k } of pk) {
+    if (used[k]) continue;
+    let bi = -1, bv = -Infinity;
+    for (let i = 0; i < 11; i++) if (xi[i] < 0 && cols[i][k] > bv) { bv = cols[i][k]; bi = i; }
+    if (bi >= 0) { xi[bi] = k; used[k] = pinned[k] = 1; }
+  }
   for (let i = 0; i < 11; i++) {
+    if (xi[i] >= 0) continue;
     let best = -1, bv = -1;
     for (let k = 0; k < n; k++) if (!used[k] && cols[i][k] > bv) { bv = cols[i][k]; best = k; }
     if (best >= 0) { xi[i] = best; used[best] = 1; }
@@ -111,14 +134,14 @@ export function bestXI(players: Player[], form: FormationId): { xi: Player[]; sc
   while (improved && guard++ < 6) {
     improved = false;
     for (let i = 1; i < 11; i++) {
-      if (xi[i] < 0) continue;
+      if (xi[i] < 0 || fixed[i]) continue;
       for (let j = i + 1; j < 11; j++) {
         const x = xi[i], y = xi[j];
-        if (y < 0) continue;
+        if (y < 0 || fixed[j]) continue;
         if (cols[j][x] + cols[i][y] > cols[i][x] + cols[j][y] + 0.01) { xi[i] = y; xi[j] = x; improved = true; }
       }
       for (let k = 0; k < n; k++) {
-        if (used[k]) continue;
+        if (used[k] || pinned[xi[i]]) continue;
         if (cols[i][k] > cols[i][xi[i]] + 0.01) { used[xi[i]] = 0; used[k] = 1; xi[i] = k; improved = true; }
       }
     }
@@ -153,14 +176,14 @@ export function autoLineup(L: League, team: Pick<Team, 'id' | 'lineup'>, roster?
   const forms = opts.keepForm && team.lineup?.form ? [team.lineup.form] : FORMATION_IDS;
   let best: { xi: Player[]; score: number } | null = null, bf: FormationId = team.lineup?.form ?? '4-3-3';
   for (const f of forms) {
-    const r = bestXI(avail, f);
+    const r = bestXI(avail, f, pinsFor(team.lineup, f));
     // A small bonus keeps the current shape unless another one is clearly better.
     const s = r.score + (f === team.lineup?.form ? 1.5 : 0);
     if (!best || s > best.score) { best = { xi: r.xi, score: s }; bf = f; }
   }
   const xi = best?.xi ?? [];
   const bench = pickBench(avail, xi);
-  team.lineup = { form: bf, xi: xi.map((p) => p.id), bench: bench.map((p) => p.id), auto: team.lineup?.auto ?? true, pen: bestTaker(xi), cap: team.lineup?.cap };
+  team.lineup = { form: bf, xi: xi.map((p) => p.id), bench: bench.map((p) => p.id), auto: team.lineup?.auto ?? true, pen: bestTaker(xi), cap: team.lineup?.cap, ...(team.lineup?.pinned?.length ? { pinned: team.lineup.pinned } : {}) };
 }
 
 /**

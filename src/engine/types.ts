@@ -160,6 +160,11 @@ export interface Lineup {
    * The regular takes his place back as soon as he can play (`returnRegulars` in lineup.ts).
    */
   cover?: Record<number, number>;
+  /**
+   * Starters the user pinned: "best line-up" and the assistant keep them in the eleven (in the same slot while the
+   * formation stays the same). A pinned player who cannot play is skipped and comes back once he can.
+   */
+  pinned?: number[];
 }
 
 export interface Record_ {

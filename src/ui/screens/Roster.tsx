@@ -146,7 +146,25 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
       const out = a.zone === 'xi' && b.zone === 'res' ? a.id : b.zone === 'xi' && a.zone === 'res' ? b.id : null;
       if (out != null && l.bench.length < BENCH_SIZE && !l.bench.includes(out)) l.bench.push(out);
       l.bench = l.bench.filter((id, k, arr) => id != null && !l.xi.includes(id) && arr.indexOf(id) === k);
+      // A pinned starter the user takes out of the eleven is no longer pinned; one who is only covered for keeps it.
+      if (l.pinned) {
+        const covered = new Set(Object.values(l.cover ?? {}));
+        l.pinned = l.pinned.filter((id) => l.xi.includes(id) || covered.has(id));
+        if (!l.pinned.length) delete l.pinned;
+      }
     });
+  };
+  const pinnedIds = new Set(ln.pinned ?? []);
+  const pinned = (ln.pinned ?? []).map((id) => L.players[id]).filter((p) => p && p.team === t.id);
+  /** Pinned starters stay in the eleven when the staff picks the best line-up. */
+  const togglePin = (id: number) => {
+    const on = !pinnedIds.has(id);
+    act(() => {
+      const l = t.lineup;
+      l.pinned = on ? [...(l.pinned ?? []), id] : (l.pinned ?? []).filter((x) => x !== id);
+      if (!l.pinned.length) delete l.pinned;
+    });
+    toast(on ? `${dispShort(L.players[id])} закреплён в основе — «Лучший состав» его не уберёт` : `${dispShort(L.players[id])} откреплён`, 'good');
   };
   /** FIFA-style: tap one card, tap another — the two swap places. */
   const tap = (b: Sel) => {
@@ -191,6 +209,15 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
           {lim && fOn > lim[1] && <div>⚠️ Легионеров на поле: {fOn}, разрешено не больше {lim[1]}.</div>}
         </div>
       )}
+      {pinned.length > 0 && (
+        <div className="mb-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[12.5px] leading-snug flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <div>📌 Закреплены: <b>{pinned.map((p) => dispShort(p)).join(', ')}</b></div>
+            <div className="text-muted mt-0.5">«Лучший состав» их не уберёт{pinned.some((p) => !available(p)) ? '; кто сейчас не может играть, вернётся в основу, когда сможет' : ''}.</div>
+          </div>
+          <Button size="sm" variant="ghost" onClick={() => act(() => { delete t.lineup.pinned; })}>Снять</Button>
+        </div>
+      )}
       {!ln.auto && covers.length > 0 && (
         <div className="mb-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-[12.5px] leading-snug">
           {covers.map(([sub, reg]) => <div key={sub.id}>🔄 <b>{dispShort(sub)}</b> временно вместо <b>{dispShort(reg)}</b> ({reg.inj ? `травма, ещё ${reg.inj.days} дн.` : 'дисквалификация'})</div>)}
@@ -215,7 +242,7 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
           const rating = Math.round(slotRating(p, r));
           return (
             <div key={i} className={cx('absolute -translate-x-1/2 -translate-y-1/2', isSel('xi', i) && 'z-10')} style={style}>
-              <PitchCard p={p} L={L} team={t} width={cardW} rating={rating} role={r} warn={rating < p.ovr - 2} unavailable={p.team !== t.id || !available(p)} selected={isSel('xi', i)} onClick={() => tap({ zone: 'xi', i, id: p.id })} />
+              <PitchCard p={p} L={L} team={t} width={cardW} rating={rating} role={r} warn={rating < p.ovr - 2} unavailable={p.team !== t.id || !available(p)} pinned={pinnedIds.has(p.id)} selected={isSel('xi', i)} onClick={() => tap({ zone: 'xi', i, id: p.id })} />
             </div>
           );
         })}
@@ -282,6 +309,7 @@ function PitchEditor({ L, t, sq }: { L: League; t: Team; sq: Player[] }) {
               <div className="font-display uppercase tracking-wide text-[15px] truncate">{selP ? dispName(selP) : 'Свободное место'}</div>
               <div className="text-[12px] text-muted truncate">Нажмите на другого игрока — они поменяются местами</div>
             </div>
+            {selP && sel.zone === 'xi' && <Button size="sm" variant={pinnedIds.has(selP.id) ? 'primary' : 'glass'} onClick={() => { togglePin(selP.id); setSel(null); }}>{pinnedIds.has(selP.id) ? '📌 Открепить' : '📌 Закрепить'}</Button>}
             {selP && <Button size="sm" onClick={() => { const id = selP.id; setSel(null); push('player', { id }); }}>Профиль</Button>}
             {sel.zone === 'xi' && <Button size="sm" onClick={() => { setPick(sel.i); setSel(null); }}>Кто лучше?</Button>}
             <Button size="sm" variant="ghost" onClick={() => setSel(null)}>✕</Button>
@@ -320,6 +348,7 @@ function BestSheet({ L, t, onClose }: { L: League; t: Team; onClose: () => void 
   const act = useGame((s) => s.act);
   const toast = useGame((s) => s.toast);
   const { options, current } = useMemo(() => lineupOptions(L, t), [L, t]);
+  const pinned = (t.lineup.pinned ?? []).map((id) => L.players[id]).filter((p) => p && p.team === t.id);
   const [open, setOpen] = useState(0);
   const apply = (o: ShapeOption) => {
     act(() => { t.lineup = { ...o.lineup, auto: t.lineup.auto }; });
@@ -332,6 +361,7 @@ function BestSheet({ L, t, onClose }: { L: League; t: Team; onClose: () => void 
       <div className="text-[13.5px] text-muted leading-snug mb-3">
         Штаб перебрал все {options.length} схем и в каждой расставил сильнейших доступных игроков — по той же силе, с которой играет матч: атрибуты под роль, знание позиции, форма и готовность.
         {top && (top.power > current + 0.05 ? <> Лучшая — <span className="text-ink font-medium">{top.form}</span>, сильнее текущего состава на <span className="text-good num">{(top.power - current).toFixed(1)}</span>.</> : ' Ваш состав уже не слабее лучшего варианта.')}
+        {pinned.length > 0 && <> 📌 Закреплённые остаются в основе в каждой схеме{pinned.some((p) => !available(p)) ? <> (кроме тех, кто сейчас не может играть: {pinned.filter((p) => !available(p)).map(dispShort).join(', ')})</> : ''}; в {t.lineup.form} — на своих местах.</>}
       </div>
       <div className="flex flex-col gap-2.5">
         {options.map((o, k) => {
@@ -368,7 +398,7 @@ function BestSheet({ L, t, onClose }: { L: League; t: Team; onClose: () => void 
                     return (
                       <div key={id} className="flex items-center gap-2.5 py-1.5 border-b border-white/5 text-[13.5px]">
                         <span className="w-9 text-muted text-[12px]">{ROLE_RU[roles[i]]}</span>
-                        <span className="flex-1 truncate">{dispName(p)}</span>
+                        <span className="flex-1 truncate">{t.lineup.pinned?.includes(id) && '📌 '}{dispName(p)}</span>
                         <Ovr v={Math.round(slotRating(p, roles[i]))} size={30} />
                       </div>
                     );

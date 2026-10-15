@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { foreignLimit, isForeign, LEAGUES, rulesOf } from '../src/engine/leagues';
-import { FORMATIONS, lineupValid, squad, teamPower, touchSquads } from '../src/engine/lineup';
+import { FORMATIONS, available, lineupValid, squad, teamPower, touchSquads } from '../src/engine/lineup';
 import { createMatch, simulateMatch } from '../src/engine/match';
 import { gameOdds, quickOdds, ratingOf, sideOf } from '../src/engine/projection';
 import { seedState, useState_ } from '../src/engine/rng';
@@ -371,6 +371,43 @@ describe('best line-up', () => {
         expect(teamPower(L, t)).toBeCloseTo(o.power, 9);
       }
     }
+  });
+});
+
+describe('pinned players', () => {
+  it('stay in every best line-up; in the current formation in their own slots', () => {
+    const L = career('ZEN');
+    const t = L.teams.ZEN;
+    aiLineup(L, t, undefined, false);
+    // Pin a starter where he stands and a weaker reserve the staff would not pick.
+    const starter = t.lineup.xi[3];
+    const reserve = squad(L, t.id).filter((p) => available(p) && p.pos !== 'G' && !t.lineup.xi.includes(p.id) && !isForeign(p, t.country)).sort((a, b) => a.ovr - b.ovr)[0];
+    t.lineup.xi[7] = reserve.id;
+    t.lineup.bench = t.lineup.bench.filter((id) => id !== reserve.id);
+    t.lineup.pinned = [starter, reserve.id];
+    const { options } = lineupOptions(L, t);
+    for (const o of options) {
+      expect(o.lineup.xi).toContain(starter);
+      expect(o.lineup.xi).toContain(reserve.id);
+      expect(o.lineup.pinned).toEqual([starter, reserve.id]);
+      if (o.form === t.lineup.form) {
+        expect(o.lineup.xi[3]).toBe(starter);
+        expect(o.lineup.xi[7]).toBe(reserve.id);
+      }
+    }
+    // The one-tap "best line-up" in the current formation keeps them too.
+    aiLineup(L, t, undefined, true);
+    expect(t.lineup.xi[3]).toBe(starter);
+    expect(t.lineup.xi[7]).toBe(reserve.id);
+    expect(t.lineup.pinned).toEqual([starter, reserve.id]);
+    // A pinned player who cannot play is left out, and comes back when he can.
+    L.players[reserve.id].inj = { type: 'test', days: 10, total: 10 };
+    aiLineup(L, t, undefined, true);
+    expect(t.lineup.xi).not.toContain(reserve.id);
+    expect(lineupValid(L, t)).toBe(true);
+    L.players[reserve.id].inj = null;
+    aiLineup(L, t, undefined, true);
+    expect(t.lineup.xi).toContain(reserve.id);
   });
 });
 

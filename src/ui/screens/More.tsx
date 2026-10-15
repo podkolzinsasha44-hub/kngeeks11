@@ -199,6 +199,7 @@ export function CareerScreen() {
   const take = (id: string) => {
     act(() => {
       const old = L.teams[L.user];
+      delete old.lineup.pinned;
       aiLineup(L, old);
       old.lineup.auto = true;
       L.user = id;

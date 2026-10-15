@@ -220,8 +220,8 @@ export function MiniCard({ p, L, onClick, width = 104 }: { p: Player; L: League;
  * A player on the team sheet as a small FIFA card of his edition: rating, position, photo, surname,
  * fitness. `rating` and `role` show how he rates in the slot he stands in.
  */
-export function PitchCard({ p, L, team, width, rating, role, selected, unavailable, warn, onClick }: {
-  p: Player; L?: League; team: Team | null; width: number; rating?: number; role?: Role; selected?: boolean; unavailable?: boolean; warn?: boolean; onClick?: () => void;
+export function PitchCard({ p, L, team, width, rating, role, selected, unavailable, warn, pinned, onClick }: {
+  p: Player; L?: League; team: Team | null; width: number; rating?: number; role?: Role; selected?: boolean; unavailable?: boolean; warn?: boolean; pinned?: boolean; onClick?: () => void;
 }) {
   const [err, setErr] = useState(false);
   const lg = L ?? useGame.getState().L!;
@@ -257,6 +257,11 @@ export function PitchCard({ p, L, team, width, rating, role, selected, unavailab
       {(p.inj || !!p.susp) && (
         <span className="absolute rounded-full bg-bad text-white font-bold flex items-center justify-center z-20" style={{ right: -3, top: -2, width: Math.max(14, W * 0.26), height: Math.max(14, W * 0.26), fontSize: Math.max(9, W * 0.15) }}>
           {p.inj ? '✚' : '!'}
+        </span>
+      )}
+      {pinned && (
+        <span className="absolute rounded-full accent-bg flex items-center justify-center z-20 shadow" style={{ left: -3, top: -2, width: Math.max(16, W * 0.28), height: Math.max(16, W * 0.28), fontSize: Math.max(9, W * 0.15) }} aria-label="закреплён">
+          📌
         </span>
       )}
     </button>
